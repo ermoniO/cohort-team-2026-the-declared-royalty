@@ -25,5 +25,5 @@ jobs:
           cache: maven
 
       - name: Build with Maven
-        working-directory: ./backend/invoice-automation-service
+        working-directory: ./backend
         run: ./mvnw -B package --file pom.xml
