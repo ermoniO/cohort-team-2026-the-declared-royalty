@@ -1,29 +1,46 @@
+
 name: Java CI
 
 on:
   push:
-    branches: [ "main" ]
-#    paths:
-#      - 'backend/**'
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
-#    paths:
-#      - 'backend/**'
+    branches: ["main"]
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: invoice_db
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d invoice_db"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - uses: actions/checkout@v4
+
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
           cache: maven
+          cache-dependency-path: backend/pom.xml
 
       - name: Build with Maven
         working-directory: ./backend
+        env:
+          POSTGRES_DB: invoice_db
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
         run: ./mvnw -B package --file pom.xml
