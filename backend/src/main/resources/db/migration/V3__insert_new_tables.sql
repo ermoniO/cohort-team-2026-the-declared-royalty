@@ -77,7 +77,7 @@ CREATE TABLE audit_logs
 (
     audit_uuid   UUID PRIMARY KEY         DEFAULT gen_random_uuid(),
     invoice_uuid UUID                     NOT NULL NOT NULL REFERENCES invoices (invoice_uuid) ON DELETE RESTRICT,
-    user_uuid    VARCHAR                  NOT NULL REFERENCES users (user_uuid) ON DELETE RESTRICT,
+    user_uuid    UUID                     NOT NULL REFERENCES users (user_uuid) ON DELETE RESTRICT,
     action_type  VARCHAR(255),
     action_taken VARCHAR(225),
     from_state   VARCHAR(255),
