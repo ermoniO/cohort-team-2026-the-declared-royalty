@@ -16,7 +16,7 @@ public class PropertyEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
-    @Column(name = "property_id", updatable = false, nullable = false)
+    @Column(name = "property_uuid", updatable = false, nullable = false)
     private UUID propertyId;
 
     @Column(name = "name", nullable = false)

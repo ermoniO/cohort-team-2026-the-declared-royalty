@@ -1,6 +1,6 @@
 
 INSERT INTO properties (
-    property_id,
+    property_uuid,
     name,
     street_address,
     city,
