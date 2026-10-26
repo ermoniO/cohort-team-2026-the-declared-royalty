@@ -15,4 +15,4 @@ INSERT INTO properties (
              'IL',
              '62701',
              'ACTIVE'
-         ) ON CONFLICT (property_id) DO NOTHING;
+         ) ON CONFLICT (property_uuid) DO NOTHING;
