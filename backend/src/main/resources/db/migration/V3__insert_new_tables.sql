@@ -91,6 +91,3 @@ CREATE TABLE audit_logs
 
 ALTER TABLE properties
     RENAME property_id to property_uuid;
-
-ALTER TABLE properties
-    ADD CONSTRAINT pk_properties PRIMARY KEY (property_uuid);
