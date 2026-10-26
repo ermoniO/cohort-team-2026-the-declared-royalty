@@ -18,7 +18,7 @@ CREATE TABLE property_vendor_mapping
 (
     mapping_uuid          UUID PRIMARY KEY         DEFAULT gen_random_uuid(), -- Use this as key for mapping the front-end
     vendor_uuid           UUID                     NOT NULL REFERENCES vendors (vendor_uuid) ON DELETE RESTRICT,
-    property_uuid         UUID                     NOT NULL REFERENCES properties (property_id) ON DELETE RESTRICT,
+    property_uuid         UUID                     NOT NULL REFERENCES properties (property_uuid) ON DELETE RESTRICT,
     vendor_account_number VARCHAR(100)             NOT NULL, -- vendor assigned account number
     status                VARCHAR(255)             NOT NULL DEFAULT 'ACTIVE',
     auto_approval_enabled BOOLEAN                  NOT NULL DEFAULT FALSE,
@@ -88,3 +88,9 @@ CREATE TABLE audit_logs
 );
 -- Indexing audit_logs on invoice_uuid
 -- CREATE INDEX idx_audit_logs ON audit_logs (audit_uuid);
+
+ALTER TABLE properties
+    RENAME property_id to property_uuid;
+
+ALTER TABLE properties
+    ADD CONSTRAINT pk_properties PRIMARY KEY (property_uuid);
