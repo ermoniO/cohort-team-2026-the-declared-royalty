@@ -1,6 +1,6 @@
 
 INSERT INTO properties (
-    property_id,
+    property_uuid,
     name,
     street_address,
     city,
@@ -15,4 +15,4 @@ INSERT INTO properties (
              'IL',
              '62701',
              'ACTIVE'
-         ) ON CONFLICT (property_id) DO NOTHING;
+         ) ON CONFLICT (property_uuid) DO NOTHING;
