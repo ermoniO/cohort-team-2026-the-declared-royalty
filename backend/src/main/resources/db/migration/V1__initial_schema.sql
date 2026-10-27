@@ -83,11 +83,11 @@ CREATE TABLE users
     user_name  VARCHAR(255)             NOT NULL,
     email      VARCHAR(255)             NOT NULL,
     role       VARCHAR(255)             NOT NULL DEFAULT 'ADMIN',
-    is_active  VARCHAR(255)             NOT NULL DEFAULT 'ACTIVE',
+    status     VARCHAR(255)             NOT NULL DEFAULT 'ACTIVE',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     CONSTRAINT check_role CHECK ( role IN ('AI', 'ADMIN', 'SUPER_ADMIN')),
-    CONSTRAINT check_is_active CHECK ( is_active IN ('ACTIVE', 'INACTIVE'))
+    CONSTRAINT check_status CHECK ( status IN ('ACTIVE', 'INACTIVE'))
 );
 
 CREATE TABLE audit_logs
