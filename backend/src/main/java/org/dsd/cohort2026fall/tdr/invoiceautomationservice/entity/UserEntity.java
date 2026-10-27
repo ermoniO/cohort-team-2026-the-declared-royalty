@@ -23,6 +23,9 @@ public class UserEntity {
     @Column(name = "user_name", nullable = false)
     private String userName;
 
+//    @Column(name = "password", nullable = false)
+//    private String password;
+
     @Column(name = "email", nullable = false)
     private String email;
 
