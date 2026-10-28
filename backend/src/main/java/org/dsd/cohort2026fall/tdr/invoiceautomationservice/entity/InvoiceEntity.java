@@ -1,10 +1,7 @@
 package org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity;
 
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDate;
@@ -27,7 +24,8 @@ public class InvoiceEntity {
     @Column(name = "vendor_supplied_invoice_id", updatable = false, nullable = false)
     private String vendorSuppliedInvoiceId;
 
-    @Column(name = "mapping_id", nullable = false)
+    @ManyToOne
+    @JoinColumn(name = "mapping_uuid" , nullable = false)
     private UUID mappingId;
 
     @Column(name = "billing_period_start", nullable = false)
@@ -48,7 +46,7 @@ public class InvoiceEntity {
     @Column(name = "invoice_status", nullable = false)
     private String invoiceStatus;
 
-    @Column(name = "failure_reason ", nullable = false)
+    @Column(name = "failure_reason", nullable = false)
     private String failureReason;
 
     @Column(name = "blob_file_url", nullable = false)
@@ -57,7 +55,7 @@ public class InvoiceEntity {
     @Column(name = "blob_file_sha256", nullable = false)
     private String blobFileSha256;
 
-    @Column(name = "created_at ", updatable = false, nullable = false)
+    @Column(name = "created_at", updatable = false, nullable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
 
     @Column(name = "updated_at", nullable = false)
