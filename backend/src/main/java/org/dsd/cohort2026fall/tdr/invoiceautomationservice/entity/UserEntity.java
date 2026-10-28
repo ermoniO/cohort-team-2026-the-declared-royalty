@@ -16,7 +16,6 @@ import java.util.UUID;
 public class UserEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
     @Column(name = "user_uuid", updatable = false, nullable = false)
     private UUID userId;
 
