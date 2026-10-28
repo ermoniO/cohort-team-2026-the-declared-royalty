@@ -1,6 +1,7 @@
 package org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -14,18 +15,20 @@ import java.util.UUID;
 @Getter
 @Setter
 @NoArgsConstructor
+@AllArgsConstructor
 @Builder
 @Table(name = "property_vendor_mapping")
 public class PropertyVendorMappingEntity {
 
+    @Id
     @Column(name = "mapping_uuid", updatable = false, nullable = false)
     private UUID mappingId;
 
-    @OneToMany
+    @ManyToOne
     @JoinColumn(name = "vendor_uuid", nullable = false)
     private VendorEntity vendor;
 
-    @OneToMany
+    @ManyToOne
     @JoinColumn(name = "property_uuid", nullable = false)
     private PropertyEntity property;
 
