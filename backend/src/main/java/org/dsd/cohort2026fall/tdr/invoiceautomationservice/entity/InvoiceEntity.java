@@ -9,12 +9,12 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "invoices")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@Table(name = "invoices")
 public class InvoiceEntity {
 
     @Id
@@ -24,9 +24,9 @@ public class InvoiceEntity {
     @Column(name = "vendor_supplied_invoice_id", updatable = false, nullable = false)
     private String vendorSuppliedInvoiceId;
 
-    // @ManyToOne
-   // @JoinColumn(name = "mapping_uuid" , nullable = false)
-    // private PropertyVendorMappingEntity mapping;
+    @ManyToOne
+    @JoinColumn(name = "mapping_uuid" , nullable = false)
+    private PropertyVendorMappingEntity mapping;
 
     @Column(name = "billing_period_start", nullable = false)
     private LocalDate billingPeriodStart;
@@ -55,9 +55,11 @@ public class InvoiceEntity {
     @Column(name = "blob_file_sha256", nullable = false)
     private String blobFileSha256;
 
+    @Builder.Default
     @Column(name = "created_at", updatable = false, nullable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
 
+    @Builder.Default
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt = OffsetDateTime.now();
 
