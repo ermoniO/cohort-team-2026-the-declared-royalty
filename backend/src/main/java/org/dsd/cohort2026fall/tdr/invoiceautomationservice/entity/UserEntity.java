@@ -43,4 +43,5 @@ public class UserEntity {
     @Builder.Default
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt = OffsetDateTime.now();
+
 }
