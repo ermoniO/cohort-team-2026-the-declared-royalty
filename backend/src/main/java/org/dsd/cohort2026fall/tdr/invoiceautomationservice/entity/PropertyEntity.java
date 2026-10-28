@@ -15,7 +15,6 @@ import java.util.UUID;
 public class PropertyEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
     @Column(name = "property_uuid", updatable = false, nullable = false)
     private UUID propertyId;
 
