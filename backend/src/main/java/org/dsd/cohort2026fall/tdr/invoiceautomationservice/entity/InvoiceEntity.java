@@ -26,7 +26,7 @@ public class InvoiceEntity {
 
     @ManyToOne
     @JoinColumn(name = "mapping_uuid" , nullable = false)
-    private UUID mappingId;
+    private PropertyVendorMappingEntity mapping;
 
     @Column(name = "billing_period_start", nullable = false)
     private LocalDate billingPeriodStart;
