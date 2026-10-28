@@ -39,7 +39,7 @@ public class VendorEntity {
     private String paymentMethod;
 
     @Builder.Default
-    @Column(name = "create_at", nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
 
     @Builder.Default
