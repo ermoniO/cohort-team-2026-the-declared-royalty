@@ -100,8 +100,8 @@ paths:
                   $ref: '#/components/schemas/UserResponse'
   /api/v1/users/{userId}:
     get:
-      summary: Get user by UUID
-      operationId: getUserByUuid
+      summary: Get user by UserId
+      operationId: getUserByUserId
       tags:
         - Users
       parameters:
@@ -121,8 +121,8 @@ paths:
         '404':
           description: User not found
     put:
-      summary: Update user by UUID
-      operationId: updateUserByUuid
+      summary: Update user by UserId
+      operationId: updateUserByUserId
       tags:
         - Users
       parameters:
