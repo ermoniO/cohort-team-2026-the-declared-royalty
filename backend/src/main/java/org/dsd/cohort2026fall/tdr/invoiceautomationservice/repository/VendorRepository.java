@@ -2,6 +2,7 @@ package org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository;
 
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.VendorEntity;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
@@ -19,5 +20,5 @@ public interface VendorRepository extends JpaRepository<VendorEntity, UUID>, Jpa
 
     List<VendorEntity> findByNameContainingIgnoreCase(String keyword);
 
-    Page<VendorEntity> paginateActiveVendors(String vendorStatus);
+    Page<VendorEntity> paginateActiveVendors(String vendorStatus, Pageable pageable);
 }
