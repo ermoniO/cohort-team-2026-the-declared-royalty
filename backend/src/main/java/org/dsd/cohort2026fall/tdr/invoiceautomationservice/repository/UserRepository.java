@@ -10,6 +10,10 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.stereotype.Repository;
+
 import java.util.UUID;
 
 @Repository
@@ -22,4 +26,5 @@ public interface UserRepository extends JpaRepository<UserEntity, UUID>, JpaSpec
 
     @Query("SELECT DISTINCT u FROM UserEntity u LEFT JOIN FETCH u.role LEFT JOIN FETCH u.properties WHERE u.userId = :id")
     Optional<UserEntity> findByIdWithRelations(@Param("id") UUID id);
+
 }
