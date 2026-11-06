@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useMemo } from 'react';
+import React, { createContext, useContext, useState, useMemo, useEffect } from 'react';
 import {
   Invoice,
   Property,
@@ -18,6 +18,7 @@ import {
   COMPANY_DEFAULT_POLICY,
   ROLE_PROFILES
 } from '../data/mockData';
+import { fetchUIProperties } from '../app/services/propertyService';
 
 interface InvoiceContextType {
   activeRole: UserRole;
@@ -30,6 +31,8 @@ interface InvoiceContextType {
   setSelectedInvoiceId: (id: string | null) => void;
   selectedInvoice: Invoice | undefined;
   properties: Property[];
+  isPropertiesLive: boolean;
+  refreshProperties: () => Promise<void>;
   vendors: Vendor[];
   companyPolicy: PayerPolicy;
   activities: ActivityItem[];
@@ -67,11 +70,29 @@ export const InvoiceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [invoices, setInvoices] = useState<Invoice[]>(INITIAL_INVOICES);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>('inv-001');
   const [properties, setProperties] = useState<Property[]>(INITIAL_PROPERTIES);
+  const [isPropertiesLive, setIsPropertiesLive] = useState<boolean>(false);
   const [vendors, setVendors] = useState<Vendor[]>(INITIAL_VENDORS);
   const [companyPolicy, setCompanyPolicy] = useState<PayerPolicy>(COMPANY_DEFAULT_POLICY);
   const [activities, setActivities] = useState<ActivityItem[]>(INITIAL_ACTIVITIES);
   const [searchQuery, setSearchQuery] = useState('');
   const [propertyFilter, setPropertyFilter] = useState('all');
+
+  const refreshProperties = async () => {
+    try {
+      const liveProps = await fetchUIProperties(properties);
+      if (liveProps && liveProps.length > 0) {
+        setProperties(liveProps);
+        setIsPropertiesLive(true);
+      }
+    } catch {
+      // Gracefully maintain mock properties if backend is offline/unreachable
+      setIsPropertiesLive(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshProperties();
+  }, []);
 
   const currentProfile = ROLE_PROFILES[activeRole];
 
@@ -695,6 +716,8 @@ export const InvoiceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setSelectedInvoiceId,
         selectedInvoice,
         properties,
+        isPropertiesLive,
+        refreshProperties,
         vendors,
         companyPolicy,
         activities,

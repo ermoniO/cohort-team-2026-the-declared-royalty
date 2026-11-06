@@ -18,6 +18,8 @@ import {
 export const PayerPolicyRules: React.FC = () => {
   const {
     properties,
+    isPropertiesLive,
+    refreshProperties,
     companyPolicy,
     updateCompanyPolicy,
     updatePropertyPolicy,
@@ -94,12 +96,25 @@ export const PayerPolicyRules: React.FC = () => {
           </p>
         </div>
 
-        {!canEdit && (
-          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-800 rounded-md border border-amber-200 text-xs">
-            <Lock className="w-3.5 h-3.5" />
-            <span>Policy edits restricted. Switch to Property Manager or Admin role to modify.</span>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border bg-white shadow-2xs">
+            <span
+              className={`w-2 h-2 rounded-full ${
+                isPropertiesLive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
+              }`}
+            />
+            <span className="text-slate-600">
+              {isPropertiesLive ? 'Backend API Connected' : 'Local Mock Data'}
+            </span>
           </div>
-        )}
+
+          {!canEdit && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-800 rounded-md border border-amber-200 text-xs">
+              <Lock className="w-3.5 h-3.5" />
+              <span>Policy edits restricted. Switch to Property Manager or Admin role to modify.</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Grid: Company Baseline Policy Card + Live Simulator */}
@@ -354,7 +369,10 @@ export const PayerPolicyRules: React.FC = () => {
                   <tr key={prop.id} className="hover:bg-slate-50/70 transition-colors">
                     <td className="px-4 py-3">
                       <div className="font-semibold text-slate-900">{prop.name}</div>
-                      <div className="text-[10px] text-slate-400 font-mono">Code: {prop.code} · Manager: {prop.managerName}</div>
+                      <div className="text-[11px] text-slate-500 font-normal mt-0.5">{prop.address}</div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        {prop.sqft.toLocaleString()} sq ft · Manager: {prop.managerName}
+                      </div>
                     </td>
                     <td className="px-4 py-3 capitalize text-slate-600">
                       {prop.propertyType.replace('_', ' ')}

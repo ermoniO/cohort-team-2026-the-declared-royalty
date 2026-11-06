@@ -63,7 +63,6 @@ export const INITIAL_PROPERTIES: Property[] = [
   {
     id: 'prop-grandview',
     name: 'Grandview Office Tower LLC',
-    code: 'GOT-101',
     address: '450 North Michigan Ave, Chicago, IL 60611',
     propertyType: 'commercial_office',
     managerName: 'Marcus Vance',
@@ -80,7 +79,6 @@ export const INITIAL_PROPERTIES: Property[] = [
   {
     id: 'prop-harborfront',
     name: 'Harborfront Retail Plaza',
-    code: 'HRP-204',
     address: '1200 Pacific Coast Hwy, Long Beach, CA 90802',
     propertyType: 'retail_plaza',
     managerName: 'Rachel Kim',
@@ -97,7 +95,6 @@ export const INITIAL_PROPERTIES: Property[] = [
   {
     id: 'prop-metropolitan',
     name: 'Metropolitan Logistics Center',
-    code: 'MLC-550',
     address: '8800 Interstate Parkway, Dallas, TX 75241',
     propertyType: 'industrial_park',
     managerName: 'Derek Taylor',
@@ -114,7 +111,6 @@ export const INITIAL_PROPERTIES: Property[] = [
   {
     id: 'prop-westside',
     name: 'Westside Medical Arts Pavilion',
-    code: 'WMA-303',
     address: '2210 Wilshire Blvd, Santa Monica, CA 90403',
     propertyType: 'medical_center',
     managerName: 'Sarah Jenkins',
@@ -131,7 +127,6 @@ export const INITIAL_PROPERTIES: Property[] = [
   {
     id: 'prop-apex',
     name: 'Apex Commerce Hub',
-    code: 'ACH-400',
     address: '600 Technology Square, Cambridge, MA 02139',
     propertyType: 'commercial_office',
     managerName: 'Marcus Vance',

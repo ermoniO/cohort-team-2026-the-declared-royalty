@@ -96,7 +96,6 @@ export interface PayerPolicy {
 export interface Property {
     id: string;
     name: string;
-    code: string;
     address: string;
     propertyType: 'commercial_office' | 'retail_plaza' | 'industrial_park' | 'medical_center';
     managerName: string;
