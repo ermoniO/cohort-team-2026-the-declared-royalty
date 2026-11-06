@@ -1,80 +1,57 @@
-import { useEffect, useState } from "react";
-import AppShell, { type AppRoute } from "./components/AppShell";
-import WorkspacePage from "./pages/WorkspacePage";
-import BillsPage from "./pages/BillsPage";
-import { TbBlocks } from "react-icons/tb";
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
-const routes: AppRoute[] = [
-  { label: "Dashboard", path: "/", section: "WORKSPACE", icon: <TbBlocks /> },
-  { label: "Bills", path: "/bills", section: "OPERATIONS", icon: "017af.svg" },
-  {
-    label: "Properties",
-    path: "/properties",
-    section: "OPERATIONS",
-    icon: "dd3a1.svg",
-  },
-  {
-    label: "Vendors",
-    path: "/vendors",
-    section: "OPERATIONS",
-    icon: "3634d.svg",
-  },
-  {
-    label: "Approvals",
-    path: "/approvals",
-    section: "OPERATIONS",
-    icon: "ca993.svg",
-  },
-  {
-    label: "Payments",
-    path: "/payments",
-    section: "OPERATIONS",
-    icon: "d5f6b.svg",
-  },
-  {
-    label: "Exceptions",
-    path: "/exceptions",
-    section: "OPERATIONS",
-    icon: "d9b46.svg",
-  },
-  {
-    label: "Activity & Audit Logs",
-    path: "/activity",
-    section: "OVERSIGHT",
-    icon: "a294b.svg",
-  },
-];
+import React, { useState } from 'react';
+import { InvoiceProvider, useInvoiceStore } from './context/InvoiceContext';
+import { TopBar } from './components/TopBar';
+import { Sidebar } from './components/Sidebar';
+import { Dashboard } from './components/Dashboard';
+import { BillIntakeExtraction } from './components/BillIntakeExtraction';
+import { PropertyVendorMatching } from './components/PropertyVendorMatching';
+import { PayerPolicyRules } from './components/PayerPolicyRules';
+import { ApprovalsQueue } from './components/ApprovalsQueue';
+import { PaymentHub } from './components/PaymentHub';
+import { ExceptionInbox } from './components/ExceptionInbox';
+import { AuditHistoryLog } from './components/AuditHistoryLog';
+import { NewBillModal } from './components/NewBillModal';
 
-const normalizePath = (path: string) =>
-  path === "/" ? path : path.replace(/\/$/, "");
-
-export default function App() {
-  const [path, setPath] = useState(() =>
-    normalizePath(window.location.pathname),
-  );
-
-  useEffect(() => {
-    const handlePopState = () =>
-      setPath(normalizePath(window.location.pathname));
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, []);
-
-  const currentRoute = routes.find((route) => route.path === path) ?? routes[0];
-
-  const navigate = (nextPath: string) => {
-    if (nextPath === path) return;
-    window.history.pushState({}, "", nextPath);
-    setPath(nextPath);
-  };
+const AppContent: React.FC = () => {
+  const { activeTab } = useInvoiceStore();
+  const [isNewBillOpen, setIsNewBillOpen] = useState(false);
 
   return (
-    <AppShell currentRoute={currentRoute} onNavigate={navigate} routes={routes}>
-      {currentRoute.path === "/bills" ? (
-        <BillsPage />
-      ) : (
-        <WorkspacePage title={currentRoute.label} />
-      )}
-    </AppShell>
+    <div className="min-h-screen bg-slate-50 flex flex-col text-slate-900 font-sans selection:bg-slate-900 selection:text-white antialiased">
+      {/* Top Header */}
+      <TopBar onOpenNewBill={() => setIsNewBillOpen(true)} />
+
+      {/* Main Workspace: Sidebar + Viewport */}
+      <div className="flex-1 flex overflow-hidden">
+        <Sidebar />
+
+        <main className="flex-1 overflow-y-auto bg-slate-50 min-h-[calc(100vh-4rem)]">
+          {activeTab === 'dashboard' && <Dashboard />}
+          {activeTab === 'intake' && <BillIntakeExtraction />}
+          {activeTab === 'matching' && <PropertyVendorMatching />}
+          {activeTab === 'policy' && <PayerPolicyRules />}
+          {activeTab === 'approvals' && <ApprovalsQueue />}
+          {activeTab === 'payments' && <PaymentHub />}
+          {activeTab === 'exceptions' && <ExceptionInbox />}
+          {activeTab === 'audit' && <AuditHistoryLog />}
+        </main>
+      </div>
+
+      {/* New Bill Intake Modal */}
+      <NewBillModal isOpen={isNewBillOpen} onClose={() => setIsNewBillOpen(false)} />
+    </div>
+  );
+};
+
+export default function App() {
+  return (
+    <InvoiceProvider>
+      <AppContent />
+    </InvoiceProvider>
   );
 }
