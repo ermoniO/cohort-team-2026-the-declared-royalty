@@ -27,7 +27,7 @@ export const PaymentHub: React.FC = () => {
     setActiveTab
   } = useInvoiceStore();
 
-  const [activeRail, setActiveRail] = useState<PaymentMethod>('stripe_test_cc');
+  const [activeRail, setActiveRail] = useState<PaymentMethod>('CREDIT_CARD');
   const [payingInvoice, setPayingInvoice] = useState<Invoice | null>(null);
   const [selectedInvoicesForBatch, setSelectedInvoicesForBatch] = useState<string[]>([]);
 
@@ -98,12 +98,11 @@ export const PaymentHub: React.FC = () => {
       </div>
 
       {/* Payment Rails Selector */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {[
-          { id: 'stripe_test_cc', label: 'Stripe TEST CC', desc: 'Direct instant test card charge' },
-          { id: 'ach_debit', label: 'ACH Direct Debit', desc: 'NACHA standard bank transfer' },
-          { id: 'check_print', label: 'Check Print', desc: 'Physical lockbox check checkrun' },
-          { id: 'vendor_portal', label: 'Vendor Portal', desc: 'Utility API / EDI portal payment' },
+          { id: 'CREDIT_CARD', label: 'Credit Card (Stripe TEST)', desc: 'Direct instant test card charge' },
+          { id: 'ACH', label: 'ACH Direct Debit', desc: 'NACHA standard bank transfer' },
+          { id: 'CHECK', label: 'Check Print', desc: 'Physical lockbox check checkrun' },
         ].map((rail) => {
           const isSelected = activeRail === rail.id;
           return (

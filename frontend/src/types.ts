@@ -3,12 +3,22 @@ export type UserRole = 'ap_specialist' | 'property_manager' | 'vp_finance' | 'ad
 export interface RoleProfile {
     id: UserRole;
     title: string;
-    userName: string;
     approvalLimit: number; // e.g. 1000 for AP, 10000 for PM, Infinity for VP, -1 for Auditor
     canEditPolicy: boolean;
     canExecutePayments: boolean;
     canOverrideDuplicates: boolean;
     description: string;
+}
+
+export interface AppUser {
+    id: string;
+    name: string;
+    email: string;
+    role: UserRole;
+    title: string;
+    status: 'ACTIVE' | 'INACTIVE';
+    assignedPropertyIds: string[]; // empty array = portfolio-wide access
+    avatarUrl?: string;
 }
 
 export type InvoiceStatus =
@@ -39,11 +49,7 @@ export type IntakeMethod =
     | 'email_parsing'
     | 'edi_feed';
 
-export type PaymentMethod =
-    | 'stripe_test_cc'
-    | 'ach_debit'
-    | 'check_print'
-    | 'vendor_portal';
+export type PaymentMethod = 'ACH' | 'CHECK' | 'CREDIT_CARD';
 
 export type PaymentStatus =
     | 'unpaid'
@@ -114,6 +120,20 @@ export interface Vendor {
     taxId: string;
     status: 'verified' | 'unverified' | 'pending_review';
     historicalMatchesCount: number;
+    phoneNumber?: string;
+    paymentUrl?: string;
+}
+
+export interface PropertyVendorRelationship {
+    id: string;
+    propertyId: string;
+    propertyName: string;
+    vendorId: string;
+    vendorName: string;
+    vendorAccountNumber: string;
+    autoApprovalEnabled: boolean;
+    status: 'ACTIVE' | 'INACTIVE';
+    createdAt?: string;
 }
 
 export interface InvoiceException {

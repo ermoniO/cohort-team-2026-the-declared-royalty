@@ -29,7 +29,7 @@ export const ExceptionInbox: React.FC = () => {
   // Resolution drawer inputs
   const [resolutionNote, setResolutionNote] = useState('');
   const [selectedVendorRemit, setSelectedVendorRemit] = useState('');
-  const [assignedPerson, setAssignedPerson] = useState(currentProfile.userName);
+  const [assignedPerson, setAssignedPerson] = useState(currentUser.name);
 
   const exceptionInvoices = invoices.filter((inv) => inv.status === 'exception');
 
@@ -42,7 +42,7 @@ export const ExceptionInbox: React.FC = () => {
     setSelectedExceptionInvoice(inv);
     setResolutionNote('');
     setSelectedVendorRemit(inv.vendorId || vendors[0].id);
-    setAssignedPerson(inv.exception?.assignedTo || currentProfile.userName);
+    setAssignedPerson(inv.exception?.assignedTo || currentUser.name);
   };
 
   const handleApplyResolution = () => {
@@ -160,7 +160,7 @@ export const ExceptionInbox: React.FC = () => {
                       <td className="px-4 py-3 text-slate-600 text-xs">
                         <div className="flex items-center gap-1.5">
                           <User className="w-3.5 h-3.5 text-slate-400" />
-                          <span>{inv.exception?.assignedTo || currentProfile.userName}</span>
+                          <span>{inv.exception?.assignedTo || currentUser.name}</span>
                         </div>
                       </td>
 

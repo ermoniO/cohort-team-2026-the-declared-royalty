@@ -5,14 +5,15 @@ import {
   PayerPolicy,
   RoleProfile,
   ActivityItem,
-  UserRole
+  UserRole,
+  AppUser,
+  PropertyVendorRelationship
 } from '../types';
 
 export const ROLE_PROFILES: Record<UserRole, RoleProfile> = {
   ap_specialist: {
     id: 'ap_specialist',
     title: 'AP / Finance Specialist',
-    userName: 'Maya Lin',
     approvalLimit: 1000,
     canEditPolicy: false,
     canExecutePayments: true,
@@ -22,7 +23,6 @@ export const ROLE_PROFILES: Record<UserRole, RoleProfile> = {
   property_manager: {
     id: 'property_manager',
     title: 'Property / Operations Manager',
-    userName: 'Marcus Vance',
     approvalLimit: 10000,
     canEditPolicy: true,
     canExecutePayments: true,
@@ -32,7 +32,6 @@ export const ROLE_PROFILES: Record<UserRole, RoleProfile> = {
   vp_finance: {
     id: 'vp_finance',
     title: 'VP Finance / Executive Approver',
-    userName: 'Elena Rostova',
     approvalLimit: Infinity,
     canEditPolicy: true,
     canExecutePayments: true,
@@ -42,7 +41,6 @@ export const ROLE_PROFILES: Record<UserRole, RoleProfile> = {
   admin_auditor: {
     id: 'admin_auditor',
     title: 'System Administrator / Auditor',
-    userName: 'David Chen',
     approvalLimit: 0,
     canEditPolicy: true,
     canExecutePayments: false,
@@ -50,6 +48,63 @@ export const ROLE_PROFILES: Record<UserRole, RoleProfile> = {
     description: 'Oversees regulatory compliance, rule governance, system logs, and complete audit trail immutability.',
   },
 };
+
+export const MOCK_USERS: AppUser[] = [
+  {
+    id: 'usr-maya-lin',
+    name: 'Maya Lin',
+    email: 'mlin@cre-capital.com',
+    role: 'ap_specialist',
+    title: 'AP / Finance Specialist',
+    status: 'ACTIVE',
+    assignedPropertyIds: [], // Portfolio-wide access
+  },
+  {
+    id: 'usr-marcus-vance',
+    name: 'Marcus Vance',
+    email: 'mvance@cre-capital.com',
+    role: 'property_manager',
+    title: 'Property Manager (Midwest / East)',
+    status: 'ACTIVE',
+    assignedPropertyIds: ['prop-grandview', 'prop-apex'], // Grandview Office Tower & Apex Commerce Hub
+  },
+  {
+    id: 'usr-rachel-kim',
+    name: 'Rachel Kim',
+    email: 'rkim@cre-capital.com',
+    role: 'property_manager',
+    title: 'Property Manager (West Coast Retail)',
+    status: 'ACTIVE',
+    assignedPropertyIds: ['prop-harborfront'], // Harborfront Retail Plaza
+  },
+  {
+    id: 'usr-derek-taylor',
+    name: 'Derek Taylor',
+    email: 'dtaylor@cre-capital.com',
+    role: 'property_manager',
+    title: 'Operations Manager (Industrial Logistics)',
+    status: 'ACTIVE',
+    assignedPropertyIds: ['prop-metropolitan'], // Metropolitan Logistics Center
+  },
+  {
+    id: 'usr-elena-rostova',
+    name: 'Elena Rostova',
+    email: 'erostova@cre-capital.com',
+    role: 'vp_finance',
+    title: 'VP Finance / Executive Approver',
+    status: 'ACTIVE',
+    assignedPropertyIds: [], // Portfolio-wide access
+  },
+  {
+    id: 'usr-david-chen',
+    name: 'David Chen',
+    email: 'dchen@cre-compliance.com',
+    role: 'admin_auditor',
+    title: 'Compliance Auditor & Admin',
+    status: 'ACTIVE',
+    assignedPropertyIds: [], // Portfolio-wide access
+  },
+];
 
 export const COMPANY_DEFAULT_POLICY: PayerPolicy = {
   maxAutoApproveAmount: 1500,
@@ -148,7 +203,7 @@ export const INITIAL_VENDORS: Vendor[] = [
     name: 'Pacific Water & Power',
     category: 'Utilities - Electric & Water',
     accountNumber: 'PWP-99201-IL',
-    defaultPaymentMethod: 'stripe_test_cc',
+    defaultPaymentMethod: 'CREDIT_CARD',
     remittanceAddress: 'PO Box 84201, Chicago, IL 60690',
     taxId: '36-9281044',
     status: 'verified',
@@ -159,7 +214,7 @@ export const INITIAL_VENDORS: Vendor[] = [
     name: 'Apex Facilities & HVAC',
     category: 'HVAC & Mechanical',
     accountNumber: 'AFH-77400-CA',
-    defaultPaymentMethod: 'ach_debit',
+    defaultPaymentMethod: 'ACH',
     remittanceAddress: '1440 Industrial Blvd, Torrance, CA 90501',
     taxId: '95-4482019',
     status: 'verified',
@@ -170,7 +225,7 @@ export const INITIAL_VENDORS: Vendor[] = [
     name: 'Vanguard Commercial Roofing',
     category: 'Building Envelope & Roofing',
     accountNumber: 'VCR-11029-TX',
-    defaultPaymentMethod: 'ach_debit',
+    defaultPaymentMethod: 'ACH',
     remittanceAddress: '900 Summit Ave, Fort Worth, TX 76102',
     taxId: '75-3392011',
     status: 'verified',
@@ -181,7 +236,7 @@ export const INITIAL_VENDORS: Vendor[] = [
     name: 'Otis Elevator Maintenance',
     category: 'Conveyance & Vertical Transport',
     accountNumber: 'OTIS-44912-MA',
-    defaultPaymentMethod: 'stripe_test_cc',
+    defaultPaymentMethod: 'CREDIT_CARD',
     remittanceAddress: '1 Carrier Place, Farmington, CT 06032',
     taxId: '06-1188392',
     status: 'verified',
@@ -192,7 +247,7 @@ export const INITIAL_VENDORS: Vendor[] = [
     name: 'CleanPro Commercial Janitorial',
     category: 'Janitorial & Sanitation',
     accountNumber: 'CPJ-33921-IL',
-    defaultPaymentMethod: 'ach_debit',
+    defaultPaymentMethod: 'ACH',
     remittanceAddress: '312 W Randolph St, Chicago, IL 60606',
     taxId: '36-8812903',
     status: 'verified',
@@ -203,7 +258,7 @@ export const INITIAL_VENDORS: Vendor[] = [
     name: 'FirstChoice Security Services',
     category: 'Physical Security & Patrol',
     accountNumber: 'FCS-55102-CA',
-    defaultPaymentMethod: 'check_print',
+    defaultPaymentMethod: 'CHECK',
     remittanceAddress: '2400 E 7th St, Los Angeles, CA 90021',
     taxId: '95-1029384',
     status: 'verified',
@@ -214,7 +269,7 @@ export const INITIAL_VENDORS: Vendor[] = [
     name: 'Swift Emergency Plumbing Co.',
     category: 'Plumbing & Emergency Repair',
     accountNumber: 'SEP-00412-CA',
-    defaultPaymentMethod: 'stripe_test_cc',
+    defaultPaymentMethod: 'CREDIT_CARD',
     remittanceAddress: 'Lockbox 441, Encino, CA 91316',
     taxId: 'PENDING_W9',
     status: 'pending_review',
@@ -248,7 +303,7 @@ export const INITIAL_INVOICES: Invoice[] = [
       { id: 'li-3', description: 'Municipal Environmental Surcharge', quantity: 1, unitRate: 39.84, amount: 39.84, glCode: '6190-UTL-TAX' },
     ],
     paymentInfo: {
-      method: 'stripe_test_cc',
+      method: 'CREDIT_CARD',
       status: 'unpaid',
     },
     auditTrail: [
@@ -283,7 +338,7 @@ export const INITIAL_INVOICES: Invoice[] = [
       { id: 'li-6', description: 'R-410A Commercial Refrigerant Recovery', quantity: 1, unitRate: 300.00, amount: 300.00, glCode: '6225-MATERIALS' },
     ],
     paymentInfo: {
-      method: 'ach_debit',
+      method: 'ACH',
       status: 'unpaid',
     },
     auditTrail: [
@@ -316,7 +371,7 @@ export const INITIAL_INVOICES: Invoice[] = [
       { id: 'li-8', description: 'Firestone 60-mil White TPO Membrane Heat Weld', quantity: 1, unitRate: 10000.00, amount: 10000.00, glCode: '1510-CAP-ROOF' },
     ],
     paymentInfo: {
-      method: 'ach_debit',
+      method: 'ACH',
       status: 'unpaid',
     },
     auditTrail: [
@@ -357,7 +412,7 @@ export const INITIAL_INVOICES: Invoice[] = [
       { id: 'li-9', description: 'October Routine Janitorial Services - Floors 1-12', quantity: 1, unitRate: 1250.00, amount: 1250.00, glCode: '6300-JANITORIAL' },
     ],
     paymentInfo: {
-      method: 'ach_debit',
+      method: 'ACH',
       status: 'unpaid',
     },
     auditTrail: [
@@ -396,7 +451,7 @@ export const INITIAL_INVOICES: Invoice[] = [
       { id: 'li-11', description: 'Hydrojetting Main Sewer Stack to City Lateral', quantity: 1, unitRate: 1010.00, amount: 1010.00, glCode: '6210-PLUMB' },
     ],
     paymentInfo: {
-      method: 'stripe_test_cc',
+      method: 'CREDIT_CARD',
       status: 'unpaid',
     },
     auditTrail: [
@@ -429,7 +484,7 @@ export const INITIAL_INVOICES: Invoice[] = [
       { id: 'li-14', description: 'State Regulatory Safety Surcharge', quantity: 1, unitRate: 70.00, amount: 70.00, glCode: '6250-FEE' },
     ],
     paymentInfo: {
-      method: 'stripe_test_cc',
+      method: 'CREDIT_CARD',
       status: 'succeeded',
       transactionRef: 'ch_3M9qX2Lkd87w9ZpQ01aBCdEf',
       paidAt: '2026-11-03 10:22:18',
@@ -466,7 +521,7 @@ export const INITIAL_INVOICES: Invoice[] = [
       { id: 'li-15', description: 'Dedicated Roving Guard Patrol (140 Hours)', quantity: 140, unitRate: 15.00, amount: 2100.00, glCode: '6400-SECURITY' },
     ],
     paymentInfo: {
-      method: 'check_print',
+      method: 'CHECK',
       status: 'unpaid',
     },
     auditTrail: [
@@ -521,4 +576,73 @@ export const INITIAL_ACTIVITIES: ActivityItem[] = [
     status: 'info',
     invoiceId: 'inv-007',
   },
+];
+
+export const INITIAL_PROPERTY_VENDOR_MAPPINGS: PropertyVendorRelationship[] = [
+  {
+    id: 'pvm-001',
+    propertyId: 'prop-grandview',
+    propertyName: 'Grandview Office Tower LLC',
+    vendorId: 'ven-pacific-water',
+    vendorName: 'Pacific Water & Power',
+    vendorAccountNumber: 'PWP-99201-IL',
+    autoApprovalEnabled: true,
+    status: 'ACTIVE',
+    createdAt: '2026-01-15'
+  },
+  {
+    id: 'pvm-002',
+    propertyId: 'prop-grandview',
+    propertyName: 'Grandview Office Tower LLC',
+    vendorId: 'ven-apex-hvac',
+    vendorName: 'Apex Facilities & HVAC',
+    vendorAccountNumber: 'AFH-77400-CA',
+    autoApprovalEnabled: false,
+    status: 'ACTIVE',
+    createdAt: '2026-02-10'
+  },
+  {
+    id: 'pvm-003',
+    propertyId: 'prop-harborfront',
+    propertyName: 'Harborfront Retail Plaza',
+    vendorId: 'ven-firstchoice',
+    vendorName: 'FirstChoice Security Services',
+    vendorAccountNumber: 'FCS-55102-CA',
+    autoApprovalEnabled: true,
+    status: 'ACTIVE',
+    createdAt: '2026-03-01'
+  },
+  {
+    id: 'pvm-004',
+    propertyId: 'prop-metropolitan',
+    propertyName: 'Metropolitan Logistics Center',
+    vendorId: 'ven-vanguard-roofing',
+    vendorName: 'Vanguard Commercial Roofing',
+    vendorAccountNumber: 'VCR-11029-TX',
+    autoApprovalEnabled: false,
+    status: 'ACTIVE',
+    createdAt: '2026-04-12'
+  },
+  {
+    id: 'pvm-005',
+    propertyId: 'prop-westside',
+    propertyName: 'Westside Medical Arts Pavilion',
+    vendorId: 'ven-otis-elevator',
+    vendorName: 'Otis Elevator International',
+    vendorAccountNumber: 'OEI-88301-MA',
+    autoApprovalEnabled: true,
+    status: 'ACTIVE',
+    createdAt: '2026-01-20'
+  },
+  {
+    id: 'pvm-006',
+    propertyId: 'prop-apex',
+    propertyName: 'Apex Commerce Hub',
+    vendorId: 'ven-sunstate-landscape',
+    vendorName: 'SunState Commercial Landscaping',
+    vendorAccountNumber: 'SCL-44021-CA',
+    autoApprovalEnabled: true,
+    status: 'ACTIVE',
+    createdAt: '2026-05-18'
+  }
 ];

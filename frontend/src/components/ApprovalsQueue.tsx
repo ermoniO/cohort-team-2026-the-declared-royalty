@@ -96,7 +96,7 @@ export const ApprovalsQueue: React.FC = () => {
             Duplicate Protection & Approvals Queue
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Tiered multi-level routing enforced by payer policy · Active signing authority: <span className="font-semibold text-slate-800">{currentProfile.userName} ({currentProfile.title})</span>
+            Tiered multi-level routing enforced by payer policy · Active signing authority: <span className="font-semibold text-slate-800">{currentUser.name} ({currentProfile.title})</span>
           </p>
         </div>
 
