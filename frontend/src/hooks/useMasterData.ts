@@ -6,7 +6,8 @@ import {
   INITIAL_PROPERTY_VENDOR_MAPPINGS,
   COMPANY_DEFAULT_POLICY,
 } from '../data/mockData';
-import { fetchUIProperties } from '../app/services/propertyService';
+import { fetchUIProperties, createUIProperty } from '../app/services/propertyService';
+import { CreatePropertyInput } from '../app/adapters/propertyAdapter';
 import { fetchUIVendors } from '../app/services/vendorService';
 
 export function useMasterData() {
@@ -26,6 +27,32 @@ export function useMasterData() {
       }
     } catch {
       setIsPropertiesLive(false);
+    }
+  };
+
+  const addNewProperty = async (input: CreatePropertyInput): Promise<Property> => {
+    try {
+      const created = await createUIProperty(input);
+      setProperties((prev) => [created, ...prev]);
+      return created;
+    } catch {
+      // Fallback: optimistic local property when backend is unavailable
+      const fullAddress = [input.streetAddress, input.city, input.state, input.zipCode]
+        .filter(Boolean)
+        .join(', ');
+
+      const localFallback: Property = {
+        id: `prop-local-${Date.now()}`,
+        name: input.name,
+        address: fullAddress,
+        propertyType: input.propertyType,
+        managerName: 'Operations Manager',
+        sqft: 200000,
+        policy: { ...COMPANY_DEFAULT_POLICY },
+        hasCustomPolicy: false,
+      };
+      setProperties((prev) => [localFallback, ...prev]);
+      return localFallback;
     }
   };
 
@@ -128,6 +155,7 @@ export function useMasterData() {
     properties,
     isPropertiesLive,
     refreshProperties,
+    addNewProperty,
     vendors,
     isVendorsLive,
     refreshVendors,
@@ -140,4 +168,3 @@ export function useMasterData() {
     evaluatePolicyForInvoice,
   };
 }
-

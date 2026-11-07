@@ -14,6 +14,7 @@ import {
 import { useAuth } from '../hooks/useAuth';
 import { useMasterData } from '../hooks/useMasterData';
 import { useInvoices } from '../hooks/useInvoices';
+import { CreatePropertyInput } from '../app/adapters/propertyAdapter';
 
 interface InvoiceContextType {
   // Auth & Session
@@ -37,6 +38,7 @@ interface InvoiceContextType {
   scopedProperties: Property[];
   isPropertiesLive: boolean;
   refreshProperties: () => Promise<void>;
+  addNewProperty: (input: CreatePropertyInput) => Promise<Property>;
   vendors: Vendor[];
   isVendorsLive: boolean;
   refreshVendors: () => Promise<void>;
@@ -127,6 +129,7 @@ export const InvoiceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         scopedProperties: auth.scopedProperties,
         isPropertiesLive: masterData.isPropertiesLive,
         refreshProperties: masterData.refreshProperties,
+        addNewProperty: masterData.addNewProperty,
         vendors: masterData.vendors,
         isVendorsLive: masterData.isVendorsLive,
         refreshVendors: masterData.refreshVendors,

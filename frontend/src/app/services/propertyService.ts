@@ -1,7 +1,7 @@
 import type { PropertyResponse, PropertyCreateRequest } from "../../types/property";
 import type { Property as UIProperty } from "../../types";
 import { apiClient } from "./apiClient";
-import { toUIProperty } from "../adapters/propertyAdapter";
+import { toUIProperty, toBackendPropertyCreate, CreatePropertyInput } from "../adapters/propertyAdapter";
 
 export function getProperties(): Promise<PropertyResponse[]> {
   return apiClient.get<PropertyResponse[]>("/api/v1/properties", undefined, false);
@@ -13,6 +13,16 @@ export function getPropertyById(propertyId: string): Promise<PropertyResponse> {
 
 export function createProperty(request: PropertyCreateRequest): Promise<PropertyResponse> {
   return apiClient.post<PropertyResponse, PropertyCreateRequest>("/api/v1/properties", request, undefined, false);
+}
+
+/**
+ * High-level creation function that adapts UI form input to backend DTO and
+ * returns the created property as a UI Property model.
+ */
+export async function createUIProperty(input: CreatePropertyInput): Promise<UIProperty> {
+  const req = toBackendPropertyCreate(input);
+  const dto = await createProperty(req);
+  return toUIProperty(dto);
 }
 
 /**
