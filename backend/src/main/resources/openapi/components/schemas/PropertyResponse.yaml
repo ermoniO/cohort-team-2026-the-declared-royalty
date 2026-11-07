@@ -2,10 +2,8 @@ type: object
 required:
   - propertyId
   - name
-  - streetAddress
-  - city
-  - state
-  - zipCode
+  - propertyType
+  - address
   - status
 properties:
   propertyId:
@@ -13,14 +11,11 @@ properties:
     format: uuid
   name:
     type: string
-  streetAddress:
-    type: string
-  city:
-    type: string
-  state:
-    type: string
-  zipCode:
-    type: string
+    example: "Grandview Office Tower"
+  propertyType:
+    $ref: './PropertyType.yaml'
+  address:
+    $ref: './Address.yaml'
   status:
     type: string
     example: "ACTIVE"

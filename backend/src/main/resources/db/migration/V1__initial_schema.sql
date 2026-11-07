@@ -5,15 +5,16 @@
 CREATE TABLE properties
 (
     property_uuid    UUID PRIMARY KEY         DEFAULT gen_random_uuid(),
-    name           VARCHAR(255)                                       NOT NULL,
-    street_address VARCHAR(255)                                       NOT NULL,
-    city           VARCHAR(100)                                       NOT NULL,
-    state          VARCHAR(50)                                        NOT NULL,
-    zip_code       VARCHAR(20)                                        NOT NULL,
-    status         VARCHAR(50)                                        NOT NULL DEFAULT 'ACTIVE',
-    created_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+    name             VARCHAR(255)                                       NOT NULL,
+    property_type    VARCHAR(50)              NOT NULL DEFAULT 'COMMERCIAL_OFFICE',
+    address          JSONB                                              NOT NULL,
+    status           VARCHAR(50)              NOT NULL DEFAULT 'ACTIVE',
+    created_at       TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at       TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT check_property_type CHECK (property_type IN ('COMMERCIAL_OFFICE', 'RETAIL_PLAZA', 'INDUSTRIAL_PARK', 'MEDICAL_CENTER'))
 );
+
+CREATE INDEX idx_properties_address_zip ON properties ((address->>'zipCode'));
 
 CREATE TABLE vendors
 (

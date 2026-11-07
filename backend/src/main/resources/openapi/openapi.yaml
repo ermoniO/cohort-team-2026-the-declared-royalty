@@ -35,6 +35,10 @@ components:
       $ref: './components/parameters/VendorUuid.yaml'
 
   schemas:
+    Address:
+      $ref: './components/schemas/Address.yaml'
+    PropertyType:
+      $ref: './components/schemas/PropertyType.yaml'
     PropertyCreateRequest:
       $ref: './components/schemas/PropertyCreateRequest.yaml'
     PropertyResponse:

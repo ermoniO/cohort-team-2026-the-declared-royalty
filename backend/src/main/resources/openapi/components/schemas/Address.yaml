@@ -1,0 +1,19 @@
+type: object
+required:
+  - streetAddress
+  - city
+  - state
+  - zipCode
+properties:
+  streetAddress:
+    type: string
+    example: "125 Industrial Way"
+  city:
+    type: string
+    example: "Springfield"
+  state:
+    type: string
+    example: "IL"
+  zipCode:
+    type: string
+    example: "62701"
