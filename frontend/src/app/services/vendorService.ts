@@ -1,4 +1,4 @@
-import type { VendorResponse, VendorCreateRequest, VendorUpdateRequest } from "@/types/vendor.ts";
+import type { Vendor, VendorResponse, VendorCreateRequest, VendorUpdateRequest } from "@/types/vendor.ts";
 import {apiClient} from "@/app/services/apiClient.ts";
 
 export function getVendors(): Promise<VendorResponse[]> {
@@ -18,12 +18,6 @@ export function createVendor(request: VendorCreateRequest): Promise<VendorRespon
 export function updateVendor(vendorUuid: string, request: VendorUpdateRequest): Promise<VendorResponse> {
     return apiClient.put<VendorResponse, VendorUpdateRequest>(`/api/v1/vendors/${vendorUuid}`, request, undefined, false);
 }
-import { apiClient } from "@/app/services/apiClient";
-import type {
-  Vendor,
-  VendorCreateRequest,
-  VendorUpdateRequest,
-} from "@/types/vendor";
 
 export const vendorService = {
   /**
