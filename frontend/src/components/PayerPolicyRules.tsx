@@ -12,14 +12,17 @@ import {
   Calculator,
   ArrowRight,
   Lock,
-  X
+  X,
+  Plus
 } from 'lucide-react';
+import { CreatePropertyModal } from './CreatePropertyModal';
 
 export const PayerPolicyRules: React.FC = () => {
   const {
     properties,
     isPropertiesLive,
     refreshProperties,
+    addNewProperty,
     companyPolicy,
     updateCompanyPolicy,
     updatePropertyPolicy,
@@ -28,6 +31,7 @@ export const PayerPolicyRules: React.FC = () => {
     activeRole
   } = useInvoiceStore();
 
+  const [isAddPropertyOpen, setIsAddPropertyOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [editingCompanyPolicy, setEditingCompanyPolicy] = useState(false);
 
@@ -107,6 +111,15 @@ export const PayerPolicyRules: React.FC = () => {
               {isPropertiesLive ? 'Backend API Connected' : 'Local Mock Data'}
             </span>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setIsAddPropertyOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-medium shadow-xs transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Property</span>
+          </button>
 
           {!canEdit && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-800 rounded-md border border-amber-200 text-xs">
@@ -521,6 +534,13 @@ export const PayerPolicyRules: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Create Property Modal */}
+      <CreatePropertyModal
+        isOpen={isAddPropertyOpen}
+        onClose={() => setIsAddPropertyOpen(false)}
+        onSubmit={addNewProperty}
+      />
     </div>
   );
 };
