@@ -1,30 +1,36 @@
-export type Property = {
-    propertyId: string,
-    name: string,
-    streetAddress: string,
-    city: string,
-    state: string,
-    zipCode: string,
-    status: string,
-    createdAt: string,
-    updatedAt: string,
+export type PropertyTypeDTO =
+  | 'COMMERCIAL_OFFICE'
+  | 'RETAIL_PLAZA'
+  | 'INDUSTRIAL_PARK'
+  | 'MEDICAL_CENTER';
+
+export interface AddressDTO {
+  streetAddress: string;
+  city: string;
+  state: string;
+  zipCode: string;
 }
 
-// status is set to ACTIVE by the backend
+export type Property = {
+  propertyId: string;
+  name: string;
+  propertyType: PropertyTypeDTO;
+  address: AddressDTO;
+  status: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 export type PropertyCreateRequest = {
-    name: string,
-    streetAddress: string,
-    city: string,
-    state: string,
-    zipCode: string,
-}
+  name: string;
+  propertyType: PropertyTypeDTO;
+  address: AddressDTO;
+};
 
 export type PropertyResponse = {
-    propertyId: string,
-    name: string,
-    streetAddress: string,
-    city: string,
-    state: string,
-    zipCode: string,
-    status: string,
-}
+  propertyId: string;
+  name: string;
+  propertyType: PropertyTypeDTO;
+  address: AddressDTO;
+  status: string;
+};
