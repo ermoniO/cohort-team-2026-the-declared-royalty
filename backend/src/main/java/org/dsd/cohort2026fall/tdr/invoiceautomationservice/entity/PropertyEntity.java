@@ -5,7 +5,6 @@ import lombok.*;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.Address;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.AddressRecord;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.PropertyResponse;
-import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.PropertyType;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -29,8 +28,8 @@ public class PropertyEntity {
     private String name;
 
     @Builder.Default
-    @Column(name = "property_type", nullable = false)
-    private String propertyType = "COMMERCIAL_OFFICE";
+    @Column(name = "category", nullable = false)
+    private String category = "COMMERCIAL_OFFICE";
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "address", columnDefinition = "jsonb", nullable = false)
@@ -52,12 +51,6 @@ public class PropertyEntity {
         Address addressDto = address != null
                 ? new Address(address.streetAddress(), address.city(), address.state(), address.zipCode())
                 : null;
-        PropertyType pType;
-        try {
-            pType = propertyType != null ? PropertyType.fromValue(propertyType) : PropertyType.COMMERCIAL_OFFICE;
-        } catch (Exception e) {
-            pType = PropertyType.COMMERCIAL_OFFICE;
-        }
-        return new PropertyResponse(propertyId, name, pType, addressDto, status);
+        return new PropertyResponse(propertyId, name, category, addressDto, status);
     }
 }

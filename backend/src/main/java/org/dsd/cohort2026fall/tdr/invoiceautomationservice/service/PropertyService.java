@@ -2,10 +2,12 @@ package org.dsd.cohort2026fall.tdr.invoiceautomationservice.service;
 
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.PropertyEntity;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.AddressRecord;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.PropertyCategoryResponse;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.PropertyCreateRequest;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.PropertyResponse;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository.PropertyRepository;
 import org.springdoc.api.OpenApiResourceNotFoundException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,9 +20,11 @@ import java.util.stream.Collectors;
 public class PropertyService {
 
     private final PropertyRepository propertyRepository;
+    private final JdbcTemplate jdbcTemplate;
 
-    public PropertyService(PropertyRepository propertyRepository) {
+    public PropertyService(PropertyRepository propertyRepository, JdbcTemplate jdbcTemplate) {
         this.propertyRepository = propertyRepository;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     @Transactional(readOnly = true)
@@ -37,6 +41,18 @@ public class PropertyService {
         return property.toResponse();
     }
 
+    @Transactional(readOnly = true)
+    public List<PropertyCategoryResponse> getAllPropertyCategories() {
+        String sql = "SELECT category_code, name, description FROM property_categories ORDER BY name ASC";
+        return jdbcTemplate.query(sql, (rs, rowNum) -> {
+            PropertyCategoryResponse res = new PropertyCategoryResponse();
+            res.setCategoryCode(rs.getString("category_code"));
+            res.setName(rs.getString("name"));
+            res.setDescription(rs.getString("description"));
+            return res;
+        });
+    }
+
     public PropertyResponse createProperty(PropertyCreateRequest request) {
         AddressRecord addressRecord = request.getAddress() != null
                 ? new AddressRecord(
@@ -47,14 +63,14 @@ public class PropertyService {
                 )
                 : null;
 
-        String pType = request.getPropertyType() != null
-                ? request.getPropertyType().getValue()
+        String category = request.getCategory() != null && !request.getCategory().isBlank()
+                ? request.getCategory()
                 : "COMMERCIAL_OFFICE";
 
         PropertyEntity createdProperty = PropertyEntity.builder()
                 .propertyId(UUID.randomUUID())
                 .name(request.getName())
-                .propertyType(pType)
+                .category(category)
                 .address(addressRecord)
                 .status("ACTIVE")
                 .build();

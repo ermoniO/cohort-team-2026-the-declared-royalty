@@ -25,6 +25,12 @@ public class VendorEntity {
     @Column(name = "vendor_name", nullable = false)
     private String name;
 
+    @Column(name = "category")
+    private String category;
+
+    @Column(name = "tax_id")
+    private String taxId;
+
     @Column(name = "billing_phone_number", nullable = false)
     private String phoneNumber;
 
