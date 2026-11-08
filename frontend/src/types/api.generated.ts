@@ -56,6 +56,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/properties/{propertyId}/gl-accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List property GL accounts
+         * @description Returns active General Ledger chart of accounts scoped to the specified property.
+         */
+        get: operations["getPropertyGlAccounts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users": {
         parameters: {
             query?: never;
@@ -257,6 +277,20 @@ export interface components {
             /** @example Multi-tenant high-rise and corporate office properties */
             description?: string;
         };
+        PropertyGlAccountResponse: {
+            /** Format: uuid */
+            propertyGlAccountUuid: string;
+            /** @example 5120 */
+            glCode: string;
+            /** Format: uuid */
+            propertyUuid: string;
+            /** @example Grounds Maintenance */
+            glAccountName: string;
+            /** @example Exterior landscaping and snow removal */
+            description?: string;
+            /** @example ACTIVE */
+            status: string;
+        };
         VendorCategoryResponse: {
             /** @example UTILITIES_ENERGY */
             categoryCode: string;
@@ -278,6 +312,10 @@ export interface components {
             name: string;
             /** @example COMMERCIAL_OFFICE */
             category: string;
+            /** @example Apex Holdings LLC */
+            ownerEntity?: string;
+            /** @example 720000 */
+            sqft?: number;
             address: components["schemas"]["Address"];
         };
         PropertyResponse: {
@@ -287,6 +325,10 @@ export interface components {
             name: string;
             /** @example COMMERCIAL_OFFICE */
             category: string;
+            /** @example Apex Holdings LLC */
+            ownerEntity?: string;
+            /** @example 720000 */
+            sqft?: number;
             address: components["schemas"]["Address"];
             /** @example ACTIVE */
             status: string;
@@ -565,6 +607,29 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    getPropertyGlAccounts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The UUID of the property */
+                propertyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A list of active GL accounts for the property */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PropertyGlAccountResponse"][];
+                };
             };
         };
     };

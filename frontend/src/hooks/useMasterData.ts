@@ -128,6 +128,15 @@ export function useMasterData() {
     );
   };
 
+  const updateMappingTerms = (
+    mappingId: string,
+    updates: { costType: 'FIXED_MONTHLY' | 'VARIABLE'; defaultGlCode?: string }
+  ) => {
+    setMappings((prev) =>
+      prev.map((m) => (m.id === mappingId ? { ...m, ...updates } : m))
+    );
+  };
+
   const addMapping = (newMapping: Omit<PropertyVendorRelationship, 'id'>) => {
     const created: PropertyVendorRelationship = {
       ...newMapping,
@@ -203,6 +212,7 @@ export function useMasterData() {
     paymentMethods,
     mappings,
     toggleAutoApproval,
+    updateMappingTerms,
     addMapping,
     companyPolicy,
     updatePropertyPolicy,

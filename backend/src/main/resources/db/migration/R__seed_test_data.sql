@@ -7,6 +7,7 @@
 DELETE FROM audit_logs;
 DELETE FROM invoices;
 DELETE FROM property_vendor_mapping;
+DELETE FROM property_gl_accounts;
 DELETE FROM vendors;
 DELETE FROM properties;
 DELETE FROM payment_methods;
@@ -38,31 +39,65 @@ INSERT INTO payment_methods (method_code, name, description, status) VALUES
 ('CREDIT_CARD', 'Commercial Credit Card', 'Corporate purchasing card disbursement', 'ACTIVE');
 
 -- 5. Seed Meaningful Properties (PostgreSQL generates property_uuid)
-INSERT INTO properties (name, category, address, status) VALUES
+INSERT INTO properties (name, category, owner_entity, sqft, address, status) VALUES
 (
     'Grandview Office Tower',
     'COMMERCIAL_OFFICE',
+    'Apex Holdings LLC',
+    720000,
     '{"streetAddress": "450 North Michigan Ave", "city": "Chicago", "state": "IL", "zipCode": "60611"}'::jsonb,
     'ACTIVE'
 ),
 (
     'Harborfront Retail Plaza',
     'RETAIL_PLAZA',
+    'Metropolitan Retail Trust',
+    185000,
     '{"streetAddress": "1200 Pacific Coast Hwy", "city": "Long Beach", "state": "CA", "zipCode": "90802"}'::jsonb,
     'ACTIVE'
 ),
 (
     'Apex Commerce Hub',
     'INDUSTRIAL_PARK',
+    'Apex Holdings LLC',
+    550000,
     '{"streetAddress": "8800 Interstate Parkway", "city": "Dallas", "state": "TX", "zipCode": "75241"}'::jsonb,
     'ACTIVE'
 ),
 (
     'Metro Medical Pavilion',
     'MEDICAL_CENTER',
+    'Healthcare Realty Partners',
+    120000,
     '{"streetAddress": "7400 Fannin St", "city": "Houston", "state": "TX", "zipCode": "77054"}'::jsonb,
     'ACTIVE'
 );
+
+-- 5.1 Seed Property GL Accounts (Chart of Accounts Scoped to Building)
+INSERT INTO property_gl_accounts (gl_code, property_uuid, gl_account_name, description, status)
+SELECT '5100', p.property_uuid, 'Janitorial & Cleaning', 'Commercial daily cleaning and trash removal', 'ACTIVE'
+FROM properties p WHERE p.name = 'Grandview Office Tower'
+UNION ALL
+SELECT '5200', p.property_uuid, 'HVAC Maintenance', 'Quarterly chiller, boiler, and filter maintenance', 'ACTIVE'
+FROM properties p WHERE p.name = 'Grandview Office Tower'
+UNION ALL
+SELECT '5300', p.property_uuid, 'Utilities & Electric', 'Grid power and common area electricity', 'ACTIVE'
+FROM properties p WHERE p.name = 'Grandview Office Tower'
+UNION ALL
+SELECT '5400', p.property_uuid, 'Security & Access Control', 'Badge systems and physical guard patrols', 'ACTIVE'
+FROM properties p WHERE p.name = 'Grandview Office Tower'
+UNION ALL
+SELECT '5100', p.property_uuid, 'Janitorial Services', 'Plaza common area pressure washing and cleaning', 'ACTIVE'
+FROM properties p WHERE p.name = 'Harborfront Retail Plaza'
+UNION ALL
+SELECT '5250', p.property_uuid, 'Plumbing & Sanitation', 'Sewer lines, grease traps, and water mains', 'ACTIVE'
+FROM properties p WHERE p.name = 'Harborfront Retail Plaza'
+UNION ALL
+SELECT '5300', p.property_uuid, 'Utilities & Gas', 'Gas, water, and exterior floodlighting', 'ACTIVE'
+FROM properties p WHERE p.name = 'Harborfront Retail Plaza'
+UNION ALL
+SELECT '5500', p.property_uuid, 'Landscaping & Grounds', 'Parking lot landscaping, trees, and snow removal', 'ACTIVE'
+FROM properties p WHERE p.name = 'Harborfront Retail Plaza';
 
 -- 6. Seed Meaningful Vendors (PostgreSQL generates vendor_uuid)
 INSERT INTO vendors (vendor_name, category, tax_id, billing_phone_number, payment_method, status) VALUES
@@ -70,16 +105,50 @@ INSERT INTO vendors (vendor_name, category, tax_id, billing_phone_number, paymen
 ('Beacon Fire & Life Safety', 'FIRE_LIFE_SAFETY', '98-7654321', '555-0144', 'CHECK', 'ACTIVE'),
 ('Cornerstone Commercial Janitorial', 'JANITORIAL_CLEANING', '45-6789012', '555-0188', 'CREDIT_CARD', 'ACTIVE');
 
--- 7. Map Vendor to Property dynamically (PostgreSQL generates mapping_uuid)
-INSERT INTO property_vendor_mapping (vendor_uuid, property_uuid, vendor_account_number, status, auto_approval_enabled)
+-- 7. Map Vendor to Property dynamically with Cost Type & Default GL Code
+INSERT INTO property_vendor_mapping (
+    vendor_uuid,
+    property_uuid,
+    vendor_account_number,
+    cost_type,
+    default_gl_code,
+    status,
+    auto_approval_enabled
+)
 SELECT 
     v.vendor_uuid,
     p.property_uuid,
     'ACT-9483920',
+    'FIXED_MONTHLY',
+    '5200',
     'ACTIVE',
     TRUE
 FROM vendors v, properties p
 WHERE v.vendor_name = 'Apex Utilities & HVAC'
+  AND p.name = 'Grandview Office Tower'
+UNION ALL
+SELECT 
+    v.vendor_uuid,
+    p.property_uuid,
+    'ACT-1827401',
+    'FIXED_MONTHLY',
+    '5100',
+    'ACTIVE',
+    TRUE
+FROM vendors v, properties p
+WHERE v.vendor_name = 'Cornerstone Commercial Janitorial'
+  AND p.name = 'Grandview Office Tower'
+UNION ALL
+SELECT 
+    v.vendor_uuid,
+    p.property_uuid,
+    'ACT-5592811',
+    'VARIABLE',
+    '5400',
+    'ACTIVE',
+    FALSE
+FROM vendors v, properties p
+WHERE v.vendor_name = 'Beacon Fire & Life Safety'
   AND p.name = 'Grandview Office Tower';
 
 -- 8. Seed Initial Test Invoice dynamically (PostgreSQL generates invoice_uuid)

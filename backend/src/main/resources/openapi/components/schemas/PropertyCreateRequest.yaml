@@ -10,5 +10,11 @@ properties:
   category:
     type: string
     example: "COMMERCIAL_OFFICE"
+  ownerEntity:
+    type: string
+    example: "Apex Holdings LLC"
+  sqft:
+    type: integer
+    example: 720000
   address:
     $ref: './Address.yaml'

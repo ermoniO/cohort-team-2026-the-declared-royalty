@@ -50,6 +50,10 @@ interface InvoiceContextType {
   paymentMethods: PaymentMethodResponse[];
   mappings: PropertyVendorRelationship[];
   toggleAutoApproval: (mappingId: string) => void;
+  updateMappingTerms: (
+    mappingId: string,
+    updates: { costType: 'FIXED_MONTHLY' | 'VARIABLE'; defaultGlCode?: string }
+  ) => void;
   addMapping: (mapping: Omit<PropertyVendorRelationship, 'id'>) => void;
   companyPolicy: PayerPolicy;
   updatePropertyPolicy: (propertyId: string, policy: Partial<PayerPolicy>) => void;
@@ -145,6 +149,7 @@ export const InvoiceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         paymentMethods: masterData.paymentMethods,
         mappings: masterData.mappings,
         toggleAutoApproval: masterData.toggleAutoApproval,
+        updateMappingTerms: masterData.updateMappingTerms,
         addMapping: masterData.addMapping,
         companyPolicy: masterData.companyPolicy,
         updatePropertyPolicy: masterData.updatePropertyPolicy,

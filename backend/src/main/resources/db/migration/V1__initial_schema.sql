@@ -42,6 +42,8 @@ CREATE TABLE properties
     property_uuid    UUID PRIMARY KEY         DEFAULT gen_random_uuid(),
     name             VARCHAR(255)                                       NOT NULL,
     category         VARCHAR(100)             NOT NULL REFERENCES property_categories (category_code) ON DELETE RESTRICT,
+    owner_entity     VARCHAR(255),
+    sqft             INTEGER,
     address          JSONB                                              NOT NULL,
     status           VARCHAR(50)              NOT NULL DEFAULT 'ACTIVE',
     created_at       TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
@@ -50,6 +52,23 @@ CREATE TABLE properties
 );
 
 CREATE INDEX idx_properties_address_zip ON properties ((address->>'zipCode'));
+
+-- ============================================================================
+-- 2.1 PROPERTY GL ACCOUNTS (Charts of Accounts Scoped to Specific Property)
+-- ============================================================================
+CREATE TABLE property_gl_accounts
+(
+    property_gl_account_uuid UUID                     NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+    gl_code                  VARCHAR(50)              NOT NULL,
+    property_uuid            UUID                     NOT NULL REFERENCES properties (property_uuid) ON DELETE CASCADE,
+    gl_account_name          VARCHAR(100)             NOT NULL,
+    description              VARCHAR(500),
+    status                   VARCHAR(50)              NOT NULL DEFAULT 'ACTIVE',
+    created_at               TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at               TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    PRIMARY KEY (gl_code, property_uuid),
+    CONSTRAINT check_property_gl_account_status CHECK (status IN ('ACTIVE', 'INACTIVE'))
+);
 
 -- ============================================================================
 -- 3. VENDORS (Suppliers & Service Providers)
@@ -75,12 +94,17 @@ CREATE TABLE property_vendor_mapping
     vendor_uuid           UUID                     NOT NULL REFERENCES vendors (vendor_uuid) ON DELETE RESTRICT,
     property_uuid         UUID                     NOT NULL REFERENCES properties (property_uuid) ON DELETE RESTRICT,
     vendor_account_number VARCHAR(100)             NOT NULL, -- vendor assigned account number
+    cost_type             VARCHAR(20)              NOT NULL DEFAULT 'VARIABLE',
+    default_gl_code       VARCHAR(50),
     status                VARCHAR(255)             NOT NULL DEFAULT 'ACTIVE',
     auto_approval_enabled BOOLEAN                  NOT NULL DEFAULT FALSE,
     created_at            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     CONSTRAINT check_mapping_status CHECK ( status IN ('ACTIVE', 'INACTIVE')),
-    CONSTRAINT unique_key_property_vendor UNIQUE (vendor_uuid, property_uuid)
+    CONSTRAINT check_cost_type CHECK (cost_type IN ('FIXED_MONTHLY', 'VARIABLE')),
+    CONSTRAINT unique_key_property_vendor UNIQUE (vendor_uuid, property_uuid),
+    CONSTRAINT fk_mapping_property_gl_account FOREIGN KEY (default_gl_code, property_uuid)
+        REFERENCES property_gl_accounts (gl_code, property_uuid) ON DELETE CASCADE
 );
 
 CREATE TABLE invoices

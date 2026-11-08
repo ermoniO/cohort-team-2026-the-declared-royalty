@@ -3,11 +3,13 @@ package org.dsd.cohort2026fall.tdr.invoiceautomationservice.controller;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.VendorEntity;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.GlobalExceptionHandler;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository.VendorRepository;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.service.VendorService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -29,7 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(VendorController.class)
-@Import(GlobalExceptionHandler.class)
+@Import({GlobalExceptionHandler.class, VendorService.class})
 class VendorControllerTest {
 
     private static final OffsetDateTime CREATED_AT = OffsetDateTime.parse("2026-01-01T00:00:00Z");
@@ -39,6 +41,9 @@ class VendorControllerTest {
 
     @MockitoBean
     private VendorRepository vendorRepository;
+
+    @MockitoBean
+    private JdbcTemplate jdbcTemplate;
 
     private VendorEntity existingVendor(UUID id) {
         return VendorEntity.builder()

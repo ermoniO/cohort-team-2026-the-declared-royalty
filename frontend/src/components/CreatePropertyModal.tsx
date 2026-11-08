@@ -21,6 +21,8 @@ export const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
   const [category, setCategory] = useState(
     propertyCategories[0]?.categoryCode || ''
   );
+  const [ownerEntity, setOwnerEntity] = useState('');
+  const [sqft, setSqft] = useState('');
 
   useEffect(() => {
     if (!category && propertyCategories.length > 0) {
@@ -50,6 +52,8 @@ export const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
       await onSubmit({
         name: name.trim(),
         category,
+        ownerEntity: ownerEntity.trim() || undefined,
+        sqft: sqft ? parseInt(sqft, 10) : undefined,
         streetAddress: streetAddress.trim(),
         city: city.trim(),
         state: state.trim().toUpperCase(),
@@ -132,6 +136,35 @@ export const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
                 </option>
               )}
             </select>
+          </div>
+
+          {/* Owner Entity & Square Footage */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">
+                Owner Entity / Title Holder
+              </label>
+              <input
+                type="text"
+                value={ownerEntity}
+                onChange={(e) => setOwnerEntity(e.target.value)}
+                placeholder="e.g. Apex Holdings LLC"
+                className="w-full text-xs px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 placeholder:text-slate-400 text-slate-800"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">
+                Gross Building Area (sq ft)
+              </label>
+              <input
+                type="number"
+                min={0}
+                value={sqft}
+                onChange={(e) => setSqft(e.target.value)}
+                placeholder="e.g. 250000"
+                className="w-full text-xs px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 placeholder:text-slate-400 text-slate-800 font-mono"
+              />
+            </div>
           </div>
 
           {/* Discrete Address Section */}

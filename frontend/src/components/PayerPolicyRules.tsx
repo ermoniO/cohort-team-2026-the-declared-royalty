@@ -382,9 +382,12 @@ export const PayerPolicyRules: React.FC = () => {
                   <tr key={prop.id} className="hover:bg-slate-50/70 transition-colors">
                     <td className="px-4 py-3">
                       <div className="font-semibold text-slate-900">{prop.name}</div>
+                      {prop.ownerEntity && (
+                        <div className="text-[11px] text-indigo-600 font-medium">{prop.ownerEntity}</div>
+                      )}
                       <div className="text-[11px] text-slate-500 font-normal mt-0.5">{prop.address}</div>
                       <div className="text-[10px] text-slate-400 mt-0.5">
-                        {prop.sqft.toLocaleString()} sq ft · Manager: {prop.managerName}
+                        {prop.sqft ? `${prop.sqft.toLocaleString()} sq ft · ` : ''}Manager: {prop.managerName}
                       </div>
                     </td>
                     <td className="px-4 py-3 capitalize text-slate-600">

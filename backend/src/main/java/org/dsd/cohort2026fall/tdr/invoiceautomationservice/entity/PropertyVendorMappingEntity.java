@@ -36,6 +36,13 @@ public class PropertyVendorMappingEntity {
     private String vendorAccountNumber;
 
     @Builder.Default
+    @Column(name = "cost_type", nullable = false)
+    private String costType = "VARIABLE";
+
+    @Column(name = "default_gl_code")
+    private String defaultGlCode;
+
+    @Builder.Default
     @Column(name = "status", nullable = false)
     private String status = "ACTIVE";
 

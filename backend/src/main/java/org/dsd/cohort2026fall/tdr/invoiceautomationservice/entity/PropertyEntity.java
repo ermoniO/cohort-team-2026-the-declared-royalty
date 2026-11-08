@@ -31,6 +31,12 @@ public class PropertyEntity {
     @Column(name = "category", nullable = false)
     private String category = "COMMERCIAL_OFFICE";
 
+    @Column(name = "owner_entity")
+    private String ownerEntity;
+
+    @Column(name = "sqft")
+    private Integer sqft;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "address", columnDefinition = "jsonb", nullable = false)
     private AddressRecord address;
@@ -51,6 +57,14 @@ public class PropertyEntity {
         Address addressDto = address != null
                 ? new Address(address.streetAddress(), address.city(), address.state(), address.zipCode())
                 : null;
-        return new PropertyResponse(propertyId, name, category, addressDto, status);
+        PropertyResponse res = new PropertyResponse();
+        res.setPropertyId(propertyId);
+        res.setName(name);
+        res.setCategory(category);
+        res.setOwnerEntity(ownerEntity);
+        res.setSqft(sqft);
+        res.setAddress(addressDto);
+        res.setStatus(status);
+        return res;
     }
 }

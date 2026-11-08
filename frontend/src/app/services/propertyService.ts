@@ -1,4 +1,8 @@
-import type { PropertyResponse, PropertyCreateRequest } from "@/types/api";
+import type {
+  PropertyResponse,
+  PropertyCreateRequest,
+  PropertyGlAccountResponse,
+} from "@/types/api";
 import type { Property as UIProperty } from "@/types";
 import { apiClient } from "./apiClient";
 import {
@@ -26,6 +30,14 @@ export async function createProperty(request: PropertyCreateRequest): Promise<Pr
     body: request,
   });
   if (error || !data) throw new Error("Failed to create property");
+  return data;
+}
+
+export async function getPropertyGlAccounts(propertyId: string): Promise<PropertyGlAccountResponse[]> {
+  const { data, error } = await apiClient.GET("/api/v1/properties/{propertyId}/gl-accounts", {
+    params: { path: { propertyId } },
+  });
+  if (error || !data) return [];
   return data;
 }
 

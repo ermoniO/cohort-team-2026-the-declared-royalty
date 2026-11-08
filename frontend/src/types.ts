@@ -104,6 +104,7 @@ export interface Property {
     name: string;
     address: string;
     propertyType: string;
+    ownerEntity?: string;
     managerName: string;
     sqft: number;
     policy: PayerPolicy;
@@ -132,6 +133,8 @@ export interface PropertyVendorRelationship {
     vendorName: string;
     vendorAccountNumber: string;
     autoApprovalEnabled: boolean;
+    costType?: 'FIXED_MONTHLY' | 'VARIABLE';
+    defaultGlCode?: string;
     status: 'ACTIVE' | 'INACTIVE';
     createdAt?: string;
 }

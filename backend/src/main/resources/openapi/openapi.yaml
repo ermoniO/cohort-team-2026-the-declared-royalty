@@ -14,6 +14,8 @@ paths:
     $ref: './paths/property_categories.yaml'
   /api/v1/properties/{propertyId}:
     $ref: './paths/properties_by_id.yaml'
+  /api/v1/properties/{propertyId}/gl-accounts:
+    $ref: './paths/property_gl_accounts.yaml'
   /api/v1/users:
     $ref: './paths/users.yaml'
   /api/v1/users/{userId}:
@@ -45,6 +47,8 @@ components:
       $ref: './components/schemas/Address.yaml'
     PropertyCategoryResponse:
       $ref: './components/schemas/PropertyCategoryResponse.yaml'
+    PropertyGlAccountResponse:
+      $ref: './components/schemas/PropertyGlAccountResponse.yaml'
     VendorCategoryResponse:
       $ref: './components/schemas/VendorCategoryResponse.yaml'
     PaymentMethodResponse:

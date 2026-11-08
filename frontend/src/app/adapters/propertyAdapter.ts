@@ -23,8 +23,9 @@ export function toUIProperty(
     name: dto.name,
     address: fullAddress,
     propertyType: uiCategory,
+    ownerEntity: dto.ownerEntity || existingUIProp?.ownerEntity,
     managerName: existingUIProp?.managerName || 'Operations Manager',
-    sqft: existingUIProp?.sqft || 250000,
+    sqft: dto.sqft ?? existingUIProp?.sqft ?? 250000,
     policy: existingUIProp?.policy || defaultPolicy,
     hasCustomPolicy: existingUIProp?.hasCustomPolicy ?? false,
   };
@@ -33,6 +34,8 @@ export function toUIProperty(
 export interface CreatePropertyInput {
   name: string;
   category: string;
+  ownerEntity?: string;
+  sqft?: number;
   streetAddress: string;
   city: string;
   state: string;
@@ -48,6 +51,8 @@ export function toBackendPropertyCreate(
   return {
     name: ui.name.trim() || 'Untitled Property',
     category: ui.category.trim(),
+    ownerEntity: ui.ownerEntity?.trim() || undefined,
+    sqft: ui.sqft || undefined,
     address: {
       streetAddress: ui.streetAddress.trim() || '',
       city: ui.city.trim() || '',

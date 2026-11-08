@@ -3,6 +3,7 @@ package org.dsd.cohort2026fall.tdr.invoiceautomationservice.controller;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.api.PropertiesApi;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.PropertyCategoryResponse;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.PropertyCreateRequest;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.PropertyGlAccountResponse;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.PropertyResponse;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.service.PropertyService;
 import org.springframework.http.HttpStatus;
@@ -39,5 +40,10 @@ public class PropertyController implements PropertiesApi {
     @Override
     public ResponseEntity<List<PropertyCategoryResponse>> getPropertyCategories() {
         return ResponseEntity.ok(propertyService.getAllPropertyCategories());
+    }
+
+    @Override
+    public ResponseEntity<List<PropertyGlAccountResponse>> getPropertyGlAccounts(UUID propertyId) {
+        return ResponseEntity.ok(propertyService.getAllPropertyGlAccounts(propertyId));
     }
 }

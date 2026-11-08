@@ -587,6 +587,8 @@ export const INITIAL_PROPERTY_VENDOR_MAPPINGS: PropertyVendorRelationship[] = [
     vendorName: 'Pacific Water & Power',
     vendorAccountNumber: 'PWP-99201-IL',
     autoApprovalEnabled: true,
+    costType: 'FIXED_MONTHLY',
+    defaultGlCode: '5300',
     status: 'ACTIVE',
     createdAt: '2026-01-15'
   },
@@ -598,6 +600,8 @@ export const INITIAL_PROPERTY_VENDOR_MAPPINGS: PropertyVendorRelationship[] = [
     vendorName: 'Apex Facilities & HVAC',
     vendorAccountNumber: 'AFH-77400-CA',
     autoApprovalEnabled: false,
+    costType: 'VARIABLE',
+    defaultGlCode: '5200',
     status: 'ACTIVE',
     createdAt: '2026-02-10'
   },
@@ -609,6 +613,8 @@ export const INITIAL_PROPERTY_VENDOR_MAPPINGS: PropertyVendorRelationship[] = [
     vendorName: 'FirstChoice Security Services',
     vendorAccountNumber: 'FCS-55102-CA',
     autoApprovalEnabled: true,
+    costType: 'FIXED_MONTHLY',
+    defaultGlCode: '5100',
     status: 'ACTIVE',
     createdAt: '2026-03-01'
   },
@@ -620,6 +626,8 @@ export const INITIAL_PROPERTY_VENDOR_MAPPINGS: PropertyVendorRelationship[] = [
     vendorName: 'Vanguard Commercial Roofing',
     vendorAccountNumber: 'VCR-11029-TX',
     autoApprovalEnabled: false,
+    costType: 'VARIABLE',
+    defaultGlCode: '5500',
     status: 'ACTIVE',
     createdAt: '2026-04-12'
   },
@@ -631,6 +639,8 @@ export const INITIAL_PROPERTY_VENDOR_MAPPINGS: PropertyVendorRelationship[] = [
     vendorName: 'Otis Elevator International',
     vendorAccountNumber: 'OEI-88301-MA',
     autoApprovalEnabled: true,
+    costType: 'FIXED_MONTHLY',
+    defaultGlCode: '5200',
     status: 'ACTIVE',
     createdAt: '2026-01-20'
   },
@@ -642,6 +652,8 @@ export const INITIAL_PROPERTY_VENDOR_MAPPINGS: PropertyVendorRelationship[] = [
     vendorName: 'SunState Commercial Landscaping',
     vendorAccountNumber: 'SCL-44021-CA',
     autoApprovalEnabled: true,
+    costType: 'VARIABLE',
+    defaultGlCode: '5500',
     status: 'ACTIVE',
     createdAt: '2026-05-18'
   }

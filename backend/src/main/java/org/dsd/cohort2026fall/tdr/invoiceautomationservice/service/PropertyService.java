@@ -4,6 +4,7 @@ import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.PropertyEntity
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.AddressRecord;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.PropertyCategoryResponse;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.PropertyCreateRequest;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.PropertyGlAccountResponse;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.PropertyResponse;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository.PropertyRepository;
 import org.springdoc.api.OpenApiResourceNotFoundException;
@@ -53,6 +54,22 @@ public class PropertyService {
         });
     }
 
+    @Transactional(readOnly = true)
+    public List<PropertyGlAccountResponse> getAllPropertyGlAccounts(UUID propertyId) {
+        String sql = "SELECT property_gl_account_uuid, gl_code, property_uuid, gl_account_name, description, status " +
+                     "FROM property_gl_accounts WHERE property_uuid = ? AND status = 'ACTIVE' ORDER BY gl_code ASC";
+        return jdbcTemplate.query(sql, (rs, rowNum) -> {
+            PropertyGlAccountResponse res = new PropertyGlAccountResponse();
+            res.setPropertyGlAccountUuid((UUID) rs.getObject("property_gl_account_uuid"));
+            res.setGlCode(rs.getString("gl_code"));
+            res.setPropertyUuid((UUID) rs.getObject("property_uuid"));
+            res.setGlAccountName(rs.getString("gl_account_name"));
+            res.setDescription(rs.getString("description"));
+            res.setStatus(rs.getString("status"));
+            return res;
+        }, propertyId);
+    }
+
     public PropertyResponse createProperty(PropertyCreateRequest request) {
         AddressRecord addressRecord = request.getAddress() != null
                 ? new AddressRecord(
@@ -71,6 +88,8 @@ public class PropertyService {
                 .propertyId(UUID.randomUUID())
                 .name(request.getName())
                 .category(category)
+                .ownerEntity(request.getOwnerEntity())
+                .sqft(request.getSqft())
                 .address(addressRecord)
                 .status("ACTIVE")
                 .build();
