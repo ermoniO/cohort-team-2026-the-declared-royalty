@@ -2,7 +2,7 @@ type: object
 required:
   - propertyId
   - name
-  - propertyType
+  - category
   - address
   - status
 properties:
@@ -12,8 +12,9 @@ properties:
   name:
     type: string
     example: "Grandview Office Tower"
-  propertyType:
-    $ref: './PropertyType.yaml'
+  category:
+    type: string
+    example: "COMMERCIAL_OFFICE"
   address:
     $ref: './Address.yaml'
   status:

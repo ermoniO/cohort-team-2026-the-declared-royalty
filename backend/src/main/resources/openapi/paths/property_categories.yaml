@@ -1,0 +1,14 @@
+get:
+  summary: List all property categories
+  operationId: getPropertyCategories
+  tags:
+    - Properties
+  responses:
+    '200':
+      description: A list of property categories
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: '../components/schemas/PropertyCategoryResponse.yaml'

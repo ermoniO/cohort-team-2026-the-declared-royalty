@@ -1,0 +1,14 @@
+get:
+  summary: List all vendor categories
+  operationId: getVendorCategories
+  tags:
+    - Vendors
+  responses:
+    '200':
+      description: A list of vendor categories
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: '../components/schemas/VendorCategoryResponse.yaml'

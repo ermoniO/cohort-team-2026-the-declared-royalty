@@ -1,20 +1,30 @@
 type: object
-description: >
-  Partial update of a vendor. All fields are optional; omitted or null fields are left unchanged.
 properties:
   name:
     type: string
     maxLength: 255
     example: "Acme Plumbing Co."
+  category:
+    type: string
+    maxLength: 100
+    example: "UTILITIES_ENERGY"
+  taxId:
+    type: string
+    maxLength: 50
+    example: "12-3456789"
   phoneNumber:
     type: string
     maxLength: 255
     example: "555-123-4567"
+    description: Send the string "NULL" to clear this field.
   status:
-    $ref: './VendorStatus.yaml'
+    allOf:
+      - $ref: './VendorStatus.yaml'
   paymentUrl:
     type: string
     maxLength: 225
     example: "https://pay.acmeplumbing.com"
+    description: Send the string "NULL" to clear this field.
   paymentMethod:
-    $ref: './PaymentMethod.yaml'
+    allOf:
+      - $ref: './PaymentMethod.yaml'

@@ -1,13 +1,14 @@
 type: object
 required:
   - name
-  - propertyType
+  - category
   - address
 properties:
   name:
     type: string
     example: "Grandview Office Tower"
-  propertyType:
-    $ref: './PropertyType.yaml'
+  category:
+    type: string
+    example: "COMMERCIAL_OFFICE"
   address:
     $ref: './Address.yaml'
