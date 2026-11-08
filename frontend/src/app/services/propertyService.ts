@@ -1,18 +1,32 @@
-import type { PropertyResponse, PropertyCreateRequest } from "../../types/property";
-import type { Property as UIProperty } from "../../types";
+import type { PropertyResponse, PropertyCreateRequest } from "@/types/api";
+import type { Property as UIProperty } from "@/types";
 import { apiClient } from "./apiClient";
-import { toUIProperty, toBackendPropertyCreate, CreatePropertyInput } from "../adapters/propertyAdapter";
+import {
+  toUIProperty,
+  toBackendPropertyCreate,
+  CreatePropertyInput,
+} from "../adapters/propertyAdapter";
 
-export function getProperties(): Promise<PropertyResponse[]> {
-  return apiClient.get<PropertyResponse[]>("/api/v1/properties", undefined, false);
+export async function getProperties(): Promise<PropertyResponse[]> {
+  const { data, error } = await apiClient.GET("/api/v1/properties");
+  if (error) throw new Error("Failed to fetch properties");
+  return data ?? [];
 }
 
-export function getPropertyById(propertyId: string): Promise<PropertyResponse> {
-  return apiClient.get<PropertyResponse>(`/api/v1/properties/${propertyId}`, undefined, false);
+export async function getPropertyById(propertyId: string): Promise<PropertyResponse> {
+  const { data, error } = await apiClient.GET("/api/v1/properties/{propertyId}", {
+    params: { path: { propertyId } },
+  });
+  if (error || !data) throw new Error(`Property ${propertyId} not found`);
+  return data;
 }
 
-export function createProperty(request: PropertyCreateRequest): Promise<PropertyResponse> {
-  return apiClient.post<PropertyResponse, PropertyCreateRequest>("/api/v1/properties", request, undefined, false);
+export async function createProperty(request: PropertyCreateRequest): Promise<PropertyResponse> {
+  const { data, error } = await apiClient.POST("/api/v1/properties", {
+    body: request,
+  });
+  if (error || !data) throw new Error("Failed to create property");
+  return data;
 }
 
 /**

@@ -1,5 +1,5 @@
 import type { Vendor as UIVendor, PaymentMethod } from '../../types';
-import type { VendorResponse, VendorCreateRequest } from '../../types/vendor';
+import type { VendorResponse, VendorCreateRequest } from '@/types/api';
 
 export interface CreateVendorInput {
   name: string;
@@ -61,7 +61,7 @@ export function toBackendVendorCreate(
     taxId: ui.taxId.trim(),
     phoneNumber: ui.phoneNumber?.trim() || undefined,
     paymentUrl: ui.paymentUrl?.trim() || undefined,
-    paymentMethod: ui.defaultPaymentMethod || 'ACH',
+    paymentMethod: (ui.defaultPaymentMethod as "ACH" | "CHECK" | "CREDIT_CARD") || 'ACH',
     status: 'ACTIVE',
   };
 }

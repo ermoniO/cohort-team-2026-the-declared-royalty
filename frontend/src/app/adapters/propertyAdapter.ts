@@ -1,8 +1,5 @@
 import type { Property as UIProperty, PayerPolicy } from '../../types';
-import type {
-  PropertyResponse,
-  PropertyCreateRequest,
-} from '../../types/property';
+import type { PropertyResponse, PropertyCreateRequest } from '@/types/api';
 import { COMPANY_DEFAULT_POLICY } from '../../data/mockData';
 
 /**

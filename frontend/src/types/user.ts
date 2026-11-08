@@ -1,4 +1,4 @@
-import type { Property } from "@/types/property.ts";
+import type { Property } from "@/types";
 
 export type User = {
     userId: string,

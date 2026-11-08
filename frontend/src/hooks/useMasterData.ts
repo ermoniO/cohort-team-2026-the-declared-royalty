@@ -15,7 +15,7 @@ import {
   fetchVendorCategories,
   fetchPaymentMethods,
 } from '../app/services/metadataService';
-import type { PropertyCategoryResponse, VendorCategoryResponse, PaymentMethodResponse } from '../types/metadata';
+import type { PropertyCategoryResponse, VendorCategoryResponse, PaymentMethodResponse } from '@/types/api';
 
 export function useMasterData() {
   const [properties, setProperties] = useState<Property[]>(INITIAL_PROPERTIES);

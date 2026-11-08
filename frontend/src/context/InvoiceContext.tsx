@@ -16,7 +16,7 @@ import { useMasterData } from '../hooks/useMasterData';
 import { useInvoices } from '../hooks/useInvoices';
 import { CreatePropertyInput } from '../app/adapters/propertyAdapter';
 import { CreateVendorInput } from '../app/adapters/vendorAdapter';
-import type { PropertyCategoryResponse, VendorCategoryResponse, PaymentMethodResponse } from '../types/metadata';
+import type { PropertyCategoryResponse, VendorCategoryResponse, PaymentMethodResponse } from '@/types/api';
 
 interface InvoiceContextType {
   // Auth & Session

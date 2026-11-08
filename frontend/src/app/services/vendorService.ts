@@ -1,24 +1,44 @@
-import type { VendorResponse, VendorCreateRequest, VendorUpdateRequest } from "@/types/vendor.ts";
-import type { Vendor as UIVendor } from "@/types.ts";
-import { apiClient } from "@/app/services/apiClient.ts";
-import { toUIVendor, toBackendVendorCreate, CreateVendorInput } from "@/app/adapters/vendorAdapter.ts";
+import type { VendorResponse, VendorCreateRequest, VendorUpdateRequest } from "@/types/api";
+import type { Vendor as UIVendor } from "@/types";
+import { apiClient } from "@/app/services/apiClient";
+import {
+  toUIVendor,
+  toBackendVendorCreate,
+  CreateVendorInput,
+} from "@/app/adapters/vendorAdapter";
 
-export function getVendors(): Promise<VendorResponse[]> {
-  return apiClient.get<VendorResponse[]>("/api/v1/vendors", undefined, false);
+export async function getVendors(): Promise<VendorResponse[]> {
+  const { data, error } = await apiClient.GET("/api/v1/vendors");
+  if (error) throw new Error("Failed to fetch vendors");
+  return data ?? [];
 }
 
-export function getVendorByUuid(vendorUuid: string): Promise<VendorResponse> {
-  return apiClient.get<VendorResponse>(`/api/v1/vendors/${vendorUuid}`, undefined, false);
+export async function getVendorByUuid(vendorUuid: string): Promise<VendorResponse> {
+  const { data, error } = await apiClient.GET("/api/v1/vendors/{vendorUuid}", {
+    params: { path: { vendorUuid } },
+  });
+  if (error || !data) throw new Error(`Vendor ${vendorUuid} not found`);
+  return data;
 }
 
-// status defaults to ACTIVE and paymentMethod to ACH when omitted
-export function createVendor(request: VendorCreateRequest): Promise<VendorResponse> {
-  return apiClient.post<VendorResponse, VendorCreateRequest>("/api/v1/vendors", request, undefined, false);
+export async function createVendor(request: VendorCreateRequest): Promise<VendorResponse> {
+  const { data, error } = await apiClient.POST("/api/v1/vendors", {
+    body: request,
+  });
+  if (error || !data) throw new Error("Failed to create vendor");
+  return data;
 }
 
-// Partial update: only the fields sent are changed; send "NULL" to clear phoneNumber or paymentUrl
-export function updateVendor(vendorUuid: string, request: VendorUpdateRequest): Promise<VendorResponse> {
-  return apiClient.put<VendorResponse, VendorUpdateRequest>(`/api/v1/vendors/${vendorUuid}`, request, undefined, false);
+export async function updateVendor(
+  vendorUuid: string,
+  request: VendorUpdateRequest
+): Promise<VendorResponse> {
+  const { data, error } = await apiClient.PUT("/api/v1/vendors/{vendorUuid}", {
+    params: { path: { vendorUuid } },
+    body: request,
+  });
+  if (error || !data) throw new Error("Failed to update vendor");
+  return data;
 }
 
 /**
