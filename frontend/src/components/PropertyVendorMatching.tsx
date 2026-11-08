@@ -16,8 +16,10 @@ import {
   Plus,
   ToggleLeft,
   ToggleRight,
-  BookOpen
+  BookOpen,
+  UserPlus
 } from 'lucide-react';
+import { CreateVendorModal } from './CreateVendorModal';
 
 export const PropertyVendorMatching: React.FC = () => {
   const {
@@ -26,6 +28,7 @@ export const PropertyVendorMatching: React.FC = () => {
     properties,
     vendors,
     isVendorsLive,
+    addNewVendor,
     mappings,
     toggleAutoApproval,
     confirmMatch,
@@ -34,6 +37,7 @@ export const PropertyVendorMatching: React.FC = () => {
     currentProfile
   } = useInvoiceStore();
 
+  const [isAddVendorOpen, setIsAddVendorOpen] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState<'directory' | 'triage'>('directory');
   const [filterMode, setFilterMode] = useState<'all' | 'high' | 'ambiguous' | 'unmatched'>('all');
   const [resolvingInvoice, setResolvingInvoice] = useState<Invoice | null>(null);
@@ -111,6 +115,15 @@ export const PropertyVendorMatching: React.FC = () => {
               <span>Invoice Match Triage ({invoices.length})</span>
             </button>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setIsAddVendorOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-medium shadow-xs transition-colors shrink-0"
+          >
+            <UserPlus className="w-3.5 h-3.5" />
+            <span>Onboard Vendor</span>
+          </button>
         </div>
       </div>
 
@@ -429,6 +442,13 @@ export const PropertyVendorMatching: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Onboard Vendor Modal */}
+      <CreateVendorModal
+        isOpen={isAddVendorOpen}
+        onClose={() => setIsAddVendorOpen(false)}
+        onSubmit={addNewVendor}
+      />
     </div>
   );
 };

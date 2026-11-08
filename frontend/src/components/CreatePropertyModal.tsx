@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Building2, MapPin, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Property } from '../types';
 import { CreatePropertyInput } from '../app/adapters/propertyAdapter';
+import { useInvoiceStore } from '../context/InvoiceContext';
 
 interface CreatePropertyModalProps {
   isOpen: boolean;
@@ -14,8 +15,18 @@ export const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
   onClose,
   onSubmit,
 }) => {
+  const { propertyCategories } = useInvoiceStore();
+
   const [name, setName] = useState('');
-  const [propertyType, setPropertyType] = useState<Property['propertyType']>('commercial_office');
+  const [category, setCategory] = useState(
+    propertyCategories[0]?.categoryCode || ''
+  );
+
+  useEffect(() => {
+    if (!category && propertyCategories.length > 0) {
+      setCategory(propertyCategories[0].categoryCode);
+    }
+  }, [propertyCategories, category]);
   const [streetAddress, setStreetAddress] = useState('');
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
@@ -38,7 +49,7 @@ export const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
     try {
       await onSubmit({
         name: name.trim(),
-        propertyType,
+        category,
         streetAddress: streetAddress.trim(),
         city: city.trim(),
         state: state.trim().toUpperCase(),
@@ -99,20 +110,27 @@ export const CreatePropertyModal: React.FC<CreatePropertyModalProps> = ({
             />
           </div>
 
-          {/* Property Type */}
+          {/* Property Category */}
           <div>
             <label className="block text-xs font-medium text-slate-700 mb-1">
-              Asset Classification <span className="text-rose-500">*</span>
+              Property Category <span className="text-rose-500">*</span>
             </label>
             <select
-              value={propertyType}
-              onChange={(e) => setPropertyType(e.target.value as Property['propertyType'])}
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
               className="w-full text-xs px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-800"
             >
-              <option value="commercial_office">Commercial Office Tower</option>
-              <option value="retail_plaza">Retail Plaza</option>
-              <option value="industrial_park">Industrial Logistics Hub</option>
-              <option value="medical_center">Medical Center Pavilion</option>
+              {propertyCategories.length > 0 ? (
+                propertyCategories.map((cat) => (
+                  <option key={cat.categoryCode} value={cat.categoryCode}>
+                    {cat.name}
+                  </option>
+                ))
+              ) : (
+                <option value="" disabled>
+                  Loading categories...
+                </option>
+              )}
             </select>
           </div>
 

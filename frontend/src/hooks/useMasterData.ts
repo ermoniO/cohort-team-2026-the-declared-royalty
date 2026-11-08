@@ -8,7 +8,14 @@ import {
 } from '../data/mockData';
 import { fetchUIProperties, createUIProperty } from '../app/services/propertyService';
 import { CreatePropertyInput } from '../app/adapters/propertyAdapter';
-import { fetchUIVendors } from '../app/services/vendorService';
+import { fetchUIVendors, createUIVendor } from '../app/services/vendorService';
+import { CreateVendorInput } from '../app/adapters/vendorAdapter';
+import {
+  fetchPropertyCategories,
+  fetchVendorCategories,
+  fetchPaymentMethods,
+} from '../app/services/metadataService';
+import type { PropertyCategoryResponse, VendorCategoryResponse, PaymentMethodResponse } from '../types/metadata';
 
 export function useMasterData() {
   const [properties, setProperties] = useState<Property[]>(INITIAL_PROPERTIES);
@@ -17,6 +24,11 @@ export function useMasterData() {
   const [isVendorsLive, setIsVendorsLive] = useState<boolean>(false);
   const [mappings, setMappings] = useState<PropertyVendorRelationship[]>(INITIAL_PROPERTY_VENDOR_MAPPINGS);
   const [companyPolicy, setCompanyPolicy] = useState<PayerPolicy>(COMPANY_DEFAULT_POLICY);
+
+  // Dynamic Metadata
+  const [propertyCategories, setPropertyCategories] = useState<PropertyCategoryResponse[]>([]);
+  const [vendorCategories, setVendorCategories] = useState<VendorCategoryResponse[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethodResponse[]>([]);
 
   const refreshProperties = async () => {
     try {
@@ -30,13 +42,24 @@ export function useMasterData() {
     }
   };
 
+  const refreshVendors = async () => {
+    try {
+      const liveVendors = await fetchUIVendors(vendors);
+      if (liveVendors && liveVendors.length > 0) {
+        setVendors(liveVendors);
+        setIsVendorsLive(true);
+      }
+    } catch {
+      setIsVendorsLive(false);
+    }
+  };
+
   const addNewProperty = async (input: CreatePropertyInput): Promise<Property> => {
     try {
       const created = await createUIProperty(input);
       setProperties((prev) => [created, ...prev]);
       return created;
     } catch {
-      // Fallback: optimistic local property when backend is unavailable
       const fullAddress = [input.streetAddress, input.city, input.state, input.zipCode]
         .filter(Boolean)
         .join(', ');
@@ -45,7 +68,7 @@ export function useMasterData() {
         id: `prop-local-${Date.now()}`,
         name: input.name,
         address: fullAddress,
-        propertyType: input.propertyType,
+        propertyType: input.category || 'COMMERCIAL_OFFICE',
         managerName: 'Operations Manager',
         sqft: 200000,
         policy: { ...COMPANY_DEFAULT_POLICY },
@@ -56,15 +79,27 @@ export function useMasterData() {
     }
   };
 
-  const refreshVendors = async () => {
+  const addNewVendor = async (input: CreateVendorInput): Promise<Vendor> => {
     try {
-      const liveVendors = await fetchUIVendors(vendors);
-      if (liveVendors && liveVendors.length > 0) {
-        setVendors(liveVendors);
-        setIsVendorsLive(true);
-      }
+      const created = await createUIVendor(input);
+      setVendors((prev) => [created, ...prev]);
+      return created;
     } catch {
-      setIsVendorsLive(false);
+      const localFallback: Vendor = {
+        id: `vend-local-${Date.now()}`,
+        name: input.name,
+        category: input.category,
+        accountNumber: `ACT-${Math.floor(100000 + Math.random() * 900000)}`,
+        defaultPaymentMethod: input.defaultPaymentMethod,
+        remittanceAddress: input.remittanceAddress || 'PO Box 1000, Commercial Suite, US',
+        taxId: input.taxId,
+        status: 'verified',
+        historicalMatchesCount: 0,
+        phoneNumber: input.phoneNumber,
+        paymentUrl: input.paymentUrl,
+      };
+      setVendors((prev) => [localFallback, ...prev]);
+      return localFallback;
     }
   };
 
@@ -149,6 +184,9 @@ export function useMasterData() {
   useEffect(() => {
     refreshProperties();
     refreshVendors();
+    fetchPropertyCategories().then(setPropertyCategories);
+    fetchVendorCategories().then(setVendorCategories);
+    fetchPaymentMethods().then(setPaymentMethods);
   }, []);
 
   return {
@@ -159,6 +197,10 @@ export function useMasterData() {
     vendors,
     isVendorsLive,
     refreshVendors,
+    addNewVendor,
+    propertyCategories,
+    vendorCategories,
+    paymentMethods,
     mappings,
     toggleAutoApproval,
     addMapping,

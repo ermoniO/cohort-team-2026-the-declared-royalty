@@ -1,7 +1,7 @@
 import type { VendorResponse, VendorCreateRequest, VendorUpdateRequest } from "@/types/vendor.ts";
 import type { Vendor as UIVendor } from "@/types.ts";
 import { apiClient } from "@/app/services/apiClient.ts";
-import { toUIVendor } from "@/app/adapters/vendorAdapter.ts";
+import { toUIVendor, toBackendVendorCreate, CreateVendorInput } from "@/app/adapters/vendorAdapter.ts";
 
 export function getVendors(): Promise<VendorResponse[]> {
   return apiClient.get<VendorResponse[]>("/api/v1/vendors", undefined, false);
@@ -19,6 +19,16 @@ export function createVendor(request: VendorCreateRequest): Promise<VendorRespon
 // Partial update: only the fields sent are changed; send "NULL" to clear phoneNumber or paymentUrl
 export function updateVendor(vendorUuid: string, request: VendorUpdateRequest): Promise<VendorResponse> {
   return apiClient.put<VendorResponse, VendorUpdateRequest>(`/api/v1/vendors/${vendorUuid}`, request, undefined, false);
+}
+
+/**
+ * High-level creation function that adapts UI form input to backend DTO and
+ * returns the created vendor as a rich UI Vendor model.
+ */
+export async function createUIVendor(input: CreateVendorInput): Promise<UIVendor> {
+  const req = toBackendVendorCreate(input);
+  const dto = await createVendor(req);
+  return toUIVendor(dto);
 }
 
 /**

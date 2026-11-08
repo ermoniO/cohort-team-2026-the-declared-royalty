@@ -15,6 +15,8 @@ import { useAuth } from '../hooks/useAuth';
 import { useMasterData } from '../hooks/useMasterData';
 import { useInvoices } from '../hooks/useInvoices';
 import { CreatePropertyInput } from '../app/adapters/propertyAdapter';
+import { CreateVendorInput } from '../app/adapters/vendorAdapter';
+import type { PropertyCategoryResponse, VendorCategoryResponse, PaymentMethodResponse } from '../types/metadata';
 
 interface InvoiceContextType {
   // Auth & Session
@@ -42,6 +44,10 @@ interface InvoiceContextType {
   vendors: Vendor[];
   isVendorsLive: boolean;
   refreshVendors: () => Promise<void>;
+  addNewVendor: (input: CreateVendorInput) => Promise<Vendor>;
+  propertyCategories: PropertyCategoryResponse[];
+  vendorCategories: VendorCategoryResponse[];
+  paymentMethods: PaymentMethodResponse[];
   mappings: PropertyVendorRelationship[];
   toggleAutoApproval: (mappingId: string) => void;
   addMapping: (mapping: Omit<PropertyVendorRelationship, 'id'>) => void;
@@ -133,6 +139,10 @@ export const InvoiceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         vendors: masterData.vendors,
         isVendorsLive: masterData.isVendorsLive,
         refreshVendors: masterData.refreshVendors,
+        addNewVendor: masterData.addNewVendor,
+        propertyCategories: masterData.propertyCategories,
+        vendorCategories: masterData.vendorCategories,
+        paymentMethods: masterData.paymentMethods,
         mappings: masterData.mappings,
         toggleAutoApproval: masterData.toggleAutoApproval,
         addMapping: masterData.addMapping,

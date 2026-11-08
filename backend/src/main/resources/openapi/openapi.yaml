@@ -47,6 +47,8 @@ components:
       $ref: './components/schemas/PropertyCategoryResponse.yaml'
     VendorCategoryResponse:
       $ref: './components/schemas/VendorCategoryResponse.yaml'
+    PaymentMethodResponse:
+      $ref: './components/schemas/PaymentMethodResponse.yaml'
     PropertyCreateRequest:
       $ref: './components/schemas/PropertyCreateRequest.yaml'
     PropertyResponse:

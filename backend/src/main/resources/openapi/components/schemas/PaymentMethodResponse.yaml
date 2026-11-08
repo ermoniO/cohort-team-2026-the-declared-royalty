@@ -1,0 +1,15 @@
+type: object
+required:
+  - methodCode
+  - name
+properties:
+  methodCode:
+    type: string
+    example: "ACH"
+  name:
+    type: string
+    example: "ACH Direct Debit"
+  description:
+    type: string
+    example: "Automated Clearing House electronic bank transfer"
+

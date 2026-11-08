@@ -41,7 +41,7 @@ public class VendorService {
 
     @Transactional(readOnly = true)
     public List<VendorCategoryResponse> getAllVendorCategories() {
-        String sql = "SELECT category_code, name, description FROM vendor_categories ORDER BY name ASC";
+        String sql = "SELECT category_code, name, description FROM vendor_categories WHERE status = 'ACTIVE' ORDER BY name ASC";
         return jdbcTemplate.query(sql, (rs, rowNum) -> {
             VendorCategoryResponse res = new VendorCategoryResponse();
             res.setCategoryCode(rs.getString("category_code"));
@@ -52,13 +52,20 @@ public class VendorService {
     }
 
     @Transactional(readOnly = true)
-    public List<PaymentMethod> getAllPaymentMethods() {
-        return List.of(PaymentMethod.ACH, PaymentMethod.CHECK, PaymentMethod.CREDIT_CARD);
+    public List<PaymentMethodResponse> getAllPaymentMethods() {
+        String sql = "SELECT method_code, name, description FROM payment_methods WHERE status = 'ACTIVE' ORDER BY name ASC";
+        return jdbcTemplate.query(sql, (rs, rowNum) -> {
+            PaymentMethodResponse res = new PaymentMethodResponse();
+            res.setMethodCode(rs.getString("method_code"));
+            res.setName(rs.getString("name"));
+            res.setDescription(rs.getString("description"));
+            return res;
+        });
     }
 
     public VendorResponse createVendor(VendorCreateRequest request) {
         VendorStatus status = request.getStatus() != null ? request.getStatus() : VendorStatus.ACTIVE;
-        PaymentMethod paymentMethod = request.getPaymentMethod() != null ? request.getPaymentMethod() : PaymentMethod.ACH;
+        String paymentMethod = request.getPaymentMethod() != null ? request.getPaymentMethod().getValue() : "ACH";
         OffsetDateTime now = now();
 
         VendorEntity entity = new VendorEntity();
@@ -69,7 +76,7 @@ public class VendorService {
         entity.setPhoneNumber(toStored(request.getPhoneNumber()));
         entity.setStatus(status.getValue());
         entity.setPaymentUrl(toStored(request.getPaymentUrl()));
-        entity.setPaymentMethod(paymentMethod.getValue());
+        entity.setPaymentMethod(paymentMethod);
         entity.setCreatedAt(now);
         entity.setUpdatedAt(now);
 

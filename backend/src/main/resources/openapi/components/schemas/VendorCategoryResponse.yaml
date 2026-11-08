@@ -12,3 +12,4 @@ properties:
   description:
     type: string
     example: "Electric, water, gas, solar, and utility monitoring"
+

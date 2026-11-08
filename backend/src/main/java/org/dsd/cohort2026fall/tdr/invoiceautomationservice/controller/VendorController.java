@@ -45,7 +45,7 @@ public class VendorController implements VendorsApi {
     }
 
     @Override
-    public ResponseEntity<List<PaymentMethod>> getVendorPaymentMethods() {
+    public ResponseEntity<List<PaymentMethodResponse>> getVendorPaymentMethods() {
         return ResponseEntity.ok(vendorService.getAllPaymentMethods());
     }
 }

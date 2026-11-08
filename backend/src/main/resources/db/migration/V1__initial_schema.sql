@@ -1,13 +1,15 @@
-
 -- ============================================================================
--- 1. REFERENCE TABLES (Properties & Vendors Categories)
+-- 1. REFERENCE TABLES (Properties, Vendors Categories & Payment Methods)
 -- ============================================================================
 CREATE TABLE property_categories
 (
     category_code VARCHAR(100) PRIMARY KEY,
     name          VARCHAR(255) NOT NULL,
     description   VARCHAR(500),
-    created_at    TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+    status        VARCHAR(50)  NOT NULL DEFAULT 'ACTIVE',
+    created_at    TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at    TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT check_property_category_status CHECK (status IN ('ACTIVE', 'INACTIVE'))
 );
 
 CREATE TABLE vendor_categories
@@ -15,7 +17,21 @@ CREATE TABLE vendor_categories
     category_code VARCHAR(100) PRIMARY KEY,
     name          VARCHAR(255) NOT NULL,
     description   VARCHAR(500),
-    created_at    TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+    status        VARCHAR(50)  NOT NULL DEFAULT 'ACTIVE',
+    created_at    TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at    TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT check_vendor_category_status CHECK (status IN ('ACTIVE', 'INACTIVE'))
+);
+
+CREATE TABLE payment_methods
+(
+    method_code   VARCHAR(50) PRIMARY KEY,
+    name          VARCHAR(100) NOT NULL,
+    description   VARCHAR(255),
+    status        VARCHAR(50)  NOT NULL DEFAULT 'ACTIVE',
+    created_at    TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at    TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT check_payment_method_status CHECK (status IN ('ACTIVE', 'INACTIVE'))
 );
 
 -- ============================================================================
@@ -29,7 +45,8 @@ CREATE TABLE properties
     address          JSONB                                              NOT NULL,
     status           VARCHAR(50)              NOT NULL DEFAULT 'ACTIVE',
     created_at       TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at       TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+    updated_at       TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT check_property_status CHECK (status IN ('ACTIVE', 'INACTIVE'))
 );
 
 CREATE INDEX idx_properties_address_zip ON properties ((address->>'zipCode'));
@@ -44,16 +61,13 @@ CREATE TABLE vendors
     category             VARCHAR(100)             REFERENCES vendor_categories (category_code) ON DELETE SET NULL,
     tax_id               VARCHAR(50),
     billing_phone_number VARCHAR(255),
-    status               VARCHAR(255)             NOT NULL DEFAULT 'ACTIVE',
+    status               VARCHAR(50)              NOT NULL DEFAULT 'ACTIVE',
     payment_url          VARCHAR(225),
-    payment_method       VARCHAR(255)             NOT NULL DEFAULT 'ACH',
+    payment_method       VARCHAR(50)              NOT NULL REFERENCES payment_methods (method_code) ON DELETE RESTRICT,
     created_at           TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at           TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    CONSTRAINT check_payment_method CHECK ( payment_method IN ('CHECK', 'CREDIT_CARD', 'ACH')),
-    CONSTRAINT check_status CHECK ( status IN ('ACTIVE', 'INACTIVE'))
+    CONSTRAINT check_vendor_status CHECK ( status IN ('ACTIVE', 'INACTIVE'))
 );
--- CREATE INDEX idx_vendor_name ON vendors (vendor_name);
--- CREATE INDEX idx_property_name ON properties (name);
 
 CREATE TABLE property_vendor_mapping
 (
@@ -65,15 +79,9 @@ CREATE TABLE property_vendor_mapping
     auto_approval_enabled BOOLEAN                  NOT NULL DEFAULT FALSE,
     created_at            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    CONSTRAINT check_status CHECK ( status IN ('ACTIVE', 'INACTIVE')),
+    CONSTRAINT check_mapping_status CHECK ( status IN ('ACTIVE', 'INACTIVE')),
     CONSTRAINT unique_key_property_vendor UNIQUE (vendor_uuid, property_uuid)
 );
--- CREATE INDEX idx_vendor_id ON vendors (vendor_id);
--- CREATE INDEX idx_property_id ON properties (property_id);
--- CREATE INDEX idx_pvm_vendor_account_number ON property_vendor_mapping (vendor_account_number);
--- CREATE INDEX idx_pvm_vendor_id ON property_vendor_mapping (vendor_id);
--- CREATE INDEX idx_pvm_property_id ON property_vendor_mapping (property_id);
-
 
 CREATE TABLE invoices
 (
@@ -91,15 +99,10 @@ CREATE TABLE invoices
     blob_file_sha256           VARCHAR(100),
     created_at                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    CONSTRAINT check_status CHECK ( invoice_status IN
+    CONSTRAINT check_invoice_status CHECK ( invoice_status IN
                                     ('INGESTED', 'PENDING_MAPPING', 'PENDING_APPROVAL', 'APPROVED', 'PAID', 'FAILED',
                                      'PROCESSING_PAYMENT', 'VOID'))
 );
--- Indexing for invoice_status, blob_file_url, blob_file_sha256, and mapping_uuid
--- CREATE INDEX idx_invoice_status ON invoices (invoice_status);
--- CREATE INDEX idx_blob_file_url ON invoices (blob_file_url);
--- CREATE INDEX idx_blob_file_sha256 ON invoices (blob_file_sha256);
--- CREATE INDEX idx_invoice_mapping_uuid ON invoices (mapping_uuid);
 
 CREATE TABLE users
 (
@@ -111,7 +114,7 @@ CREATE TABLE users
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     CONSTRAINT check_role CHECK ( role IN ('AI', 'ADMIN', 'SUPER_ADMIN')),
-    CONSTRAINT check_status CHECK ( status IN ('ACTIVE', 'INACTIVE'))
+    CONSTRAINT check_user_status CHECK ( status IN ('ACTIVE', 'INACTIVE'))
 );
 
 CREATE TABLE audit_logs
@@ -123,9 +126,6 @@ CREATE TABLE audit_logs
     action_taken VARCHAR(225),
     from_state   VARCHAR(255),
     to_state     VARCHAR(255),
-    notes        VARCHAR(3000),
     created_at   TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at   TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
--- Indexing audit_logs on invoice_uuid
--- CREATE INDEX idx_audit_logs ON audit_logs (audit_uuid);

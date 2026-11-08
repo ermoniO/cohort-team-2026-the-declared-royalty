@@ -9,28 +9,35 @@ DELETE FROM invoices;
 DELETE FROM property_vendor_mapping;
 DELETE FROM vendors;
 DELETE FROM properties;
+DELETE FROM payment_methods;
 DELETE FROM vendor_categories;
 DELETE FROM property_categories;
 
 -- 2. Seed Property Categories
-INSERT INTO property_categories (category_code, name, description) VALUES
-('COMMERCIAL_OFFICE', 'Commercial Office Tower', 'Multi-tenant high-rise and corporate office properties'),
-('RETAIL_PLAZA', 'Retail Plaza & Shopping Center', 'Open-air strip centers, grocery-anchored plazas, and regional retail'),
-('INDUSTRIAL_PARK', 'Industrial Logistics Hub', 'Distribution warehouses, flex facilities, and manufacturing parks'),
-('MEDICAL_CENTER', 'Medical Center Pavilion', 'Healthcare clinics, surgical centers, and outpatient medical buildings');
+INSERT INTO property_categories (category_code, name, description, status) VALUES
+('COMMERCIAL_OFFICE', 'Commercial Office Tower', 'Multi-tenant high-rise and corporate office properties', 'ACTIVE'),
+('RETAIL_PLAZA', 'Retail Plaza & Shopping Center', 'Open-air strip centers, grocery-anchored plazas, and regional retail', 'ACTIVE'),
+('INDUSTRIAL_PARK', 'Industrial Logistics Hub', 'Distribution warehouses, flex facilities, and manufacturing parks', 'ACTIVE'),
+('MEDICAL_CENTER', 'Medical Center Pavilion', 'Healthcare clinics, surgical centers, and outpatient medical buildings', 'ACTIVE');
 
 -- 3. Seed Vendor Categories
-INSERT INTO vendor_categories (category_code, name, description) VALUES
-('UTILITIES_ENERGY', 'Utilities & Energy Management', 'Electric, water, gas, solar, and utility monitoring'),
-('HVAC_MECHANICAL', 'HVAC & Mechanical Systems', 'Heating, cooling, boilers, chillers, and preventative HVAC maintenance'),
-('JANITORIAL_CLEANING', 'Janitorial & Cleaning Services', 'Commercial daily office cleaning, trash removal, and sanitization'),
-('FIRE_LIFE_SAFETY', 'Fire & Life Safety Systems', 'Fire alarms, sprinkler inspections, extinguishers, and emergency lighting'),
-('SECURITY_ACCESS', 'Security & Access Control', 'Physical security, keycard access controls, and video surveillance'),
-('ELEVATOR_VERTICAL', 'Elevator & Vertical Transport', 'Elevator inspections, maintenance contracts, and cab servicing'),
-('LANDSCAPING_GROUNDS', 'Landscaping & Grounds Care', 'Groundskeeping, irrigation, snow removal, and exterior maintenance'),
-('GENERAL_MAINTENANCE', 'General Facility Maintenance', 'Handyman, lock repair, painting, drywall, and structural maintenance');
+INSERT INTO vendor_categories (category_code, name, description, status) VALUES
+('UTILITIES_ENERGY', 'Utilities & Energy Management', 'Electric, water, gas, solar, and utility monitoring', 'ACTIVE'),
+('HVAC_MECHANICAL', 'HVAC & Mechanical Systems', 'Heating, cooling, boilers, chillers, and preventative HVAC maintenance', 'ACTIVE'),
+('JANITORIAL_CLEANING', 'Janitorial & Cleaning Services', 'Commercial daily office cleaning, trash removal, and sanitization', 'ACTIVE'),
+('FIRE_LIFE_SAFETY', 'Fire & Life Safety Systems', 'Fire alarms, sprinkler inspections, extinguishers, and emergency lighting', 'ACTIVE'),
+('SECURITY_ACCESS', 'Security & Access Control', 'Physical security, keycard access controls, and video surveillance', 'ACTIVE'),
+('ELEVATOR_VERTICAL', 'Elevator & Vertical Transport', 'Elevator inspections, maintenance contracts, and cab servicing', 'ACTIVE'),
+('LANDSCAPING_GROUNDS', 'Landscaping & Grounds Care', 'Groundskeeping, irrigation, snow removal, and exterior maintenance', 'ACTIVE'),
+('GENERAL_MAINTENANCE', 'General Facility Maintenance', 'Handyman, lock repair, painting, drywall, and structural maintenance', 'ACTIVE');
 
--- 4. Seed Meaningful Properties (PostgreSQL generates property_uuid)
+-- 4. Seed Payment Methods
+INSERT INTO payment_methods (method_code, name, description, status) VALUES
+('ACH', 'ACH Direct Debit', 'Automated Clearing House electronic bank transfer', 'ACTIVE'),
+('CHECK', 'Paper Check', 'Accounts Payable physical commercial bank check', 'ACTIVE'),
+('CREDIT_CARD', 'Commercial Credit Card', 'Corporate purchasing card disbursement', 'ACTIVE');
+
+-- 5. Seed Meaningful Properties (PostgreSQL generates property_uuid)
 INSERT INTO properties (name, category, address, status) VALUES
 (
     'Grandview Office Tower',
@@ -57,13 +64,13 @@ INSERT INTO properties (name, category, address, status) VALUES
     'ACTIVE'
 );
 
--- 5. Seed Meaningful Vendors (PostgreSQL generates vendor_uuid)
+-- 6. Seed Meaningful Vendors (PostgreSQL generates vendor_uuid)
 INSERT INTO vendors (vendor_name, category, tax_id, billing_phone_number, payment_method, status) VALUES
 ('Apex Utilities & HVAC', 'UTILITIES_ENERGY', '12-3456789', '555-0192', 'ACH', 'ACTIVE'),
 ('Beacon Fire & Life Safety', 'FIRE_LIFE_SAFETY', '98-7654321', '555-0144', 'CHECK', 'ACTIVE'),
 ('Cornerstone Commercial Janitorial', 'JANITORIAL_CLEANING', '45-6789012', '555-0188', 'CREDIT_CARD', 'ACTIVE');
 
--- 6. Map Vendor to Property dynamically (PostgreSQL generates mapping_uuid)
+-- 7. Map Vendor to Property dynamically (PostgreSQL generates mapping_uuid)
 INSERT INTO property_vendor_mapping (vendor_uuid, property_uuid, vendor_account_number, status, auto_approval_enabled)
 SELECT 
     v.vendor_uuid,
@@ -75,7 +82,7 @@ FROM vendors v, properties p
 WHERE v.vendor_name = 'Apex Utilities & HVAC'
   AND p.name = 'Grandview Office Tower';
 
--- 7. Seed Initial Test Invoice dynamically (PostgreSQL generates invoice_uuid)
+-- 8. Seed Initial Test Invoice dynamically (PostgreSQL generates invoice_uuid)
 INSERT INTO invoices (mapping_uuid, vendor_supplied_invoice_id, amount, invoice_status)
 SELECT 
     m.mapping_uuid,

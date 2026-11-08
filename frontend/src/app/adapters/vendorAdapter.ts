@@ -1,10 +1,20 @@
 import type { Vendor as UIVendor, PaymentMethod } from '../../types';
 import type { VendorResponse, VendorCreateRequest } from '../../types/vendor';
 
+export interface CreateVendorInput {
+  name: string;
+  category: string;
+  taxId: string;
+  defaultPaymentMethod: PaymentMethod;
+  phoneNumber?: string;
+  paymentUrl?: string;
+  remittanceAddress?: string;
+}
+
 /**
  * Adapter to translate backend VendorResponse DTO into rich UI Vendor model.
- * Preserves frontend fields (category, taxId, remittanceAddress) while populating
- * real backend fields (vendorUuid, name, phoneNumber, paymentUrl, paymentMethod, status).
+ * Preserves frontend fields (remittanceAddress) while populating
+ * real backend fields (vendorUuid, name, category, taxId, phoneNumber, paymentUrl, paymentMethod, status).
  */
 export function toUIVendor(
   dto: VendorResponse,
@@ -15,7 +25,6 @@ export function toUIVendor(
   const cleanUrl =
     dto.paymentUrl && dto.paymentUrl !== 'NULL' ? dto.paymentUrl : undefined;
 
-  // Frontend statuses: 'verified' | 'unverified' | 'pending_review'
   let uiStatus: 'verified' | 'unverified' | 'pending_review' = 'verified';
   if (existingUIVendor?.status) {
     uiStatus = existingUIVendor.status;
@@ -26,13 +35,13 @@ export function toUIVendor(
   return {
     id: dto.vendorUuid,
     name: dto.name,
-    category: existingUIVendor?.category || 'Commercial Facilities & Services',
+    category: dto.category || existingUIVendor?.category || '',
     accountNumber:
       existingUIVendor?.accountNumber || `ACT-${dto.vendorUuid.slice(0, 6).toUpperCase()}`,
     defaultPaymentMethod: dto.paymentMethod,
     remittanceAddress:
       existingUIVendor?.remittanceAddress || 'PO Box 1000, Commercial Suite, US',
-    taxId: existingUIVendor?.taxId || 'XX-XXXXXXX',
+    taxId: dto.taxId || existingUIVendor?.taxId || 'XX-XXXXXXX',
     status: uiStatus,
     historicalMatchesCount: existingUIVendor?.historicalMatchesCount || 1,
     phoneNumber: cleanPhone,
@@ -44,14 +53,15 @@ export function toUIVendor(
  * Adapter to transform UI Vendor into backend VendorCreateRequest.
  */
 export function toBackendVendorCreate(
-  ui: Partial<UIVendor>
+  ui: CreateVendorInput
 ): VendorCreateRequest {
   return {
-    name: ui.name || 'Untitled Vendor',
-    phoneNumber: ui.phoneNumber,
-    paymentUrl: ui.paymentUrl,
+    name: ui.name.trim() || 'Untitled Vendor',
+    category: ui.category.trim(),
+    taxId: ui.taxId.trim(),
+    phoneNumber: ui.phoneNumber?.trim() || undefined,
+    paymentUrl: ui.paymentUrl?.trim() || undefined,
     paymentMethod: ui.defaultPaymentMethod || 'ACH',
-    status: ui.status === 'unverified' ? 'INACTIVE' : 'ACTIVE',
+    status: 'ACTIVE',
   };
 }
-

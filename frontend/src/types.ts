@@ -49,7 +49,7 @@ export type IntakeMethod =
     | 'email_parsing'
     | 'edi_feed';
 
-export type PaymentMethod = 'ACH' | 'CHECK' | 'CREDIT_CARD';
+export type PaymentMethod = string;
 
 export type PaymentStatus =
     | 'unpaid'
@@ -103,7 +103,7 @@ export interface Property {
     id: string;
     name: string;
     address: string;
-    propertyType: 'commercial_office' | 'retail_plaza' | 'industrial_park' | 'medical_center';
+    propertyType: string;
     managerName: string;
     sqft: number;
     policy: PayerPolicy;

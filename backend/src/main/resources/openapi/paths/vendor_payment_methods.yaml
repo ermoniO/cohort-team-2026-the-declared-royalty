@@ -5,10 +5,10 @@ get:
     - Vendors
   responses:
     '200':
-      description: Supported payment methods
+      description: Supported payment methods from database
       content:
         application/json:
           schema:
             type: array
             items:
-              $ref: '../components/schemas/PaymentMethod.yaml'
+              $ref: '../components/schemas/PaymentMethodResponse.yaml'

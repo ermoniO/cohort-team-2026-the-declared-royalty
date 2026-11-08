@@ -12,3 +12,4 @@ properties:
   description:
     type: string
     example: "Multi-tenant high-rise and corporate office properties"
+

@@ -1,8 +1,4 @@
-export type PropertyTypeDTO =
-  | 'COMMERCIAL_OFFICE'
-  | 'RETAIL_PLAZA'
-  | 'INDUSTRIAL_PARK'
-  | 'MEDICAL_CENTER';
+export type PropertyStatus = 'ACTIVE' | 'INACTIVE';
 
 export interface AddressDTO {
   streetAddress: string;
@@ -14,23 +10,25 @@ export interface AddressDTO {
 export type Property = {
   propertyId: string;
   name: string;
-  propertyType: PropertyTypeDTO;
+  category: string;
   address: AddressDTO;
-  status: string;
+  status: PropertyStatus;
   createdAt?: string;
   updatedAt?: string;
 };
 
 export type PropertyCreateRequest = {
   name: string;
-  propertyType: PropertyTypeDTO;
+  category: string;
   address: AddressDTO;
 };
 
 export type PropertyResponse = {
   propertyId: string;
   name: string;
-  propertyType: PropertyTypeDTO;
+  category: string;
   address: AddressDTO;
-  status: string;
+  status: PropertyStatus;
+  createdAt?: string;
+  updatedAt?: string;
 };

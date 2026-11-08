@@ -43,7 +43,7 @@ public class PropertyService {
 
     @Transactional(readOnly = true)
     public List<PropertyCategoryResponse> getAllPropertyCategories() {
-        String sql = "SELECT category_code, name, description FROM property_categories ORDER BY name ASC";
+        String sql = "SELECT category_code, name, description FROM property_categories WHERE status = 'ACTIVE' ORDER BY name ASC";
         return jdbcTemplate.query(sql, (rs, rowNum) -> {
             PropertyCategoryResponse res = new PropertyCategoryResponse();
             res.setCategoryCode(rs.getString("category_code"));
