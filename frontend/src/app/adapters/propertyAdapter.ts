@@ -52,7 +52,7 @@ export function toBackendPropertyCreate(
     name: ui.name.trim() || 'Untitled Property',
     category: ui.category.trim(),
     ownerEntity: ui.ownerEntity?.trim() || undefined,
-    sqft: ui.sqft || undefined,
+    sqft: ui.sqft !== undefined ? ui.sqft : undefined,
     address: {
       streetAddress: ui.streetAddress.trim() || '',
       city: ui.city.trim() || '',

@@ -70,7 +70,8 @@ export function useMasterData() {
         address: fullAddress,
         propertyType: input.category || 'COMMERCIAL_OFFICE',
         managerName: 'Operations Manager',
-        sqft: 200000,
+        ownerEntity: input.ownerEntity,
+        sqft: input.sqft ?? 200000,
         policy: { ...COMPANY_DEFAULT_POLICY },
         hasCustomPolicy: false,
       };
