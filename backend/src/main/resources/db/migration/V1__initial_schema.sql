@@ -1,25 +1,48 @@
 
 -- ============================================================================
--- 1. PROPERTIES (Physical Managed Real Estate Assets)
+-- 1. REFERENCE TABLES (Properties & Vendors Categories)
+-- ============================================================================
+CREATE TABLE property_categories
+(
+    category_code VARCHAR(100) PRIMARY KEY,
+    name          VARCHAR(255) NOT NULL,
+    description   VARCHAR(500),
+    created_at    TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+CREATE TABLE vendor_categories
+(
+    category_code VARCHAR(100) PRIMARY KEY,
+    name          VARCHAR(255) NOT NULL,
+    description   VARCHAR(500),
+    created_at    TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+-- ============================================================================
+-- 2. PROPERTIES (Physical Managed Real Estate Assets)
 -- ============================================================================
 CREATE TABLE properties
 (
     property_uuid    UUID PRIMARY KEY         DEFAULT gen_random_uuid(),
     name             VARCHAR(255)                                       NOT NULL,
-    property_type    VARCHAR(50)              NOT NULL DEFAULT 'COMMERCIAL_OFFICE',
+    category         VARCHAR(100)             NOT NULL REFERENCES property_categories (category_code) ON DELETE RESTRICT,
     address          JSONB                                              NOT NULL,
     status           VARCHAR(50)              NOT NULL DEFAULT 'ACTIVE',
     created_at       TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at       TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    CONSTRAINT check_property_type CHECK (property_type IN ('COMMERCIAL_OFFICE', 'RETAIL_PLAZA', 'INDUSTRIAL_PARK', 'MEDICAL_CENTER'))
+    updated_at       TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 CREATE INDEX idx_properties_address_zip ON properties ((address->>'zipCode'));
 
+-- ============================================================================
+-- 3. VENDORS (Suppliers & Service Providers)
+-- ============================================================================
 CREATE TABLE vendors
 (
     vendor_uuid          UUID PRIMARY KEY         DEFAULT gen_random_uuid(), -- UUID Auto generates
     vendor_name          VARCHAR(255)             NOT NULL,
+    category             VARCHAR(100)             REFERENCES vendor_categories (category_code) ON DELETE SET NULL,
+    tax_id               VARCHAR(50),
     billing_phone_number VARCHAR(255),
     status               VARCHAR(255)             NOT NULL DEFAULT 'ACTIVE',
     payment_url          VARCHAR(225),
