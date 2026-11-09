@@ -1,0 +1,12 @@
+type: object
+required:
+  - userUuid
+  - tierSlug
+properties:
+  userUuid:
+    type: string
+    format: uuid
+  tierSlug:
+    type: string
+    example: "TIER_2_MID_SPM"
+

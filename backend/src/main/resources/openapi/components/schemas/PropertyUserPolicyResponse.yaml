@@ -1,0 +1,54 @@
+type: object
+required:
+  - propertyUuid
+  - userUuid
+  - userName
+  - userEmail
+  - userRole
+  - tierSlug
+  - tierDisplayName
+  - variableMax
+  - fixedAutoMax
+  - status
+  - createdAt
+  - updatedAt
+properties:
+  propertyUuid:
+    type: string
+    format: uuid
+  userUuid:
+    type: string
+    format: uuid
+  userName:
+    type: string
+    example: "Sarah Jenkins"
+  userEmail:
+    type: string
+    example: "s.jenkins@pmfirm.com"
+  userRole:
+    type: string
+    example: "SENIOR_PROPERTY_MANAGER"
+  tierSlug:
+    type: string
+    example: "TIER_2_MID_SPM"
+  tierDisplayName:
+    type: string
+    example: "Senior PM Operational Tier"
+  variableMax:
+    type: number
+    format: double
+    example: 5000.00
+  fixedAutoMax:
+    type: number
+    format: double
+    example: 10000.00
+  status:
+    type: string
+    example: "ACTIVE"
+  createdAt:
+    type: string
+    format: date-time
+  updatedAt:
+    type: string
+    format: date-time
+

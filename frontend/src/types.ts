@@ -1,4 +1,14 @@
-export type UserRole = 'ap_specialist' | 'property_manager' | 'vp_finance' | 'admin_auditor';
+export type UserRole =
+  | 'ap_specialist'
+  | 'property_manager'
+  | 'vp_finance'
+  | 'admin_auditor'
+  | 'ADMIN'
+  | 'ACCOUNTANT'
+  | 'PROPERTY_MANAGER'
+  | 'SENIOR_PROPERTY_MANAGER'
+  | 'REGIONAL_DIRECTOR'
+  | 'VICE_PRESIDENT';
 
 export interface RoleProfile {
     id: UserRole;

@@ -1,0 +1,30 @@
+type: object
+required:
+  - tierSlug
+  - displayName
+  - allowedRole
+  - variableMax
+  - fixedAutoMax
+  - status
+properties:
+  tierSlug:
+    type: string
+    example: "TIER_2_MID_SPM"
+  displayName:
+    type: string
+    example: "Senior PM Operational Tier"
+  allowedRole:
+    type: string
+    example: "SENIOR_PROPERTY_MANAGER"
+  variableMax:
+    type: number
+    format: double
+    example: 5000.00
+  fixedAutoMax:
+    type: number
+    format: double
+    example: 10000.00
+  status:
+    type: string
+    example: "ACTIVE"
+

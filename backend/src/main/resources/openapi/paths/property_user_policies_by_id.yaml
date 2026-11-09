@@ -1,0 +1,78 @@
+put:
+  summary: Assign or update operative policy tier on a property
+  description: Assigns a user to a property with an authorized corporate policy tier.
+  tags:
+    - Properties
+  operationId: assignPropertyUserPolicy
+  parameters:
+    - name: propertyId
+      in: path
+      required: true
+      description: The UUID of the property
+      schema:
+        type: string
+        format: uuid
+    - name: userUuid
+      in: path
+      required: true
+      description: The UUID of the user
+      schema:
+        type: string
+        format: uuid
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../components/schemas/PropertyUserPolicyAssignmentRequest.yaml'
+  responses:
+    '200':
+      description: Policy tier successfully assigned to the operative
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/PropertyUserPolicyResponse.yaml'
+    '400':
+      description: Invalid request or role legality violation
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'
+    '404':
+      description: Property or User not found
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'
+
+delete:
+  summary: Remove operative policy assignment from a property
+  description: Soft-deactivates the user policy assignment for the specified property.
+  tags:
+    - Properties
+  operationId: removePropertyUserPolicy
+  parameters:
+    - name: propertyId
+      in: path
+      required: true
+      description: The UUID of the property
+      schema:
+        type: string
+        format: uuid
+    - name: userUuid
+      in: path
+      required: true
+      description: The UUID of the user
+      schema:
+        type: string
+        format: uuid
+  responses:
+    '204':
+      description: Assignment successfully removed
+    '404':
+      description: Assignment not found
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'
+

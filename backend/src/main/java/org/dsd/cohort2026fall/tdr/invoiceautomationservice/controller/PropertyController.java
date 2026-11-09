@@ -1,10 +1,8 @@
 package org.dsd.cohort2026fall.tdr.invoiceautomationservice.controller;
 
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.api.PropertiesApi;
-import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.PropertyCategoryResponse;
-import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.PropertyCreateRequest;
-import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.PropertyGlAccountResponse;
-import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.PropertyResponse;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.*;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.service.PropertyPolicyService;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.service.PropertyService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,9 +15,11 @@ import java.util.UUID;
 public class PropertyController implements PropertiesApi {
 
     private final PropertyService propertyService;
+    private final PropertyPolicyService propertyPolicyService;
 
-    public PropertyController(PropertyService propertyService) {
+    public PropertyController(PropertyService propertyService, PropertyPolicyService propertyPolicyService) {
         this.propertyService = propertyService;
+        this.propertyPolicyService = propertyPolicyService;
     }
 
     @Override
@@ -45,5 +45,22 @@ public class PropertyController implements PropertiesApi {
     @Override
     public ResponseEntity<List<PropertyGlAccountResponse>> getPropertyGlAccounts(UUID propertyId) {
         return ResponseEntity.ok(propertyService.getAllPropertyGlAccounts(propertyId));
+    }
+
+    @Override
+    public ResponseEntity<List<PropertyUserPolicyResponse>> getPropertyUserPolicies(UUID propertyId) {
+        return ResponseEntity.ok(propertyPolicyService.getPropertyUserPolicies(propertyId));
+    }
+
+    @Override
+    public ResponseEntity<PropertyUserPolicyResponse> assignPropertyUserPolicy(
+            UUID propertyId, UUID userUuid, PropertyUserPolicyAssignmentRequest request) {
+        return ResponseEntity.ok(propertyPolicyService.assignUserPolicy(propertyId, userUuid, request));
+    }
+
+    @Override
+    public ResponseEntity<Void> removePropertyUserPolicy(UUID propertyId, UUID userUuid) {
+        propertyPolicyService.removeUserPolicy(propertyId, userUuid);
+        return ResponseEntity.noContent().build();
     }
 }

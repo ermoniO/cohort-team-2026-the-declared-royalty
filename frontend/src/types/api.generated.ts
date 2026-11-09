@@ -76,6 +76,90 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/properties/{propertyId}/user-policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List property user policy assignments
+         * @description Returns active operative policy tier assignments for the specified property.
+         */
+        get: operations["getPropertyUserPolicies"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/properties/{propertyId}/user-policies/{userUuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Assign or update operative policy tier on a property
+         * @description Assigns a user to a property with an authorized corporate policy tier.
+         */
+        put: operations["assignPropertyUserPolicy"];
+        post?: never;
+        /**
+         * Remove operative policy assignment from a property
+         * @description Soft-deactivates the user policy assignment for the specified property.
+         */
+        delete: operations["removePropertyUserPolicy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List system roles
+         * @description Returns active global CRE system roles.
+         */
+        get: operations["getRoles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corporate-policy-tiers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List corporate policy tiers
+         * @description Returns active corporate standard financial clearance tiers.
+         */
+        get: operations["getCorporatePolicyTiers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users": {
         parameters: {
             query?: never;
@@ -290,6 +374,74 @@ export interface components {
             description?: string;
             /** @example ACTIVE */
             status: string;
+        };
+        RoleResponse: {
+            /** @example SENIOR_PROPERTY_MANAGER */
+            roleSlug: string;
+            /** @example Senior Property Manager (SPM) */
+            displayName: string;
+            /** @example Manages flagship assets or regional complexes. */
+            description?: string;
+            /** @example ACTIVE */
+            status: string;
+        };
+        CorporatePolicyTierResponse: {
+            /** @example TIER_2_MID_SPM */
+            tierSlug: string;
+            /** @example Senior PM Operational Tier */
+            displayName: string;
+            /** @example SENIOR_PROPERTY_MANAGER */
+            allowedRole: string;
+            /**
+             * Format: double
+             * @example 5000
+             */
+            variableMax: number;
+            /**
+             * Format: double
+             * @example 10000
+             */
+            fixedAutoMax: number;
+            /** @example ACTIVE */
+            status: string;
+        };
+        PropertyUserPolicyResponse: {
+            /** Format: uuid */
+            propertyUuid: string;
+            /** Format: uuid */
+            userUuid: string;
+            /** @example Sarah Jenkins */
+            userName: string;
+            /** @example s.jenkins@pmfirm.com */
+            userEmail: string;
+            /** @example SENIOR_PROPERTY_MANAGER */
+            userRole: string;
+            /** @example TIER_2_MID_SPM */
+            tierSlug: string;
+            /** @example Senior PM Operational Tier */
+            tierDisplayName: string;
+            /**
+             * Format: double
+             * @example 5000
+             */
+            variableMax: number;
+            /**
+             * Format: double
+             * @example 10000
+             */
+            fixedAutoMax: number;
+            /** @example ACTIVE */
+            status: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        PropertyUserPolicyAssignmentRequest: {
+            /** Format: uuid */
+            userUuid: string;
+            /** @example TIER_2_MID_SPM */
+            tierSlug: string;
         };
         VendorCategoryResponse: {
             /** @example UTILITIES_ENERGY */
@@ -629,6 +781,148 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PropertyGlAccountResponse"][];
+                };
+            };
+        };
+    };
+    getPropertyUserPolicies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The UUID of the property */
+                propertyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A list of active user policy assignments for the property */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PropertyUserPolicyResponse"][];
+                };
+            };
+        };
+    };
+    assignPropertyUserPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The UUID of the property */
+                propertyId: string;
+                /** @description The UUID of the user */
+                userUuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PropertyUserPolicyAssignmentRequest"];
+            };
+        };
+        responses: {
+            /** @description Policy tier successfully assigned to the operative */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PropertyUserPolicyResponse"];
+                };
+            };
+            /** @description Invalid request or role legality violation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Property or User not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    removePropertyUserPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The UUID of the property */
+                propertyId: string;
+                /** @description The UUID of the user */
+                userUuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Assignment successfully removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Assignment not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getRoles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A list of active system roles */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleResponse"][];
+                };
+            };
+        };
+    };
+    getCorporatePolicyTiers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A list of active corporate policy tiers */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorporatePolicyTierResponse"][];
                 };
             };
         };

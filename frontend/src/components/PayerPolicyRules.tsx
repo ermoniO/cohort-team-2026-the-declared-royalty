@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useInvoiceStore } from '../context/InvoiceContext';
 import { Property, PayerPolicy } from '../types';
 import {
@@ -13,9 +13,28 @@ import {
   ArrowRight,
   Lock,
   X,
-  Plus
+  Plus,
+  UserCheck,
+  Trash2,
+  KeyRound,
+  Shield,
+  Layers
 } from 'lucide-react';
 import { CreatePropertyModal } from './CreatePropertyModal';
+import {
+  getRoles,
+  getCorporatePolicyTiers,
+  getPropertyUserPolicies,
+  assignPropertyUserPolicy,
+  removePropertyUserPolicy,
+} from '../app/services/policyService';
+import { getUsers } from '../app/services/userService';
+import type { AppUser, UserRole } from '../types';
+import type {
+  RoleResponse,
+  CorporatePolicyTierResponse,
+  PropertyUserPolicyResponse,
+} from '@/types/api';
 
 export const PayerPolicyRules: React.FC = () => {
   const {
@@ -28,12 +47,137 @@ export const PayerPolicyRules: React.FC = () => {
     updatePropertyPolicy,
     evaluatePolicyForInvoice,
     currentProfile,
-    activeRole
+    activeRole,
+    availableUsers,
   } = useInvoiceStore();
 
   const [isAddPropertyOpen, setIsAddPropertyOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [editingCompanyPolicy, setEditingCompanyPolicy] = useState(false);
+
+  // Security Clearance & Property User Policy state
+  const [selectedPropContextId, setSelectedPropContextId] = useState<string>(properties[0]?.id || '');
+  const [corporateTiers, setCorporateTiers] = useState<CorporatePolicyTierResponse[]>([]);
+  const [roles, setRoles] = useState<RoleResponse[]>([]);
+  const [liveUsers, setLiveUsers] = useState<AppUser[]>([]);
+  const [userPolicies, setUserPolicies] = useState<PropertyUserPolicyResponse[]>([]);
+  const [isLoadingPolicies, setIsLoadingPolicies] = useState<boolean>(false);
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState<boolean>(false);
+  const [assignUserUuid, setAssignUserUuid] = useState<string>('');
+  const [assignTierSlug, setAssignTierSlug] = useState<string>('');
+  const [assignError, setAssignError] = useState<string | null>(null);
+  const [assignSuccess, setAssignSuccess] = useState<string | null>(null);
+
+  // Synchronize selected property context when properties list loads from API
+  useEffect(() => {
+    if (properties.length > 0 && (!selectedPropContextId || !properties.some((p) => p.id === selectedPropContextId))) {
+      setSelectedPropContextId(properties[0].id);
+    }
+  }, [properties, selectedPropContextId]);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadMetadata() {
+      try {
+        const [loadedRoles, loadedTiers, dbUsers] = await Promise.all([
+          getRoles(),
+          getCorporatePolicyTiers(),
+          getUsers().catch(() => []),
+        ]);
+        if (isMounted) {
+          setRoles(loadedRoles);
+          setCorporateTiers(loadedTiers);
+          if (dbUsers && dbUsers.length > 0) {
+            const mappedUsers: AppUser[] = dbUsers.map((u) => ({
+              id: u.userId,
+              name: u.userName,
+              email: u.email,
+              role: u.role as UserRole,
+              title: u.role.replace(/_/g, ' '),
+              status: (u.status as 'ACTIVE' | 'INACTIVE') || 'ACTIVE',
+              assignedPropertyIds: [],
+            }));
+            setLiveUsers(mappedUsers);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to load corporate policy metadata:', err);
+      }
+    }
+    loadMetadata();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (!selectedPropContextId) return;
+
+    async function loadPolicies() {
+      setIsLoadingPolicies(true);
+      try {
+        const policies = await getPropertyUserPolicies(selectedPropContextId);
+        if (isMounted) {
+          setUserPolicies(policies);
+        }
+      } catch (err) {
+        console.warn('Failed to fetch property user policies:', err);
+      } finally {
+        if (isMounted) setIsLoadingPolicies(false);
+      }
+    }
+    loadPolicies();
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedPropContextId]);
+
+  const activeOperativeUsers = liveUsers.length > 0 ? liveUsers : availableUsers;
+  const selectedUser = activeOperativeUsers.find((u) => u.id === assignUserUuid);
+  const selectedUserRole = selectedUser?.role?.toUpperCase() || '';
+
+  const handleOpenAssignModal = () => {
+    setAssignUserUuid(activeOperativeUsers[0]?.id || '');
+    setAssignTierSlug('');
+    setAssignError(null);
+    setAssignSuccess(null);
+    setIsAssignModalOpen(true);
+  };
+
+  const handleCommitPolicy = async () => {
+    if (!selectedPropContextId || !assignUserUuid || !assignTierSlug) {
+      setAssignError('Please select both an operative and an authorized policy tier.');
+      return;
+    }
+    try {
+      setAssignError(null);
+      await assignPropertyUserPolicy(selectedPropContextId, assignUserUuid, {
+        userUuid: assignUserUuid,
+        tierSlug: assignTierSlug,
+      });
+      setAssignSuccess('Financial authority tier successfully committed to property context.');
+      setIsAssignModalOpen(false);
+
+      // Refresh assignments
+      const updated = await getPropertyUserPolicies(selectedPropContextId);
+      setUserPolicies(updated);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to commit policy link';
+      setAssignError(msg);
+    }
+  };
+
+  const handleRemovePolicy = async (userUuid: string) => {
+    if (!selectedPropContextId) return;
+    try {
+      await removePropertyUserPolicy(selectedPropContextId, userUuid);
+      const updated = await getPropertyUserPolicies(selectedPropContextId);
+      setUserPolicies(updated);
+    } catch (err) {
+      console.error('Failed to remove policy assignment:', err);
+    }
+  };
 
   // Form states for company policy
   const [companyAutoApprove, setCompanyAutoApprove] = useState(companyPolicy.maxAutoApproveAmount);
@@ -346,6 +490,135 @@ export const PayerPolicyRules: React.FC = () => {
         </div>
       </div>
 
+      {/* Portfolio Property Security Assignments & Clearance Matrix (Spec Section 3 & 4) */}
+      <div className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden">
+        <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <Shield className="w-4 h-4 text-indigo-600" />
+              <h3 className="text-sm font-bold text-slate-900">
+                Portfolio Property Security Assignments & Financial Clearance Matrix
+              </h3>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Enforce composite fiduciary clearance tiers (<code className="text-[11px] bg-slate-100 px-1 py-0.5 rounded">roles</code> → <code className="text-[11px] bg-slate-100 px-1 py-0.5 rounded">corporate_policy_tiers</code> → <code className="text-[11px] bg-slate-100 px-1 py-0.5 rounded">property_user_policies</code>) per building context.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Property Context Selector */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-slate-600">Asset Context:</span>
+              <select
+                value={selectedPropContextId}
+                onChange={(e) => setSelectedPropContextId(e.target.value)}
+                className="text-xs bg-slate-50 text-slate-900 border border-slate-300 rounded-md py-1.5 px-2.5 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              >
+                {properties.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {canEdit && (
+              <button
+                onClick={handleOpenAssignModal}
+                className="px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-md shadow-xs transition-colors inline-flex items-center gap-1.5"
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                <span>+ Assign Clearance</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {assignSuccess && (
+          <div className="mx-4 mt-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded text-xs flex items-center justify-between">
+            <span>{assignSuccess}</span>
+            <button onClick={() => setAssignSuccess(null)} className="text-emerald-600 hover:text-emerald-900 font-bold">×</button>
+          </div>
+        )}
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 font-medium">
+              <tr>
+                <th className="px-4 py-3">Account Operative</th>
+                <th className="px-4 py-3">Global Base Role</th>
+                <th className="px-4 py-3">Authorized Policy Tier</th>
+                <th className="px-4 py-3 text-right">Variable Max (T&M)</th>
+                <th className="px-4 py-3 text-right">Auto Fixed Match</th>
+                <th className="px-4 py-3 text-center">Clearance Status</th>
+                <th className="px-4 py-3 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 text-slate-700">
+              {isLoadingPolicies ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
+                    Loading security clearance policies...
+                  </td>
+                </tr>
+              ) : userPolicies.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                    <UserCheck className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                    No operatives currently assigned financial clearance on this property asset.
+                    <br />
+                    <span className="text-[11px] text-slate-400">Click "+ Assign Clearance" to link a user role to a corporate policy tier.</span>
+                  </td>
+                </tr>
+              ) : (
+                userPolicies.map((pol) => (
+                  <tr key={pol.userUuid} className="hover:bg-slate-50/70 transition-colors">
+                    <td className="px-4 py-3">
+                      <div className="font-semibold text-slate-900">{pol.userName}</div>
+                      <div className="text-[11px] text-slate-500">{pol.userEmail}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-300">
+                        {pol.userRole}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="font-semibold text-indigo-900">{pol.tierDisplayName || pol.tierSlug}</div>
+                      <div className="text-[10px] font-mono text-slate-400">{pol.tierSlug}</div>
+                    </td>
+                    <td className="px-4 py-3 font-mono font-bold text-slate-900 text-right tabular-nums">
+                      ${pol.variableMax?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td className="px-4 py-3 font-mono text-slate-700 text-right tabular-nums">
+                      ${pol.fixedAutoMax?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        {pol.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {canEdit ? (
+                        <button
+                          onClick={() => handleRemovePolicy(pol.userUuid)}
+                          className="px-2 py-1 text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded transition-colors inline-flex items-center gap-1"
+                          title="Revoke clearance"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Revoke</span>
+                        </button>
+                      ) : (
+                        <span className="text-slate-400 text-[11px]">View Only</span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* Property-Level Policy Overrides Table */}
       <div className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden">
         <div className="p-4 border-b border-slate-200 flex items-center justify-between">
@@ -532,6 +805,153 @@ export const PayerPolicyRules: React.FC = () => {
                 className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 rounded-md hover:bg-slate-800 transition-colors shadow-xs"
               >
                 Save Property Policy
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assign User Policy Modal (Spec Wireframe B) */}
+      {isAssignModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-xl rounded-xl border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in duration-200">
+            <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <KeyRound className="w-4 h-4 text-indigo-600" />
+                  Portfolio Property Security Assignment
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Bind user identity and allowed corporate clearance policy to property asset context
+                </p>
+              </div>
+
+              <button
+                onClick={() => setIsAssignModalOpen(false)}
+                className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5 text-xs">
+              {assignError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+                  <span>{assignError}</span>
+                </div>
+              )}
+
+              {/* 1. CHOOSE TARGET ACCOUNT OPERATIVE */}
+              <div>
+                <label className="block font-bold text-slate-800 mb-1">
+                  1. Choose Target Account Operative
+                </label>
+                <select
+                  value={assignUserUuid}
+                  onChange={(e) => {
+                    setAssignUserUuid(e.target.value);
+                    setAssignTierSlug(''); // reset tier when user changes
+                  }}
+                  className="w-full border border-slate-300 rounded py-2 px-3 text-xs bg-white text-slate-900 font-medium focus:ring-1 focus:ring-indigo-600 focus:outline-none"
+                >
+                  {activeOperativeUsers.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name} ({u.email})
+                    </option>
+                  ))}
+                </select>
+
+                <div className="mt-2 p-2.5 bg-slate-50 border border-slate-200 rounded flex items-center justify-between">
+                  <span className="text-[11px] text-slate-500">Corporate Base Role Identity:</span>
+                  <span className="font-mono text-xs font-bold text-indigo-900 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
+                    {selectedUserRole || 'NONE'}
+                  </span>
+                </div>
+              </div>
+
+              {/* 2. CHOOSE TARGET PROPERTY CONTEXT */}
+              <div>
+                <label className="block font-bold text-slate-800 mb-1">
+                  2. Target Property Asset Context
+                </label>
+                <div className="p-2.5 bg-slate-100 border border-slate-200 rounded text-slate-800 font-semibold flex items-center gap-2">
+                  <Building2 className="w-4 h-4 text-slate-500" />
+                  <span>{properties.find((p) => p.id === selectedPropContextId)?.name || 'Selected Property'}</span>
+                </div>
+              </div>
+
+              {/* 3. SET ASSIGNED FINANCIAL AUTHORITY POLICY */}
+              <div>
+                <label className="block font-bold text-slate-800 mb-1">
+                  3. Set Assigned Financial Authority Policy (Dynamically Filtered by Role Legality)
+                </label>
+                <p className="text-[11px] text-slate-500 mb-3">
+                  Database constraints strictly enforce that operatives can only inherit policy tiers allowed for their global role.
+                </p>
+
+                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                  {corporateTiers.length === 0 ? (
+                    <div className="p-3 text-slate-400 bg-slate-50 rounded text-center">Loading policy tiers...</div>
+                  ) : (
+                    corporateTiers.map((tier) => {
+                      const isAllowed = selectedUserRole && tier.allowedRole.toUpperCase() === selectedUserRole;
+                      return (
+                        <label
+                          key={tier.tierSlug}
+                          className={`p-3 rounded-lg border flex items-start justify-between transition-all ${
+                            isAllowed
+                              ? assignTierSlug === tier.tierSlug
+                                ? 'border-indigo-600 bg-indigo-50/70 shadow-xs cursor-pointer'
+                                : 'border-slate-200 hover:border-slate-300 bg-white cursor-pointer'
+                              : 'border-slate-100 bg-slate-50 opacity-50 cursor-not-allowed'
+                          }`}
+                        >
+                          <div className="flex items-start gap-2.5">
+                            <input
+                              type="radio"
+                              name="policyTier"
+                              disabled={!isAllowed}
+                              checked={assignTierSlug === tier.tierSlug}
+                              onChange={() => isAllowed && setAssignTierSlug(tier.tierSlug)}
+                              className="mt-0.5 text-indigo-600 accent-indigo-600"
+                            />
+                            <div>
+                              <div className="font-bold text-slate-900 flex items-center gap-2">
+                                <span>{tier.displayName}</span>
+                                {!isAllowed && (
+                                  <span className="text-[10px] text-rose-600 bg-rose-50 px-1.5 py-0.2 rounded border border-rose-200 flex items-center gap-1 font-normal">
+                                    <Lock className="w-2.5 h-2.5" />
+                                    Restricted to {tier.allowedRole}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[11px] font-mono text-slate-500 mt-0.5">
+                                Max Variable: ${tier.variableMax?.toLocaleString()} | Auto Fixed Match: ${tier.fixedAutoMax?.toLocaleString()}
+                              </div>
+                            </div>
+                          </div>
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setIsAssignModalOpen(false)}
+                className="px-4 py-2 text-xs font-semibold text-slate-700 hover:text-slate-900 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCommitPolicy}
+                disabled={!assignTierSlug}
+                className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50 transition-colors shadow-xs"
+              >
+                Commit Policy Link
               </button>
             </div>
           </div>

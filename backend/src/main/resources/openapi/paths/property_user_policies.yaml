@@ -1,0 +1,24 @@
+get:
+  summary: List property user policy assignments
+  description: Returns active operative policy tier assignments for the specified property.
+  tags:
+    - Properties
+  operationId: getPropertyUserPolicies
+  parameters:
+    - name: propertyId
+      in: path
+      required: true
+      description: The UUID of the property
+      schema:
+        type: string
+        format: uuid
+  responses:
+    '200':
+      description: A list of active user policy assignments for the property
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: '../components/schemas/PropertyUserPolicyResponse.yaml'
+

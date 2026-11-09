@@ -4,6 +4,7 @@
 -- ============================================================================
 
 -- 1. Clean existing seed data (child tables first)
+DELETE FROM property_user_policies;
 DELETE FROM audit_logs;
 DELETE FROM invoices;
 DELETE FROM property_vendor_mapping;
@@ -13,6 +14,7 @@ DELETE FROM properties;
 DELETE FROM payment_methods;
 DELETE FROM vendor_categories;
 DELETE FROM property_categories;
+DELETE FROM users WHERE email != 'system@invoice-automation.local';
 
 -- 2. Seed Property Categories
 INSERT INTO property_categories (category_code, name, description, status) VALUES
@@ -160,3 +162,46 @@ SELECT
     'INGESTED'
 FROM property_vendor_mapping m
 WHERE m.vendor_account_number = 'ACT-9483920';
+
+-- 9. Seed Corporate Roles & Standard Policy Tiers
+INSERT INTO roles (role_slug, display_name, description) VALUES
+('ADMIN',                   'System Administrator',         'Global system controller.'),
+('ACCOUNTANT',              'Property Accountant',          'Manages books and general ledgers. No approval rights.'),
+('PROPERTY_MANAGER',        'Property Manager (PM)',        'Handles baseline routine operations.'),
+('SENIOR_PROPERTY_MANAGER', 'Senior Property Manager (SPM)','Manages flagship assets or regional complexes.'),
+('REGIONAL_DIRECTOR',       'Regional Operations Director', 'Portfolio supervisor handling escalation limits.'),
+('VICE_PRESIDENT',          'Vice President of Operations', 'Executive officer with portfolio-wide allocation power.')
+ON CONFLICT (role_slug) DO UPDATE SET display_name = EXCLUDED.display_name, description = EXCLUDED.description;
+
+INSERT INTO corporate_policy_tiers (tier_slug, display_name, allowed_role, variable_max, fixed_auto_max) VALUES
+('TIER_NONE_ACCT',        'Accountant Processing Only',   'ACCOUNTANT',              0.00,        0.00),
+('TIER_1_LOW_PM',         'Standard PM Operations Limit', 'PROPERTY_MANAGER',        1000.00,     2500.00),
+('TIER_2_MID_SPM',        'Senior PM Operational Tier',   'SENIOR_PROPERTY_MANAGER', 5000.00,     10000.00),
+('TIER_3_HIGH_RD',        'Regional Director Escalation', 'REGIONAL_DIRECTOR',       25000.00,    50000.00),
+('TIER_4_UNLIMITED_VP',   'Executive VP Clearance Tier',  'VICE_PRESIDENT',          99999999.99, 99999999.99)
+ON CONFLICT (tier_slug) DO UPDATE SET display_name = EXCLUDED.display_name, variable_max = EXCLUDED.variable_max, fixed_auto_max = EXCLUDED.fixed_auto_max;
+
+-- 10. Seed CRE Users
+INSERT INTO users (user_name, email, global_role, status) VALUES
+('Sarah Jenkins', 's.jenkins@pmfirm.com', 'SENIOR_PROPERTY_MANAGER', 'ACTIVE'),
+('Marcus Vance', 'm.vance@pmfirm.com', 'PROPERTY_MANAGER', 'ACTIVE'),
+('Elena Rostova', 'e.rostova@pmfirm.com', 'ACCOUNTANT', 'ACTIVE'),
+('David Sterling', 'd.sterling@pmfirm.com', 'REGIONAL_DIRECTOR', 'ACTIVE'),
+('Victoria Chen', 'v.chen@pmfirm.com', 'VICE_PRESIDENT', 'ACTIVE')
+ON CONFLICT (email) DO UPDATE SET user_name = EXCLUDED.user_name, global_role = EXCLUDED.global_role;
+
+-- 11. Seed Property User Policy Clearances (Grandview Office Tower)
+INSERT INTO property_user_policies (property_uuid, user_uuid, user_role, tier_slug, status)
+SELECT p.property_uuid, u.user_uuid, u.global_role, 'TIER_2_MID_SPM', 'ACTIVE'
+FROM properties p, users u
+WHERE p.name = 'Grandview Office Tower' AND u.email = 's.jenkins@pmfirm.com'
+UNION ALL
+SELECT p.property_uuid, u.user_uuid, u.global_role, 'TIER_1_LOW_PM', 'ACTIVE'
+FROM properties p, users u
+WHERE p.name = 'Grandview Office Tower' AND u.email = 'm.vance@pmfirm.com'
+UNION ALL
+SELECT p.property_uuid, u.user_uuid, u.global_role, 'TIER_3_HIGH_RD', 'ACTIVE'
+FROM properties p, users u
+WHERE p.name = 'Grandview Office Tower' AND u.email = 'd.sterling@pmfirm.com'
+ON CONFLICT (property_uuid, user_uuid) DO UPDATE SET tier_slug = EXCLUDED.tier_slug;
+

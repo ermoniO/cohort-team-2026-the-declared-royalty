@@ -128,17 +128,78 @@ CREATE TABLE invoices
                                      'PROCESSING_PAYMENT', 'VOID'))
 );
 
+CREATE TABLE roles
+(
+    role_slug    VARCHAR(50) PRIMARY KEY,
+    display_name VARCHAR(100) NOT NULL,
+    description  TEXT,
+    status       VARCHAR(10)  NOT NULL DEFAULT 'ACTIVE',
+    created_at   TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at   TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT check_role_status CHECK (status IN ('ACTIVE', 'INACTIVE')),
+    CONSTRAINT check_role_slug CHECK (role_slug IN ('ADMIN', 'ACCOUNTANT', 'PROPERTY_MANAGER', 'SENIOR_PROPERTY_MANAGER', 'REGIONAL_DIRECTOR', 'VICE_PRESIDENT'))
+);
+
+INSERT INTO roles (role_slug, display_name, description) VALUES
+('ADMIN', 'System Administrator', 'Global system controller.'),
+('ACCOUNTANT', 'Property Accountant', 'Manages books and general ledgers. No approval rights.'),
+('PROPERTY_MANAGER', 'Property Manager (PM)', 'Handles baseline routine operations.'),
+('SENIOR_PROPERTY_MANAGER', 'Senior Property Manager (SPM)', 'Manages flagship assets or regional complexes.'),
+('REGIONAL_DIRECTOR', 'Regional Operations Director', 'Portfolio supervisor handling escalation limits.'),
+('VICE_PRESIDENT', 'Vice President of Operations', 'Executive officer with portfolio-wide allocation power.');
+
 CREATE TABLE users
 (
-    user_uuid  UUID PRIMARY KEY         DEFAULT gen_random_uuid(),
-    user_name  VARCHAR(255)             NOT NULL,
-    email      VARCHAR(255)             NOT NULL,
-    role       VARCHAR(255)             NOT NULL DEFAULT 'ADMIN',
-    status     VARCHAR(255)             NOT NULL DEFAULT 'ACTIVE',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    CONSTRAINT check_role CHECK ( role IN ('AI', 'ADMIN', 'SUPER_ADMIN')),
-    CONSTRAINT check_user_status CHECK ( status IN ('ACTIVE', 'INACTIVE'))
+    user_uuid   UUID PRIMARY KEY         DEFAULT gen_random_uuid(),
+    user_name   VARCHAR(255)             NOT NULL,
+    email       VARCHAR(255)             NOT NULL UNIQUE,
+    global_role VARCHAR(50)              NOT NULL REFERENCES roles (role_slug),
+    status      VARCHAR(10)              NOT NULL DEFAULT 'ACTIVE',
+    created_at  TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at  TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT check_user_status CHECK (status IN ('ACTIVE', 'INACTIVE')),
+    CONSTRAINT unique_user_role_bridge UNIQUE (user_uuid, global_role)
+);
+
+CREATE TABLE corporate_policy_tiers
+(
+    tier_slug      VARCHAR(50) PRIMARY KEY,
+    display_name   VARCHAR(100)   NOT NULL,
+    allowed_role   VARCHAR(50)    NOT NULL REFERENCES roles (role_slug),
+    variable_max   NUMERIC(12, 2) NOT NULL,
+    fixed_auto_max NUMERIC(12, 2) NOT NULL,
+    status         VARCHAR(10)    NOT NULL DEFAULT 'ACTIVE',
+    created_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT check_policy_tier_status CHECK (status IN ('ACTIVE', 'INACTIVE')),
+    CONSTRAINT check_policy_tier_slug CHECK (tier_slug IN ('TIER_NONE_ACCT', 'TIER_1_LOW_PM', 'TIER_2_MID_SPM', 'TIER_3_HIGH_RD', 'TIER_4_UNLIMITED_VP')),
+    CONSTRAINT unique_tier_role_bridge UNIQUE (tier_slug, allowed_role)
+);
+
+INSERT INTO corporate_policy_tiers (tier_slug, display_name, allowed_role, variable_max, fixed_auto_max) VALUES
+('TIER_NONE_ACCT', 'Accountant Processing Only', 'ACCOUNTANT', 0.00, 0.00),
+('TIER_1_LOW_PM', 'Standard PM Operations Limit', 'PROPERTY_MANAGER', 1000.00, 2500.00),
+('TIER_2_MID_SPM', 'Senior PM Operational Tier', 'SENIOR_PROPERTY_MANAGER', 5000.00, 10000.00),
+('TIER_3_HIGH_RD', 'Regional Director Escalation', 'REGIONAL_DIRECTOR', 25000.00, 50000.00),
+('TIER_4_UNLIMITED_VP', 'Executive VP Clearance Tier', 'VICE_PRESIDENT', 99999999.99, 99999999.99);
+
+CREATE TABLE property_user_policies
+(
+    property_uuid UUID        NOT NULL REFERENCES properties (property_uuid) ON DELETE CASCADE,
+    user_uuid     UUID        NOT NULL,
+    user_role     VARCHAR(50) NOT NULL,
+    tier_slug     VARCHAR(50) NOT NULL,
+    status        VARCHAR(10) NOT NULL DEFAULT 'ACTIVE',
+    created_at    TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at    TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    PRIMARY KEY (property_uuid, user_uuid),
+    CONSTRAINT check_prop_user_policy_status CHECK (status IN ('ACTIVE', 'INACTIVE')),
+    CONSTRAINT fk_enforce_user_identity_match
+        FOREIGN KEY (user_uuid, user_role)
+            REFERENCES users (user_uuid, global_role) ON DELETE CASCADE,
+    CONSTRAINT fk_enforce_policy_role_legality
+        FOREIGN KEY (tier_slug, user_role)
+            REFERENCES corporate_policy_tiers (tier_slug, allowed_role) ON DELETE RESTRICT
 );
 
 CREATE TABLE audit_logs

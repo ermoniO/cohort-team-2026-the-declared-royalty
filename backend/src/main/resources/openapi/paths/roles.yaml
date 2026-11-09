@@ -1,0 +1,16 @@
+get:
+  summary: List system roles
+  description: Returns active global CRE system roles.
+  tags:
+    - Roles
+  operationId: getRoles
+  responses:
+    '200':
+      description: A list of active system roles
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: '../components/schemas/RoleResponse.yaml'
+

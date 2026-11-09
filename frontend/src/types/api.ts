@@ -14,3 +14,8 @@ export type VendorCreateRequest = Schema<'VendorCreateRequest'>;
 export type VendorUpdateRequest = Schema<'VendorUpdateRequest'>;
 export type VendorCategoryResponse = Schema<'VendorCategoryResponse'>;
 export type PaymentMethodResponse = Schema<'PaymentMethodResponse'>;
+
+export type RoleResponse = Schema<'RoleResponse'>;
+export type CorporatePolicyTierResponse = Schema<'CorporatePolicyTierResponse'>;
+export type PropertyUserPolicyResponse = Schema<'PropertyUserPolicyResponse'>;
+export type PropertyUserPolicyAssignmentRequest = Schema<'PropertyUserPolicyAssignmentRequest'>;

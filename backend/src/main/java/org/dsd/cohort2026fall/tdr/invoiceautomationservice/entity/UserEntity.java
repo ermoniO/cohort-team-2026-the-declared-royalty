@@ -27,7 +27,7 @@ public class UserEntity {
     private String email;
 
     @Builder.Default
-    @Column(name = "role", nullable = false)
+    @Column(name = "global_role", nullable = false)
     private String role = "ADMIN";
 
     @Builder.Default
