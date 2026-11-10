@@ -76,7 +76,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/properties/{propertyId}/user-policies": {
+    "/api/v1/properties/{propertyId}/approval-matrix": {
         parameters: {
             query?: never;
             header?: never;
@@ -84,19 +84,23 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List property user policy assignments
-         * @description Returns active operative policy tier assignments for the specified property.
+         * Get property approval matrix
+         * @description Returns the sequential approval matrix ladder (steps 0-5) for a property.
          */
-        get: operations["getPropertyUserPolicies"];
+        get: operations["getPropertyApprovalMatrix"];
         put?: never;
-        post?: never;
+        /**
+         * Add or replace matrix step
+         * @description Adds or replaces a sequence step in the property's approval matrix.
+         */
+        post: operations["addPropertyApprovalMatrixStep"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/properties/{propertyId}/user-policies/{userUuid}": {
+    "/api/v1/properties/{propertyId}/approval-matrix/{sequence}": {
         parameters: {
             query?: never;
             header?: never;
@@ -105,22 +109,22 @@ export interface paths {
         };
         get?: never;
         /**
-         * Assign or update operative policy tier on a property
-         * @description Assigns a user to a property with an authorized corporate policy tier.
+         * Update property approval matrix step
+         * @description Updates a sequence step in the property's approval matrix. Sequence 5 cannot be updated to non-unlimited presets.
          */
-        put: operations["assignPropertyUserPolicy"];
+        put: operations["updatePropertyApprovalMatrixStep"];
         post?: never;
         /**
-         * Remove operative policy assignment from a property
-         * @description Soft-deactivates the user policy assignment for the specified property.
+         * Delete property approval matrix step
+         * @description Soft-deletes a matrix step (0-4). Sequence step 5 is permanently locked and cannot be deleted.
          */
-        delete: operations["removePropertyUserPolicy"];
+        delete: operations["deletePropertyApprovalMatrixStep"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/roles": {
+    "/api/v1/properties/{propertyId}/approval-queue": {
         parameters: {
             query?: never;
             header?: never;
@@ -128,10 +132,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List system roles
-         * @description Returns active global CRE system roles.
+         * Calculate invoice routing queue
+         * @description Returns the sequential list of approvers who must sign off on an invoice based on gross amount and cost type.
          */
-        get: operations["getRoles"];
+        get: operations["calculateInvoiceApprovalQueue"];
         put?: never;
         post?: never;
         delete?: never;
@@ -140,7 +144,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/corporate-policy-tiers": {
+    "/api/v1/corporate-designations": {
         parameters: {
             query?: never;
             header?: never;
@@ -148,10 +152,74 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List corporate policy tiers
-         * @description Returns active corporate standard financial clearance tiers.
+         * List corporate designations
+         * @description Returns all HR corporate designations.
          */
-        get: operations["getCorporatePolicyTiers"];
+        get: operations["getCorporateDesignations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/accounts-payable-seats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List accounts payable seats
+         * @description Returns all accounts payable operational chairs and their active occupants.
+         */
+        get: operations["getAccountsPayableSeats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/accounts-payable-seats/{seatSlug}/assignment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Assign user to seat
+         * @description Maps a human occupant to an operational seat. Deactivates previous occupant if any.
+         */
+        put: operations["assignSeatOccupant"];
+        post?: never;
+        /**
+         * Vacate seat
+         * @description Vacates an operational seat by marking the active assignment inactive.
+         */
+        delete: operations["vacateSeat"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/accounts-payable-threshold-presets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List threshold presets
+         * @description Returns standard AP spending threshold limit presets.
+         */
+        get: operations["getAccountsPayableThresholdPresets"];
         put?: never;
         post?: never;
         delete?: never;
@@ -375,23 +443,29 @@ export interface components {
             /** @example ACTIVE */
             status: string;
         };
-        RoleResponse: {
-            /** @example SENIOR_PROPERTY_MANAGER */
-            roleSlug: string;
-            /** @example Senior Property Manager (SPM) */
+        CorporateDesignationResponse: {
+            /** @example PROPERTY_MANAGER */
+            designationSlug: string;
+            /** @example Property Manager */
             displayName: string;
-            /** @example Manages flagship assets or regional complexes. */
-            description?: string;
             /** @example ACTIVE */
             status: string;
         };
-        CorporatePolicyTierResponse: {
-            /** @example TIER_2_MID_SPM */
-            tierSlug: string;
-            /** @example Senior PM Operational Tier */
+        AccountsPayableSeatResponse: {
+            /** @example PM_SEAT_FRISCO_OFFICE */
+            accountsPayableSeatSlug: string;
+            /** @example Frisco Commercial Complex PM Seat */
             displayName: string;
-            /** @example SENIOR_PROPERTY_MANAGER */
-            allowedRole: string;
+            /** @example ACTIVE */
+            status: string;
+            /** Format: uuid */
+            assignedUserUuid?: string | null;
+            assignedUserName?: string | null;
+            assignedUserEmail?: string | null;
+        };
+        AccountsPayableThresholdPresetResponse: {
+            /** @example LIMIT_MID */
+            accountsPayableThresholdSlug: string;
             /**
              * Format: double
              * @example 5000
@@ -405,43 +479,68 @@ export interface components {
             /** @example ACTIVE */
             status: string;
         };
-        PropertyUserPolicyResponse: {
+        SeatAssignmentRequest: {
+            /** Format: uuid */
+            userUuid: string;
+        };
+        SeatAssignmentResponse: {
+            /** Format: uuid */
+            assignmentUuid: string;
+            accountsPayableSeatSlug: string;
+            /** Format: uuid */
+            userUuid: string;
+            userName?: string;
+            userEmail?: string;
+            status: string;
+        };
+        AccountsPayableApprovalMatrixResponse: {
+            /** Format: uuid */
+            matrixUuid: string;
             /** Format: uuid */
             propertyUuid: string;
+            accountsPayableSeatSlug: string;
+            seatDisplayName?: string;
+            accountsPayableThresholdSlug: string;
+            /** Format: double */
+            variableMax?: number;
+            /** Format: double */
+            fixedAutoMax?: number;
+            accountsPayableApprovalSequence: number;
             /** Format: uuid */
-            userUuid: string;
-            /** @example Sarah Jenkins */
-            userName: string;
-            /** @example s.jenkins@pmfirm.com */
-            userEmail: string;
-            /** @example SENIOR_PROPERTY_MANAGER */
-            userRole: string;
-            /** @example TIER_2_MID_SPM */
-            tierSlug: string;
-            /** @example Senior PM Operational Tier */
-            tierDisplayName: string;
-            /**
-             * Format: double
-             * @example 5000
-             */
-            variableMax: number;
-            /**
-             * Format: double
-             * @example 10000
-             */
-            fixedAutoMax: number;
-            /** @example ACTIVE */
+            assignedUserUuid?: string | null;
+            assignedUserName?: string | null;
+            assignedUserEmail?: string | null;
             status: string;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            updatedAt: string;
         };
-        PropertyUserPolicyAssignmentRequest: {
+        AccountsPayableApprovalMatrixStepRequest: {
+            accountsPayableSeatSlug: string;
+            accountsPayableThresholdSlug: string;
+            accountsPayableApprovalSequence: number;
+        };
+        ApprovalQueueStepResponse: {
+            sequence: number;
+            seatSlug: string;
+            seatDisplayName: string;
             /** Format: uuid */
-            userUuid: string;
-            /** @example TIER_2_MID_SPM */
-            tierSlug: string;
+            userUuid?: string | null;
+            userName?: string | null;
+            userEmail?: string | null;
+            isProxy: boolean;
+            isVacant: boolean;
+            thresholdSlug: string;
+            /** Format: double */
+            variableMax: number;
+            /** Format: double */
+            fixedAutoMax: number;
+        };
+        ApprovalQueueResponse: {
+            /** Format: uuid */
+            propertyUuid: string;
+            /** Format: double */
+            grossAmount: number;
+            costType: string;
+            hasVacantStep: boolean;
+            steps: components["schemas"]["ApprovalQueueStepResponse"][];
         };
         VendorCategoryResponse: {
             /** @example UTILITIES_ENERGY */
@@ -546,8 +645,10 @@ export interface components {
             username: string;
             /** Format: email */
             email: string;
-            /** @default ADMIN */
-            role: string;
+            /** Format: uuid */
+            delegateUserUuid?: string;
+            /** Format: date-time */
+            delegateExpiresAt?: string;
             /** @default ACTIVE */
             status: string;
         };
@@ -555,7 +656,10 @@ export interface components {
             username?: string;
             /** Format: email */
             email?: string;
-            role?: string;
+            /** Format: uuid */
+            delegateUserUuid?: string;
+            /** Format: date-time */
+            delegateExpiresAt?: string;
             status?: string;
         };
         UserResponse: {
@@ -563,7 +667,10 @@ export interface components {
             userId: string;
             username?: string;
             email?: string;
-            role?: string;
+            /** Format: uuid */
+            delegateUserUuid?: string;
+            /** Format: date-time */
+            delegateExpiresAt?: string;
             status?: string;
             /** Format: date-time */
             createdAt: string;
@@ -785,57 +892,62 @@ export interface operations {
             };
         };
     };
-    getPropertyUserPolicies: {
+    getPropertyApprovalMatrix: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                /** @description The UUID of the property */
                 propertyId: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description A list of active user policy assignments for the property */
+            /** @description Ordered property approval matrix steps */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PropertyUserPolicyResponse"][];
+                    "application/json": components["schemas"]["AccountsPayableApprovalMatrixResponse"][];
+                };
+            };
+            /** @description Property not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
     };
-    assignPropertyUserPolicy: {
+    addPropertyApprovalMatrixStep: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                /** @description The UUID of the property */
                 propertyId: string;
-                /** @description The UUID of the user */
-                userUuid: string;
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["PropertyUserPolicyAssignmentRequest"];
+                "application/json": components["schemas"]["AccountsPayableApprovalMatrixStepRequest"];
             };
         };
         responses: {
-            /** @description Policy tier successfully assigned to the operative */
-            200: {
+            /** @description Matrix step successfully created */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PropertyUserPolicyResponse"];
+                    "application/json": components["schemas"]["AccountsPayableApprovalMatrixResponse"];
                 };
             };
-            /** @description Invalid request or role legality violation */
+            /** @description Invalid sequence, duplicate step, or violation of safety net rules */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -844,7 +956,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Property or User not found */
+            /** @description Property, seat, or preset not found */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -855,28 +967,80 @@ export interface operations {
             };
         };
     };
-    removePropertyUserPolicy: {
+    updatePropertyApprovalMatrixStep: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                /** @description The UUID of the property */
                 propertyId: string;
-                /** @description The UUID of the user */
-                userUuid: string;
+                sequence: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccountsPayableApprovalMatrixStepRequest"];
+            };
+        };
+        responses: {
+            /** @description Matrix step updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountsPayableApprovalMatrixResponse"];
+                };
+            };
+            /** @description Invalid sequence or safety net modification attempt */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Property or step not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    deletePropertyApprovalMatrixStep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                propertyId: string;
+                sequence: number;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Assignment successfully removed */
+            /** @description Matrix step removed */
             204: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description Assignment not found */
+            /** @description Attempted to delete protected step 5 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Step not found */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -887,27 +1051,41 @@ export interface operations {
             };
         };
     };
-    getRoles: {
+    calculateInvoiceApprovalQueue: {
         parameters: {
-            query?: never;
+            query: {
+                grossAmount: number;
+                costType?: string;
+            };
             header?: never;
-            path?: never;
+            path: {
+                propertyId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description A list of active system roles */
+            /** @description Calculated routing queue */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RoleResponse"][];
+                    "application/json": components["schemas"]["ApprovalQueueResponse"];
+                };
+            };
+            /** @description Property not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
     };
-    getCorporatePolicyTiers: {
+    getCorporateDesignations: {
         parameters: {
             query?: never;
             header?: never;
@@ -916,13 +1094,126 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description A list of active corporate policy tiers */
+            /** @description A list of corporate designations */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CorporatePolicyTierResponse"][];
+                    "application/json": components["schemas"]["CorporateDesignationResponse"][];
+                };
+            };
+        };
+    };
+    getAccountsPayableSeats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A list of AP operational seats */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountsPayableSeatResponse"][];
+                };
+            };
+        };
+    };
+    assignSeatOccupant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                seatSlug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeatAssignmentRequest"];
+            };
+        };
+        responses: {
+            /** @description Seat assignment created or updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeatAssignmentResponse"];
+                };
+            };
+            /** @description Invalid request or user mismatch */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Seat or user not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    vacateSeat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                seatSlug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Seat vacated successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Seat not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getAccountsPayableThresholdPresets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A list of AP threshold presets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountsPayableThresholdPresetResponse"][];
                 };
             };
         };

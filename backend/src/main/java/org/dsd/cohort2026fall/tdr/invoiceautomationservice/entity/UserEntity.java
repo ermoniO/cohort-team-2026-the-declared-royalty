@@ -26,19 +26,15 @@ public class UserEntity {
     @Column(name = "email", nullable = false)
     private String email;
 
-    @Builder.Default
-    @Column(name = "global_role", nullable = false)
-    private String role = "ADMIN";
+    @Column(name = "delegate_user_uuid")
+    private UUID delegateUserUuid;
+
+    @Column(name = "delegate_expires_at")
+    private OffsetDateTime delegateExpiresAt;
 
     @Builder.Default
     @Column(name = "status", nullable = false)
     private String status = "ACTIVE";
-
-    @ManyToMany
-    @JoinTable(name = "user_properties",
-            joinColumns = @JoinColumn(name = "user_uuid"),
-            inverseJoinColumns = @JoinColumn(name = "property_uuid"))
-    private Set<PropertyEntity> properties;
 
     @Builder.Default
     @Column(name = "created_at", nullable = false, updatable = false)

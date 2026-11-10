@@ -1,0 +1,40 @@
+type: object
+required:
+  - sequence
+  - seatSlug
+  - seatDisplayName
+  - isProxy
+  - isVacant
+  - thresholdSlug
+  - variableMax
+  - fixedAutoMax
+properties:
+  sequence:
+    type: integer
+  seatSlug:
+    type: string
+  seatDisplayName:
+    type: string
+  userUuid:
+    type: string
+    format: uuid
+    nullable: true
+  userName:
+    type: string
+    nullable: true
+  userEmail:
+    type: string
+    nullable: true
+  isProxy:
+    type: boolean
+  isVacant:
+    type: boolean
+  thresholdSlug:
+    type: string
+  variableMax:
+    type: number
+    format: double
+  fixedAutoMax:
+    type: number
+    format: double
+

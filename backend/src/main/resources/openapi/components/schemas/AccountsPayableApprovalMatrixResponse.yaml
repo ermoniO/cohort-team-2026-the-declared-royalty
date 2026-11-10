@@ -1,0 +1,44 @@
+type: object
+required:
+  - matrixUuid
+  - propertyUuid
+  - accountsPayableSeatSlug
+  - accountsPayableThresholdSlug
+  - accountsPayableApprovalSequence
+  - status
+properties:
+  matrixUuid:
+    type: string
+    format: uuid
+  propertyUuid:
+    type: string
+    format: uuid
+  accountsPayableSeatSlug:
+    type: string
+  seatDisplayName:
+    type: string
+  accountsPayableThresholdSlug:
+    type: string
+  variableMax:
+    type: number
+    format: double
+  fixedAutoMax:
+    type: number
+    format: double
+  accountsPayableApprovalSequence:
+    type: integer
+    minimum: 0
+    maximum: 5
+  assignedUserUuid:
+    type: string
+    format: uuid
+    nullable: true
+  assignedUserName:
+    type: string
+    nullable: true
+  assignedUserEmail:
+    type: string
+    nullable: true
+  status:
+    type: string
+

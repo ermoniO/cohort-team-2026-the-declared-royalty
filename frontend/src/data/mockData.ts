@@ -9,6 +9,13 @@ import {
   AppUser,
   PropertyVendorRelationship
 } from '../types';
+import type {
+  CorporateDesignationResponse,
+  AccountsPayableSeatResponse,
+  AccountsPayableThresholdPresetResponse,
+  AccountsPayableApprovalMatrixResponse,
+  PropertyApprovalMatrixResponse
+} from '../types/api';
 
 export const ROLE_PROFILES: Record<UserRole, RoleProfile> = {
   ap_specialist: {
@@ -739,3 +746,41 @@ export const INITIAL_PROPERTY_VENDOR_MAPPINGS: PropertyVendorRelationship[] = [
     createdAt: '2026-05-18'
   }
 ];
+
+export const MOCK_CORPORATE_DESIGNATIONS: CorporateDesignationResponse[] = [
+  { designationSlug: 'ap_clerk', displayName: 'AP Clerk', status: 'ACTIVE' },
+  { designationSlug: 'property_manager', displayName: 'Property Manager', status: 'ACTIVE' },
+  { designationSlug: 'senior_property_manager', displayName: 'Senior Property Manager', status: 'ACTIVE' },
+  { designationSlug: 'regional_director', displayName: 'Regional Director', status: 'ACTIVE' },
+  { designationSlug: 'vice_president', displayName: 'Vice President', status: 'ACTIVE' },
+  { designationSlug: 'chief_financial_officer', displayName: 'Chief Financial Officer', status: 'ACTIVE' },
+];
+
+export const MOCK_AP_SEATS: AccountsPayableSeatResponse[] = [
+  { accountsPayableSeatSlug: 'seat-ap-specialist', displayName: 'AP Specialist', status: 'ACTIVE', assignedUserUuid: 'f47ac10b-58cc-4372-a567-0e02b2c3d481', assignedUserName: 'Elena Rostova', assignedUserEmail: 'e.rostova@pmfirm.com' },
+  { accountsPayableSeatSlug: 'seat-prop-manager', displayName: 'Property Manager', status: 'ACTIVE', assignedUserUuid: 'f47ac10b-58cc-4372-a567-0e02b2c3d480', assignedUserName: 'Marcus Vance', assignedUserEmail: 'm.vance@pmfirm.com' },
+  { accountsPayableSeatSlug: 'seat-sr-prop-mgr', displayName: 'Senior Property Manager', status: 'ACTIVE', assignedUserUuid: 'f47ac10b-58cc-4372-a567-0e02b2c3d479', assignedUserName: 'Sarah Jenkins', assignedUserEmail: 's.jenkins@pmfirm.com' },
+  { accountsPayableSeatSlug: 'seat-reg-dir', displayName: 'Regional Director', status: 'ACTIVE', assignedUserUuid: 'f47ac10b-58cc-4372-a567-0e02b2c3d482', assignedUserName: 'David Sterling', assignedUserEmail: 'd.sterling@pmfirm.com' },
+  { accountsPayableSeatSlug: 'seat-vp-ops', displayName: 'VP of Operations', status: 'ACTIVE', assignedUserUuid: 'f47ac10b-58cc-4372-a567-0e02b2c3d483', assignedUserName: 'Victoria Chen', assignedUserEmail: 'v.chen@pmfirm.com' },
+  { accountsPayableSeatSlug: 'seat-cfo', displayName: 'Chief Financial Officer', status: 'ACTIVE' },
+];
+
+export const MOCK_THRESHOLD_PRESETS: AccountsPayableThresholdPresetResponse[] = [
+  { accountsPayableThresholdSlug: 'tier-1-clerk', variableMax: 1000, fixedAutoMax: 2500, status: 'ACTIVE' },
+  { accountsPayableThresholdSlug: 'tier-2-pm-standard', variableMax: 5000, fixedAutoMax: 10000, status: 'ACTIVE' },
+  { accountsPayableThresholdSlug: 'tier-3-sr-pm', variableMax: 15000, fixedAutoMax: 25000, status: 'ACTIVE' },
+  { accountsPayableThresholdSlug: 'tier-4-regional-dir', variableMax: 50000, fixedAutoMax: 100000, status: 'ACTIVE' },
+  { accountsPayableThresholdSlug: 'tier-5-executive', variableMax: -1, fixedAutoMax: -1, status: 'ACTIVE' },
+];
+
+export const MOCK_ACCOUNTS_PAYABLE_APPROVAL_MATRIX_STEPS: AccountsPayableApprovalMatrixResponse[] = [
+  { matrixUuid: 'mat-step-0', propertyUuid: 'prop-grandview', accountsPayableApprovalSequence: 0, accountsPayableSeatSlug: 'seat-ap-specialist', seatDisplayName: 'AP Specialist', accountsPayableThresholdSlug: 'tier-1-clerk', variableMax: 1000, fixedAutoMax: 2500, assignedUserUuid: 'f47ac10b-58cc-4372-a567-0e02b2c3d481', assignedUserName: 'Elena Rostova', status: 'ACTIVE' },
+  { matrixUuid: 'mat-step-1', propertyUuid: 'prop-grandview', accountsPayableApprovalSequence: 1, accountsPayableSeatSlug: 'seat-prop-manager', seatDisplayName: 'Property Manager', accountsPayableThresholdSlug: 'tier-2-pm-standard', variableMax: 5000, fixedAutoMax: 10000, assignedUserUuid: 'f47ac10b-58cc-4372-a567-0e02b2c3d480', assignedUserName: 'Marcus Vance', status: 'ACTIVE' },
+  { matrixUuid: 'mat-step-2', propertyUuid: 'prop-grandview', accountsPayableApprovalSequence: 2, accountsPayableSeatSlug: 'seat-sr-prop-mgr', seatDisplayName: 'Senior Property Manager', accountsPayableThresholdSlug: 'tier-3-sr-pm', variableMax: 15000, fixedAutoMax: 25000, assignedUserUuid: 'f47ac10b-58cc-4372-a567-0e02b2c3d479', assignedUserName: 'Sarah Jenkins', status: 'ACTIVE' },
+  { matrixUuid: 'mat-step-3', propertyUuid: 'prop-grandview', accountsPayableApprovalSequence: 3, accountsPayableSeatSlug: 'seat-reg-dir', seatDisplayName: 'Regional Director', accountsPayableThresholdSlug: 'tier-4-regional-dir', variableMax: 50000, fixedAutoMax: 100000, assignedUserUuid: 'f47ac10b-58cc-4372-a567-0e02b2c3d482', assignedUserName: 'David Sterling', status: 'ACTIVE' },
+  { matrixUuid: 'mat-step-4', propertyUuid: 'prop-grandview', accountsPayableApprovalSequence: 4, accountsPayableSeatSlug: 'seat-vp-ops', seatDisplayName: 'VP of Operations', accountsPayableThresholdSlug: 'tier-5-executive', variableMax: -1, fixedAutoMax: -1, assignedUserUuid: 'f47ac10b-58cc-4372-a567-0e02b2c3d483', assignedUserName: 'Victoria Chen', status: 'ACTIVE' },
+  { matrixUuid: 'mat-step-5', propertyUuid: 'prop-grandview', accountsPayableApprovalSequence: 5, accountsPayableSeatSlug: 'seat-cfo', seatDisplayName: 'Chief Financial Officer', accountsPayableThresholdSlug: 'tier-5-executive', variableMax: -1, fixedAutoMax: -1, status: 'ACTIVE' }
+];
+
+export const MOCK_PROPERTY_APPROVAL_MATRIX_STEPS = MOCK_ACCOUNTS_PAYABLE_APPROVAL_MATRIX_STEPS;
+

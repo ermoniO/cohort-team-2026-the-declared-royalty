@@ -8,6 +8,7 @@
     "generate:api": "openapi-typescript ../backend/src/main/resources/openapi/openapi.yaml -o ./src/types/api.generated.ts",
     "prebuild": "npm run generate:api",
     "build": "vite build",
+    "test": "tsx --test tests/**/*.test.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit"

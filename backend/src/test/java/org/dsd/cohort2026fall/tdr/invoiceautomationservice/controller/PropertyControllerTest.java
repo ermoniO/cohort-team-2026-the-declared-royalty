@@ -2,7 +2,7 @@ package org.dsd.cohort2026fall.tdr.invoiceautomationservice.controller;
 
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.GlobalExceptionHandler;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.PropertyGlAccountResponse;
-import org.dsd.cohort2026fall.tdr.invoiceautomationservice.service.PropertyPolicyService;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.service.AccountsPayableApprovalMatrixService;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.service.PropertyService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,7 +33,7 @@ class PropertyControllerTest {
     private PropertyService propertyService;
 
     @MockitoBean
-    private PropertyPolicyService propertyPolicyService;
+    private AccountsPayableApprovalMatrixService matrixService;
 
     @Test
     void getPropertyGlAccounts_returns200WithList() throws Exception {

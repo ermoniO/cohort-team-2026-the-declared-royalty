@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useInvoiceStore } from '../context/InvoiceContext';
-import { Property, PayerPolicy } from '../types';
+import { Property } from '../types';
 import {
   SlidersHorizontal,
   Building2,
@@ -18,90 +18,118 @@ import {
   Trash2,
   KeyRound,
   Shield,
-  Layers
+  Layers,
+  UserX,
+  UserPlus,
+  CheckCircle2,
+  AlertTriangle
 } from 'lucide-react';
 import { CreatePropertyModal } from './CreatePropertyModal';
 import {
-  getRoles,
-  getCorporatePolicyTiers,
-  getPropertyUserPolicies,
-  assignPropertyUserPolicy,
-  removePropertyUserPolicy,
-} from '../app/services/policyService';
+  getCorporateDesignations,
+  getAccountsPayableSeats,
+  getAccountsPayableThresholdPresets,
+  assignSeatOccupant,
+  vacateSeatOccupant,
+  getPropertyApprovalMatrix,
+  addPropertyApprovalMatrixStep,
+  updatePropertyApprovalMatrixStep,
+  deletePropertyApprovalMatrixStep,
+  getApprovalQueue
+} from '../app/services/approvalMatrixService';
 import { getUsers } from '../app/services/userService';
-import type { AppUser, UserRole } from '../types';
+import type { UserResponse } from '../types/user';
 import type {
-  RoleResponse,
-  CorporatePolicyTierResponse,
-  PropertyUserPolicyResponse,
+  CorporateDesignationResponse,
+  AccountsPayableSeatResponse,
+  AccountsPayableThresholdPresetResponse,
+  AccountsPayableApprovalMatrixResponse,
+  PropertyApprovalMatrixResponse,
+  ApprovalQueueResponse
 } from '@/types/api';
+import {
+  MOCK_AP_SEATS,
+  MOCK_THRESHOLD_PRESETS,
+  MOCK_PROPERTY_APPROVAL_MATRIX_STEPS,
+  MOCK_USERS
+} from '../data/mockData';
 
 export const PayerPolicyRules: React.FC = () => {
   const {
     properties,
     isPropertiesLive,
-    refreshProperties,
-    addNewProperty,
     companyPolicy,
     updateCompanyPolicy,
     updatePropertyPolicy,
     evaluatePolicyForInvoice,
     currentProfile,
-    activeRole,
-    availableUsers,
+    addNewProperty,
   } = useInvoiceStore();
 
   const [isAddPropertyOpen, setIsAddPropertyOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [editingCompanyPolicy, setEditingCompanyPolicy] = useState(false);
 
-  // Security Clearance & Property User Policy state
+  // Property context & Matrix state
   const [selectedPropContextId, setSelectedPropContextId] = useState<string>(properties[0]?.id || '');
-  const [corporateTiers, setCorporateTiers] = useState<CorporatePolicyTierResponse[]>([]);
-  const [roles, setRoles] = useState<RoleResponse[]>([]);
-  const [liveUsers, setLiveUsers] = useState<AppUser[]>([]);
-  const [userPolicies, setUserPolicies] = useState<PropertyUserPolicyResponse[]>([]);
-  const [isLoadingPolicies, setIsLoadingPolicies] = useState<boolean>(false);
-  const [isAssignModalOpen, setIsAssignModalOpen] = useState<boolean>(false);
-  const [assignUserUuid, setAssignUserUuid] = useState<string>('');
-  const [assignTierSlug, setAssignTierSlug] = useState<string>('');
-  const [assignError, setAssignError] = useState<string | null>(null);
-  const [assignSuccess, setAssignSuccess] = useState<string | null>(null);
+  const [matrixSteps, setMatrixSteps] = useState<PropertyApprovalMatrixResponse[]>([]);
+  const [seats, setSeats] = useState<AccountsPayableSeatResponse[]>([]);
+  const [presets, setPresets] = useState<AccountsPayableThresholdPresetResponse[]>([]);
+  const [systemUsers, setSystemUsers] = useState<UserResponse[]>([]);
+  const [isLoadingMatrix, setIsLoadingMatrix] = useState<boolean>(false);
+  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  // Synchronize selected property context when properties list loads from API
+  // Matrix Step Modal
+  const [isStepModalOpen, setIsStepModalOpen] = useState(false);
+  const [stepModalSequence, setStepModalSequence] = useState<number>(0);
+  const [stepModalSeatSlug, setStepModalSeatSlug] = useState<string>('');
+  const [stepModalThresholdSlug, setStepModalThresholdSlug] = useState<string>('');
+  const [stepModalError, setStepModalError] = useState<string | null>(null);
+
+  // Seat Assignment Modal
+  const [isSeatAssignModalOpen, setIsSeatAssignModalOpen] = useState(false);
+  const [assignSeatSlug, setAssignSeatSlug] = useState<string>('');
+  const [assignUserUuid, setAssignUserUuid] = useState<string>('');
+  const [seatAssignError, setSeatAssignError] = useState<string | null>(null);
+
+  // Live Routing Simulation Tool
+  const [simAmount, setSimAmount] = useState<number>(15000);
+  const [simCostType, setSimCostType] = useState<'VARIABLE' | 'FIXED_MONTHLY'>('VARIABLE');
+  const [queuePreview, setQueuePreview] = useState<ApprovalQueueResponse | null>(null);
+  const [isSimulatingQueue, setIsSimulatingQueue] = useState(false);
+
+  // Synchronize selected property context when properties list loads
   useEffect(() => {
     if (properties.length > 0 && (!selectedPropContextId || !properties.some((p) => p.id === selectedPropContextId))) {
       setSelectedPropContextId(properties[0].id);
     }
   }, [properties, selectedPropContextId]);
 
+  // Load AP Metadata (Seats, Presets, Users)
   useEffect(() => {
     let isMounted = true;
     async function loadMetadata() {
       try {
-        const [loadedRoles, loadedTiers, dbUsers] = await Promise.all([
-          getRoles(),
-          getCorporatePolicyTiers(),
-          getUsers().catch(() => []),
+        const fallbackUsers: UserResponse[] = MOCK_USERS.map((u) => ({
+          userId: u.id,
+          username: u.name,
+          email: u.email,
+          status: u.status,
+          createdAt: '',
+          updatedAt: '',
+        }));
+        const [loadedSeats, loadedPresets, loadedUsers] = await Promise.all([
+          getAccountsPayableSeats().catch(() => MOCK_AP_SEATS),
+          getAccountsPayableThresholdPresets().catch(() => MOCK_THRESHOLD_PRESETS),
+          getUsers().catch(() => fallbackUsers),
         ]);
         if (isMounted) {
-          setRoles(loadedRoles);
-          setCorporateTiers(loadedTiers);
-          if (dbUsers && dbUsers.length > 0) {
-            const mappedUsers: AppUser[] = dbUsers.map((u) => ({
-              id: u.userId,
-              name: u.userName,
-              email: u.email,
-              role: u.role as UserRole,
-              title: u.role.replace(/_/g, ' '),
-              status: (u.status as 'ACTIVE' | 'INACTIVE') || 'ACTIVE',
-              assignedPropertyIds: [],
-            }));
-            setLiveUsers(mappedUsers);
-          }
+          setSeats(loadedSeats && loadedSeats.length > 0 ? loadedSeats : MOCK_AP_SEATS);
+          setPresets(loadedPresets && loadedPresets.length > 0 ? loadedPresets : MOCK_THRESHOLD_PRESETS);
+          setSystemUsers(loadedUsers && loadedUsers.length > 0 ? loadedUsers : fallbackUsers);
         }
       } catch (err) {
-        console.warn('Failed to load corporate policy metadata:', err);
+        console.warn('Failed to load accounts payable metadata:', err);
       }
     }
     loadMetadata();
@@ -110,93 +138,165 @@ export const PayerPolicyRules: React.FC = () => {
     };
   }, []);
 
+  // Load Matrix Steps for selected property
+  const loadMatrix = async (propertyId: string) => {
+    if (!propertyId) return;
+    setIsLoadingMatrix(true);
+    try {
+      const data = await getPropertyApprovalMatrix(propertyId);
+      setMatrixSteps(data && data.length > 0 ? data : MOCK_PROPERTY_APPROVAL_MATRIX_STEPS);
+    } catch {
+      setMatrixSteps(MOCK_PROPERTY_APPROVAL_MATRIX_STEPS);
+    } finally {
+      setIsLoadingMatrix(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedPropContextId) {
+      loadMatrix(selectedPropContextId);
+    }
+  }, [selectedPropContextId]);
+
+  // Live Queue Calculation Simulation
   useEffect(() => {
     let isMounted = true;
-    if (!selectedPropContextId) return;
-
-    async function loadPolicies() {
-      setIsLoadingPolicies(true);
+    async function runSim() {
+      if (!selectedPropContextId || simAmount <= 0) return;
+      setIsSimulatingQueue(true);
       try {
-        const policies = await getPropertyUserPolicies(selectedPropContextId);
+        const queue = await getApprovalQueue(selectedPropContextId, simAmount, simCostType);
         if (isMounted) {
-          setUserPolicies(policies);
+          setQueuePreview(queue);
         }
       } catch (err) {
-        console.warn('Failed to fetch property user policies:', err);
+        console.warn('Live approval queue calculation error:', err);
       } finally {
-        if (isMounted) setIsLoadingPolicies(false);
+        if (isMounted) setIsSimulatingQueue(false);
       }
     }
-    loadPolicies();
+    runSim();
     return () => {
       isMounted = false;
     };
-  }, [selectedPropContextId]);
+  }, [selectedPropContextId, simAmount, simCostType]);
 
-  const activeOperativeUsers = liveUsers.length > 0 ? liveUsers : availableUsers;
-  const selectedUser = activeOperativeUsers.find((u) => u.id === assignUserUuid);
-  const selectedUserRole = selectedUser?.role?.toUpperCase() || '';
+  const canEdit = currentProfile.canEditPolicy;
 
-  const handleOpenAssignModal = () => {
-    setAssignUserUuid(activeOperativeUsers[0]?.id || '');
-    setAssignTierSlug('');
-    setAssignError(null);
-    setAssignSuccess(null);
-    setIsAssignModalOpen(true);
+  // Step Modal Handlers
+  const handleOpenAddStep = (stepOrSeq?: PropertyApprovalMatrixResponse | number) => {
+    if (typeof stepOrSeq === 'object' && stepOrSeq !== null) {
+      setStepModalSequence(stepOrSeq.accountsPayableApprovalSequence);
+      setStepModalSeatSlug(stepOrSeq.accountsPayableSeatSlug);
+      setStepModalThresholdSlug(stepOrSeq.accountsPayableThresholdSlug);
+    } else {
+      const seq = typeof stepOrSeq === 'number' ? stepOrSeq : (matrixSteps.length < 6 ? matrixSteps.length : 0);
+      setStepModalSequence(seq);
+      setStepModalSeatSlug(seats[0]?.accountsPayableSeatSlug || '');
+      setStepModalThresholdSlug(presets[0]?.accountsPayableThresholdSlug || '');
+    }
+    setStepModalError(null);
+    setIsStepModalOpen(true);
   };
 
-  const handleCommitPolicy = async () => {
-    if (!selectedPropContextId || !assignUserUuid || !assignTierSlug) {
-      setAssignError('Please select both an operative and an authorized policy tier.');
+  const handleSaveStep = async () => {
+    if (!selectedPropContextId || !stepModalSeatSlug || !stepModalThresholdSlug) {
+      setStepModalError('Please specify seat and threshold preset.');
       return;
     }
     try {
-      setAssignError(null);
-      await assignPropertyUserPolicy(selectedPropContextId, assignUserUuid, {
-        userUuid: assignUserUuid,
-        tierSlug: assignTierSlug,
+      setStepModalError(null);
+      await addPropertyApprovalMatrixStep(selectedPropContextId, {
+        accountsPayableApprovalSequence: stepModalSequence,
+        accountsPayableSeatSlug: stepModalSeatSlug,
+        accountsPayableThresholdSlug: stepModalThresholdSlug,
       });
-      setAssignSuccess('Financial authority tier successfully committed to property context.');
-      setIsAssignModalOpen(false);
-
-      // Refresh assignments
-      const updated = await getPropertyUserPolicies(selectedPropContextId);
-      setUserPolicies(updated);
+      setNotification({ type: 'success', message: `Approval sequence step #${stepModalSequence} committed.` });
+      setIsStepModalOpen(false);
+      loadMatrix(selectedPropContextId);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to commit policy link';
-      setAssignError(msg);
+      const msg = err instanceof Error ? err.message : 'Failed to save approval matrix step';
+      setStepModalError(msg);
     }
   };
 
-  const handleRemovePolicy = async (userUuid: string) => {
+  const handleDeleteStep = async (sequence: number) => {
     if (!selectedPropContextId) return;
+    if (sequence === 5) {
+      setNotification({ type: 'error', message: 'Sequence Step 5 is the permanent fiduciary safety net and cannot be deleted.' });
+      return;
+    }
     try {
-      await removePropertyUserPolicy(selectedPropContextId, userUuid);
-      const updated = await getPropertyUserPolicies(selectedPropContextId);
-      setUserPolicies(updated);
-    } catch (err) {
-      console.error('Failed to remove policy assignment:', err);
+      await deletePropertyApprovalMatrixStep(selectedPropContextId, sequence);
+      setNotification({ type: 'success', message: `Approval sequence step #${sequence} removed.` });
+      loadMatrix(selectedPropContextId);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to remove approval matrix step';
+      setNotification({ type: 'error', message: msg });
     }
   };
 
-  // Form states for company policy
+  // Seat Assignment Handlers
+  const handleOpenAssignSeat = (seatSlug: string) => {
+    setAssignSeatSlug(seatSlug);
+    setAssignUserUuid(systemUsers[0]?.userId || '');
+    setSeatAssignError(null);
+    setIsSeatAssignModalOpen(true);
+  };
+
+  const handleCommitSeatAssignment = async () => {
+    if (!assignSeatSlug || !assignUserUuid) {
+      setSeatAssignError('Please select an occupant user.');
+      return;
+    }
+    try {
+      setSeatAssignError(null);
+      await assignSeatOccupant(assignSeatSlug, assignUserUuid);
+      setNotification({ type: 'success', message: `Occupant assigned to ${assignSeatSlug}.` });
+      setIsSeatAssignModalOpen(false);
+      // Refresh metadata & matrix
+      const updatedSeats = await getAccountsPayableSeats();
+      setSeats(updatedSeats);
+      if (selectedPropContextId) loadMatrix(selectedPropContextId);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to assign occupant to seat';
+      setSeatAssignError(msg);
+    }
+  };
+
+  const handleVacateSeat = async (seatSlug: string) => {
+    try {
+      await vacateSeatOccupant(seatSlug);
+      setNotification({ type: 'success', message: `Seat ${seatSlug} is now vacant.` });
+      const updatedSeats = await getAccountsPayableSeats();
+      setSeats(updatedSeats);
+      if (selectedPropContextId) loadMatrix(selectedPropContextId);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to vacate seat';
+      setNotification({ type: 'error', message: msg });
+    }
+  };
+
+  // Company Policy Baseline Handlers
   const [companyAutoApprove, setCompanyAutoApprove] = useState(companyPolicy.maxAutoApproveAmount);
   const [companyAutoPay, setCompanyAutoPay] = useState(companyPolicy.maxAutoPayAmount);
   const [companyMinConfidence, setCompanyMinConfidence] = useState(companyPolicy.minConfidenceScore);
 
-  // Form states for property override
+  const handleSaveCompanyPolicy = () => {
+    updateCompanyPolicy({
+      maxAutoApproveAmount: companyAutoApprove,
+      maxAutoPayAmount: companyAutoPay,
+      minConfidenceScore: companyMinConfidence,
+    });
+    setEditingCompanyPolicy(false);
+  };
+
+  // Property Overrides
   const [propAutoApprove, setPropAutoApprove] = useState(1500);
   const [propAutoPay, setPropAutoPay] = useState(500);
   const [propMinConfidence, setPropMinConfidence] = useState(85);
   const [propRequiresPo, setPropRequiresPo] = useState(false);
   const [propAutoPayEnabled, setPropAutoPayEnabled] = useState(true);
-
-  // Policy Simulator inputs
-  const [simPropertyId, setSimPropertyId] = useState<string>(properties[0].id);
-  const [simAmount, setSimAmount] = useState<number>(1250);
-  const [simConfidence, setSimConfidence] = useState<number>(95);
-
-  const canEdit = currentProfile.canEditPolicy;
 
   const handleOpenEditProp = (prop: Property) => {
     setEditingProperty(prop);
@@ -219,16 +319,7 @@ export const PayerPolicyRules: React.FC = () => {
     setEditingProperty(null);
   };
 
-  const handleSaveCompanyPolicy = () => {
-    updateCompanyPolicy({
-      maxAutoApproveAmount: companyAutoApprove,
-      maxAutoPayAmount: companyAutoPay,
-      minConfidenceScore: companyMinConfidence,
-    });
-    setEditingCompanyPolicy(false);
-  };
-
-  const simResult = evaluatePolicyForInvoice(simAmount, simPropertyId, simConfidence);
+  const currentPropertyObj = properties.find((p) => p.id === selectedPropContextId);
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-8">
@@ -237,10 +328,10 @@ export const PayerPolicyRules: React.FC = () => {
         <div>
           <h1 className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
             <SlidersHorizontal className="w-5 h-5 text-indigo-600" />
-            Payer Policy & Dollar Threshold Rules
+            Payer Policy & Multi-Tier Approval Matrix
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Enforce custom individual transaction dollar limits and AI auto-approval guardrails per commercial property entity
+            Sequential 0–5 escalation matrix, RBAC operational seats, proxy delegation, and fiduciary guardrails per property
           </p>
         </div>
 
@@ -268,15 +359,415 @@ export const PayerPolicyRules: React.FC = () => {
           {!canEdit && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-800 rounded-md border border-amber-200 text-xs">
               <Lock className="w-3.5 h-3.5" />
-              <span>Policy edits restricted. Switch to Property Manager or Admin role to modify.</span>
+              <span>Policy edits restricted. Administrator or Property Manager role required.</span>
             </div>
           )}
         </div>
       </div>
 
-      {/* Grid: Company Baseline Policy Card + Live Simulator */}
+      {notification && (
+        <div
+          className={`p-3 rounded-lg border text-xs flex items-center justify-between ${
+            notification.type === 'success'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+              : 'bg-rose-50 border-rose-200 text-rose-800'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {notification.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            ) : (
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+            )}
+            <span>{notification.message}</span>
+          </div>
+          <button onClick={() => setNotification(null)} className="font-bold hover:opacity-75">
+            ×
+          </button>
+        </div>
+      )}
+
+      {/* SECTION 1: Single-File Property Approval Matrix Table (Steps 0–5) */}
+      <div className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden">
+        <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <Shield className="w-4 h-4 text-indigo-600" />
+              <h3 className="text-sm font-bold text-slate-900">
+                Property Approval Matrix (Sequential Steps 0–5)
+              </h3>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Escalation sequence governing invoice sign-offs. Step 0 is intake floor; Step 5 is permanent unlimited safety net.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-slate-600">Property:</span>
+              <select
+                value={selectedPropContextId}
+                onChange={(e) => setSelectedPropContextId(e.target.value)}
+                className="text-xs bg-slate-50 text-slate-900 border border-slate-300 rounded-md py-1.5 px-2.5 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              >
+                {properties.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {canEdit && (
+              <button
+                onClick={() => handleOpenAddStep()}
+                className="px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-md shadow-xs transition-colors inline-flex items-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Add Step</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 font-medium">
+              <tr>
+                <th className="px-4 py-3">Sequence Rank</th>
+                <th className="px-4 py-3">Operational AP Seat</th>
+                <th className="px-4 py-3">Current Occupant</th>
+                <th className="px-4 py-3">Threshold Preset</th>
+                <th className="px-4 py-3 text-right">Variable Max (T&M)</th>
+                <th className="px-4 py-3 text-right">Fixed Match Limit</th>
+                <th className="px-4 py-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 text-slate-700">
+              {isLoadingMatrix ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
+                    Loading property approval matrix...
+                  </td>
+                </tr>
+              ) : matrixSteps.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                    <UserCheck className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                    No approval steps configured for this property asset.
+                  </td>
+                </tr>
+              ) : (
+                matrixSteps.map((step) => {
+                  const isStep5 = step.accountsPayableApprovalSequence === 5;
+                  const isVacant = !step.assignedUserName;
+
+                  return (
+                    <tr
+                      key={step.accountsPayableApprovalSequence}
+                      className={`hover:bg-slate-50/70 transition-colors ${
+                        isStep5 ? 'bg-amber-50/20' : ''
+                      }`}
+                    >
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-800 border border-slate-300">
+                            #{step.accountsPayableApprovalSequence}
+                          </span>
+                          {step.accountsPayableApprovalSequence === 0 && (
+                            <span className="text-[10px] text-slate-500 font-medium">Intake Floor</span>
+                          )}
+                          {isStep5 && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                              <Lock className="w-2.5 h-2.5" />
+                              Safety Net
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <div className="font-semibold text-slate-900">
+                          {step.seatDisplayName || step.accountsPayableSeatSlug}
+                        </div>
+                        <div className="text-[10px] font-mono text-slate-400">
+                          {step.accountsPayableSeatSlug}
+                        </div>
+                      </td>
+
+                      <td className="px-4 py-3">
+                        {isVacant ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                            <AlertTriangle className="w-3 h-3 text-amber-600" />
+                            Vacant (Action Required)
+                          </span>
+                        ) : (
+                          <div>
+                            <div className="font-semibold text-slate-900">
+                              {step.assignedUserName}
+                            </div>
+                            <div className="text-[10px] text-slate-500">
+                              {step.assignedUserEmail}
+                            </div>
+                          </div>
+                        )}
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <span className="font-mono text-xs font-semibold text-indigo-900 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
+                          {step.accountsPayableThresholdSlug}
+                        </span>
+                      </td>
+
+                      <td className="px-4 py-3 font-mono font-bold text-slate-900 text-right tabular-nums">
+                        {step.variableMax === -1 || step.variableMax === null || step.variableMax === undefined || step.variableMax >= 99999999 || step.accountsPayableThresholdSlug === 'LIMIT_UNLIMITED' ? (
+                          <span className="text-indigo-600 font-bold">UNLIMITED</span>
+                        ) : (
+                          `$${step.variableMax.toLocaleString()}`
+                        )}
+                      </td>
+
+                      <td className="px-4 py-3 font-mono text-slate-700 text-right tabular-nums">
+                        {step.fixedAutoMax === -1 || step.fixedAutoMax === null || step.fixedAutoMax === undefined || step.fixedAutoMax >= 99999999 || step.accountsPayableThresholdSlug === 'LIMIT_UNLIMITED' ? (
+                          <span className="text-indigo-600 font-bold">UNLIMITED</span>
+                        ) : (
+                          `$${step.fixedAutoMax.toLocaleString()}`
+                        )}
+                      </td>
+
+                      <td className="px-4 py-3 text-right">
+                        {isStep5 ? (
+                          <span className="text-[11px] text-slate-400 italic inline-flex items-center gap-1">
+                            <Lock className="w-3 h-3" /> Locked Safety Net
+                          </span>
+                        ) : canEdit ? (
+                          <div className="inline-flex items-center gap-1">
+                            <button
+                              onClick={() => handleOpenAddStep(step)}
+                              className="px-2 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition-colors inline-flex items-center gap-1"
+                              title="Edit step"
+                            >
+                              <Edit2 className="w-3 h-3" />
+                              <span>Edit</span>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteStep(step.accountsPayableApprovalSequence)}
+                              className="px-2 py-1 text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded transition-colors inline-flex items-center gap-1"
+                              title="Remove step"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              <span>Remove</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 text-[11px]">View Only</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* SECTION 2: Live Routing Simulation & Predictive Escalation Tool */}
+      <div className="bg-slate-900 text-white p-6 rounded-lg border border-slate-800 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <Calculator className="w-4 h-4 text-indigo-400" />
+              <h3 className="text-sm font-bold text-white">
+                Live Invoice Routing Preview Tool
+              </h3>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Simulates the exact sequential escalation ladder for a hypothetical invoice using live property matrix rules.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div>
+              <label className="block text-[10px] text-slate-400 mb-0.5">Gross Amount ($)</label>
+              <input
+                type="number"
+                value={simAmount}
+                onChange={(e) => setSimAmount(Number(e.target.value))}
+                className="text-xs font-mono bg-slate-800 text-white border border-slate-700 rounded py-1.5 px-3 w-32 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] text-slate-400 mb-0.5">Cost Type</label>
+              <select
+                value={simCostType}
+                onChange={(e) => setSimCostType(e.target.value as 'VARIABLE' | 'FIXED_MONTHLY')}
+                className="text-xs bg-slate-800 text-white border border-slate-700 rounded py-1.5 px-3 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              >
+                <option value="VARIABLE">VARIABLE (Time & Materials)</option>
+                <option value="FIXED_MONTHLY">FIXED_MONTHLY (Recurring)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {queuePreview && (
+          <div className="space-y-4">
+            {queuePreview.hasVacantStep && (
+              <div className="p-3 bg-amber-950/80 border border-amber-800 rounded-md text-amber-200 text-xs flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>
+                  <strong>Vacant Seat Warning:</strong> At least one required approver seat in this routing queue is vacant. An administrator must assign an occupant before bills can pass this step.
+                </span>
+              </div>
+            )}
+
+            <div className="p-4 bg-slate-800/80 rounded-lg border border-slate-700">
+              <div className="text-xs text-slate-400 font-semibold mb-3 flex items-center justify-between">
+                <span>Calculated Escalation Chain ({queuePreview.steps?.length || 0} Required Approvals):</span>
+                <span>Context: {currentPropertyObj?.name}</span>
+              </div>
+
+              {queuePreview.steps && queuePreview.steps.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-3">
+                  {queuePreview.steps.map((qStep, idx) => (
+                    <React.Fragment key={qStep.sequence}>
+                      <div className="p-3 bg-slate-900 border border-slate-700 rounded-md flex flex-col min-w-44 shadow-2xs">
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <span className="font-mono text-[10px] text-slate-400">Step #{qStep.sequence}</span>
+                          {qStep.isProxy && (
+                            <span className="text-[10px] font-semibold text-indigo-300 bg-indigo-950 px-1.5 py-0.2 rounded border border-indigo-800">
+                              Proxy Delegate
+                            </span>
+                          )}
+                          {qStep.isVacant && (
+                            <span className="text-[10px] font-semibold text-rose-300 bg-rose-950 px-1.5 py-0.2 rounded border border-rose-800">
+                              Vacant
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="font-bold text-xs text-white">
+                          {qStep.seatDisplayName || qStep.seatSlug}
+                        </div>
+
+                        <div className="text-[11px] text-slate-300 mt-1">
+                          {qStep.isVacant ? (
+                            <span className="text-rose-400 italic">No occupant assigned</span>
+                          ) : (
+                            <span>{qStep.userName}</span>
+                          )}
+                        </div>
+
+                        <div className="text-[10px] font-mono text-slate-500 mt-1">
+                          Cap: {simCostType === 'VARIABLE' ? `$${qStep.variableMax.toLocaleString()}` : `$${qStep.fixedAutoMax.toLocaleString()}`}
+                        </div>
+                      </div>
+
+                      {idx < queuePreview.steps.length - 1 && (
+                        <ArrowRight className="w-4 h-4 text-slate-600 shrink-0" />
+                      )}
+                    </React.Fragment>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-xs text-slate-400 italic">No routing steps triggered.</div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* SECTION 3: Operational Seats & Occupant Directory Panel */}
+      <div className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden">
+        <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <KeyRound className="w-4 h-4 text-indigo-600" />
+              <h3 className="text-sm font-bold text-slate-900">
+                Accounts Payable Seats & Occupant Directory
+              </h3>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Decoupled RBAC seats. Seats hold signing authority; human occupants hold identities and delegation links.
+            </p>
+          </div>
+
+          <div className="text-xs text-slate-500">
+            {seats.filter((s) => s.assignedUserName).length} of {seats.length} seats occupied
+          </div>
+        </div>
+
+        <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {seats.map((seat) => {
+            const isOccupied = Boolean(seat.assignedUserName);
+
+            return (
+              <div
+                key={seat.accountsPayableSeatSlug}
+                className="p-4 rounded-lg border border-slate-200 bg-slate-50/50 flex flex-col justify-between space-y-3"
+              >
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs text-slate-900">{seat.displayName}</span>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                        isOccupied
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : 'bg-amber-50 text-amber-700 border border-amber-200'
+                      }`}
+                    >
+                      {isOccupied ? 'Occupied' : 'Vacant'}
+                    </span>
+                  </div>
+                  <div className="text-[10px] font-mono text-slate-400 mt-0.5">
+                    {seat.accountsPayableSeatSlug}
+                  </div>
+
+                  <div className="mt-3 p-2.5 bg-white rounded border border-slate-200 text-xs">
+                    {isOccupied ? (
+                      <div>
+                        <div className="font-semibold text-slate-900">{seat.assignedUserName}</div>
+                        <div className="text-[11px] text-slate-500">{seat.assignedUserEmail}</div>
+                      </div>
+                    ) : (
+                      <div className="text-slate-400 italic text-[11px]">
+                        No human currently seated. Approval queue will trigger vacant warning.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {canEdit && (
+                  <div className="pt-2 border-t border-slate-200 flex items-center justify-end gap-2">
+                    {isOccupied && (
+                      <button
+                        onClick={() => handleVacateSeat(seat.accountsPayableSeatSlug)}
+                        className="px-2.5 py-1 text-xs text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded transition-colors inline-flex items-center gap-1"
+                      >
+                        <UserX className="w-3 h-3" />
+                        <span>Vacate</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleOpenAssignSeat(seat.accountsPayableSeatSlug)}
+                      className="px-2.5 py-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded border border-indigo-200 transition-colors inline-flex items-center gap-1"
+                    >
+                      <UserPlus className="w-3 h-3" />
+                      <span>{isOccupied ? 'Reassign' : 'Assign Occupant'}</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* SECTION 4: Portfolio Property Baseline & Property Policies */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Company Default Policy Card (6 cols) */}
+        {/* Baseline Card */}
         <div className="lg:col-span-6 bg-white p-6 rounded-lg border border-slate-200 shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-4">
@@ -315,9 +806,6 @@ export const PayerPolicyRules: React.FC = () => {
                       className="w-full pl-7 pr-3 py-1.5 text-xs font-mono border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-slate-900"
                     />
                   </div>
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    Invoices below this amount pass directly to approved state if confidence passes.
-                  </p>
                 </div>
 
                 <div>
@@ -333,9 +821,6 @@ export const PayerPolicyRules: React.FC = () => {
                       className="w-full pl-7 pr-3 py-1.5 text-xs font-mono border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-slate-900"
                     />
                   </div>
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    Direct automated Stripe Test CC execution without secondary human release button.
-                  </p>
                 </div>
 
                 <div>
@@ -396,318 +881,222 @@ export const PayerPolicyRules: React.FC = () => {
           </div>
 
           <div className="pt-4 border-t border-slate-100 text-[11px] text-slate-500 flex items-center justify-between mt-4">
-            <span>Enforced by AI Rule Engine across all commercial accounts payable transactions.</span>
+            <span>Enforced across all commercial accounts payable transactions.</span>
           </div>
         </div>
 
-        {/* Live Policy Simulator (6 cols) */}
-        <div className="lg:col-span-6 bg-slate-900 text-white p-6 rounded-lg border border-slate-800 shadow-xs flex flex-col justify-between">
+        {/* Property Policy Overrides Overview */}
+        <div className="lg:col-span-6 bg-white p-6 rounded-lg border border-slate-200 shadow-xs flex flex-col justify-between">
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <Calculator className="w-4 h-4 text-indigo-400" />
-              <h2 className="text-sm font-bold text-white">
-                Live Transaction Policy Simulator
-              </h2>
-            </div>
-            <p className="text-xs text-slate-400 mb-4">
-              Test how a hypothetical invoice is routed under active payer policy rules
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+            <div className="flex items-center justify-between mb-4">
               <div>
-                <label className="block text-[11px] text-slate-400 font-semibold mb-1">Payer (Property)</label>
-                <select
-                  value={simPropertyId}
-                  onChange={(e) => setSimPropertyId(e.target.value)}
-                  className="w-full text-xs bg-slate-800 text-white border border-slate-700 rounded py-1.5 px-2 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                <h2 className="text-sm font-bold text-slate-900">
+                  Property Asset Custom Configurations
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Commercial properties configured with localized override rules
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+              {properties.map((p) => (
+                <div
+                  key={p.id}
+                  className="p-3 bg-slate-50 border border-slate-200 rounded-md flex items-center justify-between"
                 >
-                  {properties.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name.split(' ')[0]} {p.name.split(' ')[1]}
+                  <div>
+                    <div className="font-bold text-xs text-slate-900">{p.name}</div>
+                    <div className="text-[11px] text-slate-500 font-mono">
+                      Cap: ${p.policy.maxAutoApproveAmount.toLocaleString()} · Min Conf: {p.policy.minConfidenceScore}%
+                    </div>
+                  </div>
+
+                  {canEdit && (
+                    <button
+                      onClick={() => handleOpenEditProp(p)}
+                      className="px-2.5 py-1 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 rounded border border-slate-300 transition-colors inline-flex items-center gap-1"
+                    >
+                      <Edit2 className="w-3 h-3" />
+                      <span>Configure</span>
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-slate-100 text-[11px] text-slate-500 flex items-center justify-between mt-4">
+            <span>Property-level overrides take precedence over portfolio baselines.</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Add / Edit Step Modal */}
+      {isStepModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-lg rounded-xl border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in duration-200">
+            <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  Configure Approval Matrix Step #{stepModalSequence}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Link an operational seat and a threshold preset to this sequence level
+                </p>
+              </div>
+
+              <button
+                onClick={() => setIsStepModalOpen(false)}
+                className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-xs">
+              {stepModalError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+                  <span>{stepModalError}</span>
+                </div>
+              )}
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Sequence Rank (0 = Intake Floor, 5 = Safety Net)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="5"
+                  value={stepModalSequence}
+                  onChange={(e) => setStepModalSequence(Number(e.target.value))}
+                  disabled={stepModalSequence === 5}
+                  className="w-full py-1.5 px-3 border border-slate-300 rounded font-mono disabled:bg-slate-100"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Operational AP Seat
+                </label>
+                <select
+                  value={stepModalSeatSlug}
+                  onChange={(e) => setStepModalSeatSlug(e.target.value)}
+                  className="w-full py-2 px-3 border border-slate-300 rounded bg-white font-medium"
+                >
+                  {seats.map((s) => (
+                    <option key={s.accountsPayableSeatSlug} value={s.accountsPayableSeatSlug}>
+                      {s.displayName} ({s.accountsPayableSeatSlug})
                     </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-[11px] text-slate-400 font-semibold mb-1">Amount ($)</label>
-                <input
-                  type="number"
-                  value={simAmount}
-                  onChange={(e) => setSimAmount(Number(e.target.value))}
-                  className="w-full text-xs font-mono bg-slate-800 text-white border border-slate-700 rounded py-1.5 px-2 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                />
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Threshold Preset
+                </label>
+                <select
+                  value={stepModalThresholdSlug}
+                  onChange={(e) => setStepModalThresholdSlug(e.target.value)}
+                  className="w-full py-2 px-3 border border-slate-300 rounded bg-white font-medium"
+                >
+                  {presets.map((pr) => (
+                    <option key={pr.accountsPayableThresholdSlug} value={pr.accountsPayableThresholdSlug}>
+                      {pr.accountsPayableThresholdSlug} (Variable: ${pr.variableMax === -1 ? 'UNLIMITED' : pr.variableMax.toLocaleString()} / Fixed: ${pr.fixedAutoMax === -1 ? 'UNLIMITED' : pr.fixedAutoMax.toLocaleString()})
+                    </option>
+                  ))}
+                </select>
               </div>
+            </div>
+
+            <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setIsStepModalOpen(false)}
+                className="px-4 py-2 text-xs font-semibold text-slate-700 hover:text-slate-900 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveStep}
+                className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 rounded-md hover:bg-indigo-700 transition-colors shadow-xs"
+              >
+                Save Matrix Step
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Seat Occupant Assignment Modal */}
+      {isSeatAssignModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-xl border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in duration-200">
+            <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  Assign Occupant to Seat
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Target Seat: <span className="font-mono font-semibold text-indigo-700">{assignSeatSlug}</span>
+                </p>
+              </div>
+
+              <button
+                onClick={() => setIsSeatAssignModalOpen(false)}
+                className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-xs">
+              {seatAssignError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+                  <span>{seatAssignError}</span>
+                </div>
+              )}
 
               <div>
-                <label className="block text-[11px] text-slate-400 font-semibold mb-1">Confidence (%)</label>
-                <input
-                  type="number"
-                  min="30"
-                  max="100"
-                  value={simConfidence}
-                  onChange={(e) => setSimConfidence(Number(e.target.value))}
-                  className="w-full text-xs font-mono bg-slate-800 text-white border border-slate-700 rounded py-1.5 px-2 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                />
-              </div>
-            </div>
-
-            {/* Simulation Result Card */}
-            <div className="p-4 bg-slate-800/90 rounded-lg border border-slate-700 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-slate-400 font-medium">Predicted Routing:</span>
-                <span
-                  className={`text-xs font-bold font-mono px-2 py-0.5 rounded ${
-                    simResult.isAutoApproved
-                      ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
-                      : simResult.tier === 'property_manager'
-                      ? 'bg-amber-950 text-amber-300 border border-amber-800'
-                      : 'bg-rose-950 text-rose-300 border border-rose-800'
-                  }`}
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Select Corporate Human Operative
+                </label>
+                <select
+                  value={assignUserUuid}
+                  onChange={(e) => setAssignUserUuid(e.target.value)}
+                  className="w-full py-2 px-3 border border-slate-300 rounded bg-white font-medium"
                 >
-                  {simResult.isAutoApproved
-                    ? 'AUTO-APPROVED'
-                    : simResult.tier === 'property_manager'
-                    ? 'PROPERTY MANAGER (>$1K)'
-                    : 'VP FINANCE (>$10K)'}
-                </span>
-              </div>
-
-              <div className="text-xs text-slate-300 leading-relaxed pt-1">
-                <span className="font-semibold text-white">Rule Logic:</span> {simResult.reason}
-              </div>
-
-              <div className="text-[11px] text-slate-400 flex items-center justify-between pt-1 border-t border-slate-700">
-                <span>Effective Property Cap: ${simResult.effectiveMaxAmount.toLocaleString()}</span>
-                <span>Human-in-the-Loop: {simResult.requiresHumanReview ? 'Required' : 'Bypassed'}</span>
+                  {systemUsers.map((u) => (
+                    <option key={u.userId} value={u.userId}>
+                      {u.username} ({u.email})
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
-          </div>
 
-          <div className="pt-3 text-[11px] text-slate-500 flex items-center justify-between">
-            <span>Guarantees zero unauthorized automated disbursements above payer thresholds.</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Portfolio Property Security Assignments & Clearance Matrix (Spec Section 3 & 4) */}
-      <div className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden">
-        <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <Shield className="w-4 h-4 text-indigo-600" />
-              <h3 className="text-sm font-bold text-slate-900">
-                Portfolio Property Security Assignments & Financial Clearance Matrix
-              </h3>
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Enforce composite fiduciary clearance tiers (<code className="text-[11px] bg-slate-100 px-1 py-0.5 rounded">roles</code> → <code className="text-[11px] bg-slate-100 px-1 py-0.5 rounded">corporate_policy_tiers</code> → <code className="text-[11px] bg-slate-100 px-1 py-0.5 rounded">property_user_policies</code>) per building context.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {/* Property Context Selector */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-slate-600">Asset Context:</span>
-              <select
-                value={selectedPropContextId}
-                onChange={(e) => setSelectedPropContextId(e.target.value)}
-                className="text-xs bg-slate-50 text-slate-900 border border-slate-300 rounded-md py-1.5 px-2.5 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              >
-                {properties.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {canEdit && (
+            <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-3">
               <button
-                onClick={handleOpenAssignModal}
-                className="px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-md shadow-xs transition-colors inline-flex items-center gap-1.5"
+                onClick={() => setIsSeatAssignModalOpen(false)}
+                className="px-4 py-2 text-xs font-semibold text-slate-700 hover:text-slate-900 transition-colors"
               >
-                <KeyRound className="w-3.5 h-3.5" />
-                <span>+ Assign Clearance</span>
+                Cancel
               </button>
-            )}
+              <button
+                onClick={handleCommitSeatAssignment}
+                className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 rounded-md hover:bg-indigo-700 transition-colors shadow-xs"
+              >
+                Confirm Assignment
+              </button>
+            </div>
           </div>
         </div>
+      )}
 
-        {assignSuccess && (
-          <div className="mx-4 mt-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded text-xs flex items-center justify-between">
-            <span>{assignSuccess}</span>
-            <button onClick={() => setAssignSuccess(null)} className="text-emerald-600 hover:text-emerald-900 font-bold">×</button>
-          </div>
-        )}
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 font-medium">
-              <tr>
-                <th className="px-4 py-3">Account Operative</th>
-                <th className="px-4 py-3">Global Base Role</th>
-                <th className="px-4 py-3">Authorized Policy Tier</th>
-                <th className="px-4 py-3 text-right">Variable Max (T&M)</th>
-                <th className="px-4 py-3 text-right">Auto Fixed Match</th>
-                <th className="px-4 py-3 text-center">Clearance Status</th>
-                <th className="px-4 py-3 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200 text-slate-700">
-              {isLoadingPolicies ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
-                    Loading security clearance policies...
-                  </td>
-                </tr>
-              ) : userPolicies.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
-                    <UserCheck className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                    No operatives currently assigned financial clearance on this property asset.
-                    <br />
-                    <span className="text-[11px] text-slate-400">Click "+ Assign Clearance" to link a user role to a corporate policy tier.</span>
-                  </td>
-                </tr>
-              ) : (
-                userPolicies.map((pol) => (
-                  <tr key={pol.userUuid} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="px-4 py-3">
-                      <div className="font-semibold text-slate-900">{pol.userName}</div>
-                      <div className="text-[11px] text-slate-500">{pol.userEmail}</div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-300">
-                        {pol.userRole}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="font-semibold text-indigo-900">{pol.tierDisplayName || pol.tierSlug}</div>
-                      <div className="text-[10px] font-mono text-slate-400">{pol.tierSlug}</div>
-                    </td>
-                    <td className="px-4 py-3 font-mono font-bold text-slate-900 text-right tabular-nums">
-                      ${pol.variableMax?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </td>
-                    <td className="px-4 py-3 font-mono text-slate-700 text-right tabular-nums">
-                      ${pol.fixedAutoMax?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        {pol.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      {canEdit ? (
-                        <button
-                          onClick={() => handleRemovePolicy(pol.userUuid)}
-                          className="px-2 py-1 text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded transition-colors inline-flex items-center gap-1"
-                          title="Revoke clearance"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>Revoke</span>
-                        </button>
-                      ) : (
-                        <span className="text-slate-400 text-[11px]">View Only</span>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Property-Level Policy Overrides Table */}
-      <div className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden">
-        <div className="p-4 border-b border-slate-200 flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-bold text-slate-900">
-              Commercial Property (Payer) Policy Configuration
-            </h3>
-            <p className="text-xs text-slate-500">
-              Set customized dollar limits and approval rules for individual commercial properties
-            </p>
-          </div>
-
-          <div className="text-xs text-slate-500">
-            {properties.filter((p) => p.hasCustomPolicy).length} custom policies active
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 font-medium">
-              <tr>
-                <th className="px-4 py-3">Property Entity (Payer)</th>
-                <th className="px-4 py-3">Property Type</th>
-                <th className="px-4 py-3 text-right">Auto-Approve Cap</th>
-                <th className="px-4 py-3 text-right">Auto-Pay Cap</th>
-                <th className="px-4 py-3 text-center">Min Confidence</th>
-                <th className="px-4 py-3">Policy Status</th>
-                <th className="px-4 py-3 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200 text-slate-700">
-              {properties.map((prop) => {
-                return (
-                  <tr key={prop.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="px-4 py-3">
-                      <div className="font-semibold text-slate-900">{prop.name}</div>
-                      {prop.ownerEntity && (
-                        <div className="text-[11px] text-indigo-600 font-medium">{prop.ownerEntity}</div>
-                      )}
-                      <div className="text-[11px] text-slate-500 font-normal mt-0.5">{prop.address}</div>
-                      <div className="text-[10px] text-slate-400 mt-0.5">
-                        {prop.sqft ? `${prop.sqft.toLocaleString()} sq ft · ` : ''}Manager: {prop.managerName}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 capitalize text-slate-600">
-                      {prop.propertyType.replace('_', ' ')}
-                    </td>
-                    <td className="px-4 py-3 font-mono font-bold text-slate-900 text-right tabular-nums">
-                      ${prop.policy.maxAutoApproveAmount.toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3 font-mono text-slate-700 text-right tabular-nums">
-                      ${prop.policy.maxAutoPayAmount.toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3 font-mono text-slate-700 text-center">
-                      {prop.policy.minConfidenceScore}%
-                    </td>
-                    <td className="px-4 py-3">
-                      {prop.hasCustomPolicy ? (
-                        <span className="text-indigo-700 font-medium text-[11px] bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
-                          Custom Payer Policy
-                        </span>
-                      ) : (
-                        <span className="text-slate-500 font-medium text-[11px] bg-slate-100 px-2 py-0.5 rounded">
-                          Company Default
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      {canEdit ? (
-                        <button
-                          onClick={() => handleOpenEditProp(prop)}
-                          className="px-2.5 py-1 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded border border-slate-300 transition-colors inline-flex items-center gap-1"
-                        >
-                          <Edit2 className="w-3 h-3" />
-                          <span>Configure</span>
-                        </button>
-                      ) : (
-                        <span className="text-slate-400 text-[11px]">View Only</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Property Policy Edit Modal Drawer */}
+      {/* Property Policy Edit Modal */}
       {editingProperty && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-lg rounded-xl border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in duration-200">
@@ -743,9 +1132,6 @@ export const PayerPolicyRules: React.FC = () => {
                     className="w-full pl-7 pr-3 py-1.5 font-mono border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-slate-900"
                   />
                 </div>
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Invoices billing this property under this limit are automatically approved.
-                </p>
               </div>
 
               <div>
@@ -787,9 +1173,6 @@ export const PayerPolicyRules: React.FC = () => {
                   />
                   <span className="font-semibold text-slate-800">Enable Automated Stripe Test CC Payment</span>
                 </label>
-                <p className="text-[11px] text-slate-500 pl-5">
-                  If disabled, all approved invoices require manual execution by the AP specialist.
-                </p>
               </div>
             </div>
 
@@ -805,153 +1188,6 @@ export const PayerPolicyRules: React.FC = () => {
                 className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 rounded-md hover:bg-slate-800 transition-colors shadow-xs"
               >
                 Save Property Policy
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Assign User Policy Modal (Spec Wireframe B) */}
-      {isAssignModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-xl rounded-xl border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in duration-200">
-            <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-              <div>
-                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  <KeyRound className="w-4 h-4 text-indigo-600" />
-                  Portfolio Property Security Assignment
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Bind user identity and allowed corporate clearance policy to property asset context
-                </p>
-              </div>
-
-              <button
-                onClick={() => setIsAssignModalOpen(false)}
-                className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-5 text-xs">
-              {assignError && (
-                <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded text-xs flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
-                  <span>{assignError}</span>
-                </div>
-              )}
-
-              {/* 1. CHOOSE TARGET ACCOUNT OPERATIVE */}
-              <div>
-                <label className="block font-bold text-slate-800 mb-1">
-                  1. Choose Target Account Operative
-                </label>
-                <select
-                  value={assignUserUuid}
-                  onChange={(e) => {
-                    setAssignUserUuid(e.target.value);
-                    setAssignTierSlug(''); // reset tier when user changes
-                  }}
-                  className="w-full border border-slate-300 rounded py-2 px-3 text-xs bg-white text-slate-900 font-medium focus:ring-1 focus:ring-indigo-600 focus:outline-none"
-                >
-                  {activeOperativeUsers.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name} ({u.email})
-                    </option>
-                  ))}
-                </select>
-
-                <div className="mt-2 p-2.5 bg-slate-50 border border-slate-200 rounded flex items-center justify-between">
-                  <span className="text-[11px] text-slate-500">Corporate Base Role Identity:</span>
-                  <span className="font-mono text-xs font-bold text-indigo-900 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
-                    {selectedUserRole || 'NONE'}
-                  </span>
-                </div>
-              </div>
-
-              {/* 2. CHOOSE TARGET PROPERTY CONTEXT */}
-              <div>
-                <label className="block font-bold text-slate-800 mb-1">
-                  2. Target Property Asset Context
-                </label>
-                <div className="p-2.5 bg-slate-100 border border-slate-200 rounded text-slate-800 font-semibold flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-slate-500" />
-                  <span>{properties.find((p) => p.id === selectedPropContextId)?.name || 'Selected Property'}</span>
-                </div>
-              </div>
-
-              {/* 3. SET ASSIGNED FINANCIAL AUTHORITY POLICY */}
-              <div>
-                <label className="block font-bold text-slate-800 mb-1">
-                  3. Set Assigned Financial Authority Policy (Dynamically Filtered by Role Legality)
-                </label>
-                <p className="text-[11px] text-slate-500 mb-3">
-                  Database constraints strictly enforce that operatives can only inherit policy tiers allowed for their global role.
-                </p>
-
-                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                  {corporateTiers.length === 0 ? (
-                    <div className="p-3 text-slate-400 bg-slate-50 rounded text-center">Loading policy tiers...</div>
-                  ) : (
-                    corporateTiers.map((tier) => {
-                      const isAllowed = selectedUserRole && tier.allowedRole.toUpperCase() === selectedUserRole;
-                      return (
-                        <label
-                          key={tier.tierSlug}
-                          className={`p-3 rounded-lg border flex items-start justify-between transition-all ${
-                            isAllowed
-                              ? assignTierSlug === tier.tierSlug
-                                ? 'border-indigo-600 bg-indigo-50/70 shadow-xs cursor-pointer'
-                                : 'border-slate-200 hover:border-slate-300 bg-white cursor-pointer'
-                              : 'border-slate-100 bg-slate-50 opacity-50 cursor-not-allowed'
-                          }`}
-                        >
-                          <div className="flex items-start gap-2.5">
-                            <input
-                              type="radio"
-                              name="policyTier"
-                              disabled={!isAllowed}
-                              checked={assignTierSlug === tier.tierSlug}
-                              onChange={() => isAllowed && setAssignTierSlug(tier.tierSlug)}
-                              className="mt-0.5 text-indigo-600 accent-indigo-600"
-                            />
-                            <div>
-                              <div className="font-bold text-slate-900 flex items-center gap-2">
-                                <span>{tier.displayName}</span>
-                                {!isAllowed && (
-                                  <span className="text-[10px] text-rose-600 bg-rose-50 px-1.5 py-0.2 rounded border border-rose-200 flex items-center gap-1 font-normal">
-                                    <Lock className="w-2.5 h-2.5" />
-                                    Restricted to {tier.allowedRole}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="text-[11px] font-mono text-slate-500 mt-0.5">
-                                Max Variable: ${tier.variableMax?.toLocaleString()} | Auto Fixed Match: ${tier.fixedAutoMax?.toLocaleString()}
-                              </div>
-                            </div>
-                          </div>
-                        </label>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-3">
-              <button
-                onClick={() => setIsAssignModalOpen(false)}
-                className="px-4 py-2 text-xs font-semibold text-slate-700 hover:text-slate-900 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCommitPolicy}
-                disabled={!assignTierSlug}
-                className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50 transition-colors shadow-xs"
-              >
-                Commit Policy Link
               </button>
             </div>
           </div>

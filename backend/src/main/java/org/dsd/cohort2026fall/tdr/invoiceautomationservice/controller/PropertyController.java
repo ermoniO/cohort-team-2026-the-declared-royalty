@@ -2,7 +2,7 @@ package org.dsd.cohort2026fall.tdr.invoiceautomationservice.controller;
 
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.api.PropertiesApi;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.*;
-import org.dsd.cohort2026fall.tdr.invoiceautomationservice.service.PropertyPolicyService;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.service.AccountsPayableApprovalMatrixService;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.service.PropertyService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,11 +15,11 @@ import java.util.UUID;
 public class PropertyController implements PropertiesApi {
 
     private final PropertyService propertyService;
-    private final PropertyPolicyService propertyPolicyService;
+    private final AccountsPayableApprovalMatrixService matrixService;
 
-    public PropertyController(PropertyService propertyService, PropertyPolicyService propertyPolicyService) {
+    public PropertyController(PropertyService propertyService, AccountsPayableApprovalMatrixService matrixService) {
         this.propertyService = propertyService;
-        this.propertyPolicyService = propertyPolicyService;
+        this.matrixService = matrixService;
     }
 
     @Override
@@ -48,19 +48,31 @@ public class PropertyController implements PropertiesApi {
     }
 
     @Override
-    public ResponseEntity<List<PropertyUserPolicyResponse>> getPropertyUserPolicies(UUID propertyId) {
-        return ResponseEntity.ok(propertyPolicyService.getPropertyUserPolicies(propertyId));
+    public ResponseEntity<List<AccountsPayableApprovalMatrixResponse>> getPropertyApprovalMatrix(UUID propertyId) {
+        return ResponseEntity.ok(matrixService.getPropertyApprovalMatrix(propertyId));
     }
 
     @Override
-    public ResponseEntity<PropertyUserPolicyResponse> assignPropertyUserPolicy(
-            UUID propertyId, UUID userUuid, PropertyUserPolicyAssignmentRequest request) {
-        return ResponseEntity.ok(propertyPolicyService.assignUserPolicy(propertyId, userUuid, request));
+    public ResponseEntity<AccountsPayableApprovalMatrixResponse> addPropertyApprovalMatrixStep(
+            UUID propertyId, AccountsPayableApprovalMatrixStepRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(matrixService.addMatrixStep(propertyId, request));
     }
 
     @Override
-    public ResponseEntity<Void> removePropertyUserPolicy(UUID propertyId, UUID userUuid) {
-        propertyPolicyService.removeUserPolicy(propertyId, userUuid);
+    public ResponseEntity<AccountsPayableApprovalMatrixResponse> updatePropertyApprovalMatrixStep(
+            UUID propertyId, Integer sequence, AccountsPayableApprovalMatrixStepRequest request) {
+        return ResponseEntity.ok(matrixService.updateMatrixStep(propertyId, sequence, request));
+    }
+
+    @Override
+    public ResponseEntity<Void> deletePropertyApprovalMatrixStep(UUID propertyId, Integer sequence) {
+        matrixService.deleteMatrixStep(propertyId, sequence);
         return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    public ResponseEntity<ApprovalQueueResponse> calculateInvoiceApprovalQueue(
+            UUID propertyId, Double grossAmount, String costType) {
+        return ResponseEntity.ok(matrixService.calculateInvoiceRoutingQueue(propertyId, grossAmount, costType));
     }
 }

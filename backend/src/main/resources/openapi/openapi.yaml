@@ -16,14 +16,20 @@ paths:
     $ref: './paths/properties_by_id.yaml'
   /api/v1/properties/{propertyId}/gl-accounts:
     $ref: './paths/property_gl_accounts.yaml'
-  /api/v1/properties/{propertyId}/user-policies:
-    $ref: './paths/property_user_policies.yaml'
-  /api/v1/properties/{propertyId}/user-policies/{userUuid}:
-    $ref: './paths/property_user_policies_by_id.yaml'
-  /api/v1/roles:
-    $ref: './paths/roles.yaml'
-  /api/v1/corporate-policy-tiers:
-    $ref: './paths/corporate_policy_tiers.yaml'
+  /api/v1/properties/{propertyId}/approval-matrix:
+    $ref: './paths/accounts_payable_approval_matrix.yaml'
+  /api/v1/properties/{propertyId}/approval-matrix/{sequence}:
+    $ref: './paths/accounts_payable_approval_matrix_by_step.yaml'
+  /api/v1/properties/{propertyId}/approval-queue:
+    $ref: './paths/property_approval_queue.yaml'
+  /api/v1/corporate-designations:
+    $ref: './paths/corporate_designations.yaml'
+  /api/v1/accounts-payable-seats:
+    $ref: './paths/accounts_payable_seats.yaml'
+  /api/v1/accounts-payable-seats/{seatSlug}/assignment:
+    $ref: './paths/seat_assignments.yaml'
+  /api/v1/accounts-payable-threshold-presets:
+    $ref: './paths/accounts_payable_threshold_presets.yaml'
   /api/v1/users:
     $ref: './paths/users.yaml'
   /api/v1/users/{userId}:
@@ -57,14 +63,24 @@ components:
       $ref: './components/schemas/PropertyCategoryResponse.yaml'
     PropertyGlAccountResponse:
       $ref: './components/schemas/PropertyGlAccountResponse.yaml'
-    RoleResponse:
-      $ref: './components/schemas/RoleResponse.yaml'
-    CorporatePolicyTierResponse:
-      $ref: './components/schemas/CorporatePolicyTierResponse.yaml'
-    PropertyUserPolicyResponse:
-      $ref: './components/schemas/PropertyUserPolicyResponse.yaml'
-    PropertyUserPolicyAssignmentRequest:
-      $ref: './components/schemas/PropertyUserPolicyAssignmentRequest.yaml'
+    CorporateDesignationResponse:
+      $ref: './components/schemas/CorporateDesignationResponse.yaml'
+    AccountsPayableSeatResponse:
+      $ref: './components/schemas/AccountsPayableSeatResponse.yaml'
+    AccountsPayableThresholdPresetResponse:
+      $ref: './components/schemas/AccountsPayableThresholdPresetResponse.yaml'
+    SeatAssignmentRequest:
+      $ref: './components/schemas/SeatAssignmentRequest.yaml'
+    SeatAssignmentResponse:
+      $ref: './components/schemas/SeatAssignmentResponse.yaml'
+    AccountsPayableApprovalMatrixResponse:
+      $ref: './components/schemas/AccountsPayableApprovalMatrixResponse.yaml'
+    AccountsPayableApprovalMatrixStepRequest:
+      $ref: './components/schemas/AccountsPayableApprovalMatrixStepRequest.yaml'
+    ApprovalQueueStepResponse:
+      $ref: './components/schemas/ApprovalQueueStepResponse.yaml'
+    ApprovalQueueResponse:
+      $ref: './components/schemas/ApprovalQueueResponse.yaml'
     VendorCategoryResponse:
       $ref: './components/schemas/VendorCategoryResponse.yaml'
     PaymentMethodResponse:

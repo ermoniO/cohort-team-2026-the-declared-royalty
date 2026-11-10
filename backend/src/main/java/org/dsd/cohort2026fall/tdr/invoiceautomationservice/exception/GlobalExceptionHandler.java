@@ -57,6 +57,12 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.valueOf(413), "File too large: maximum size is 5MB", request);
     }
 
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException ex, HttpServletRequest request) {
+        log.warn("Database integrity violation on {}: {}", request.getRequestURI(), ex.getMessage());
+        return build(HttpStatus.BAD_REQUEST, "Database constraint violation: duplicate entry or invalid reference", request);
+    }
+
     @ExceptionHandler(StorageException.class)
     public ResponseEntity<ErrorResponse> handleStorage(StorageException ex, HttpServletRequest request) {
         log.error("Storage failure on {}", request.getRequestURI(), ex);

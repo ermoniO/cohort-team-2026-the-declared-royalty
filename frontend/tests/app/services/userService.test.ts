@@ -1,12 +1,13 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, it } from "node:test";
+import assert from "node:assert/strict";
 import {
   createUser,
   deactivateUserByUserId,
   getUserByUserId,
   getUsers,
   updateUserByUserId,
-} from "@/app/services/userService";
-import type { UserResponse } from "@/types/user";
+} from "../../../src/app/services/userService";
+import type { UserResponse } from "../../../src/types/user";
 
 const BASE_URL = "http://localhost:8080/api/v1/users";
 const USER_ID = "6aabd049-1200-4b71-b72f-1e24907045d7";
@@ -15,51 +16,55 @@ const user: UserResponse = {
   userId: USER_ID,
   username: "fetch-test",
   email: "fetch-test@example.com",
-  role: "ADMIN",
   status: "ACTIVE",
   createdAt: "2026-11-06T00:16:27.190079Z",
   updatedAt: "2026-11-06T00:16:27.190087Z",
 };
 
-const fetchMock = vi.fn<typeof fetch>();
+let lastCallUrl: string | undefined;
+let lastCallInit: RequestInit | undefined;
+let mockResponse: { status: number; body?: unknown } | null = null;
 
-// Replies to the next fetch call with the given status and JSON body
+const originalFetch = globalThis.fetch;
+
 function respondWith(status: number, body?: unknown) {
-  fetchMock.mockResolvedValueOnce(
-    new Response(body === undefined ? null : JSON.stringify(body), { status }),
-  );
-}
-
-// The URL and RequestInit of the most recent fetch call
-function lastRequest() {
-  const [url, init] = fetchMock.mock.lastCall ?? [];
-  return { url, init };
+  mockResponse = { status, body };
 }
 
 beforeEach(() => {
-  vi.stubGlobal("fetch", fetchMock);
+  lastCallUrl = undefined;
+  lastCallInit = undefined;
+  mockResponse = null;
+  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+    lastCallUrl = input.toString();
+    lastCallInit = init;
+    const resp = mockResponse ?? { status: 200, body: null };
+    return new Response(resp.body === undefined || resp.body === null ? null : JSON.stringify(resp.body), {
+      status: resp.status,
+    });
+  }) as typeof fetch;
 });
 
 afterEach(() => {
-  fetchMock.mockReset();
-  vi.unstubAllGlobals();
+  globalThis.fetch = originalFetch;
 });
 
 describe("getUsers", () => {
   it("GETs the users list and returns it", async () => {
     respondWith(200, [user]);
 
-    await expect(getUsers()).resolves.toEqual([user]);
+    const res = await getUsers();
+    assert.deepEqual(res, [user]);
 
-    const { url, init } = lastRequest();
-    expect(url).toBe(BASE_URL);
-    expect(init?.method).toBe("GET");
+    assert.equal(lastCallUrl, BASE_URL);
+    assert.equal(lastCallInit?.method, "GET");
   });
 
   it("returns an empty array when there are no users", async () => {
     respondWith(200, []);
 
-    await expect(getUsers()).resolves.toEqual([]);
+    const res = await getUsers();
+    assert.deepEqual(res, []);
   });
 });
 
@@ -67,17 +72,17 @@ describe("getUserByUserId", () => {
   it("GETs the user by id", async () => {
     respondWith(200, user);
 
-    await expect(getUserByUserId(USER_ID)).resolves.toEqual(user);
+    const res = await getUserByUserId(USER_ID);
+    assert.deepEqual(res, user);
 
-    const { url, init } = lastRequest();
-    expect(url).toBe(`${BASE_URL}/${USER_ID}`);
-    expect(init?.method).toBe("GET");
+    assert.equal(lastCallUrl, `${BASE_URL}/${USER_ID}`);
+    assert.equal(lastCallInit?.method, "GET");
   });
 
   it("rejects when the user is not found", async () => {
     respondWith(404, { status: 404, error: "Not Found" });
 
-    await expect(getUserByUserId(USER_ID)).rejects.toThrow("404");
+    await assert.rejects(async () => getUserByUserId(USER_ID), /404/);
   });
 });
 
@@ -86,45 +91,39 @@ describe("createUser", () => {
     respondWith(201, user);
     const request = { username: "fetch-test", email: "fetch-test@example.com" };
 
-    await expect(createUser(request)).resolves.toEqual(user);
+    const res = await createUser(request);
+    assert.deepEqual(res, user);
 
-    const { url, init } = lastRequest();
-    expect(url).toBe(BASE_URL);
-    expect(init?.method).toBe("POST");
-    expect(init?.body).toBe(JSON.stringify(request));
-    expect(init?.headers).toMatchObject({ "Content-Type": "application/json" });
+    assert.equal(lastCallUrl, BASE_URL);
+    assert.equal(lastCallInit?.method, "POST");
+    assert.equal(lastCallInit?.body, JSON.stringify(request));
+    assert.equal((lastCallInit?.headers as Record<string, string>)?.["Content-Type"], "application/json");
   });
 
   it("rejects when the backend returns a validation error", async () => {
     respondWith(400, { status: 400, message: "email: must not be null" });
 
-    await expect(
-      createUser({ username: "x", email: "" }),
-    ).rejects.toThrow("400");
+    await assert.rejects(async () => createUser({ username: "x", email: "" }), /400/);
   });
 });
 
 describe("updateUserByUserId", () => {
   it("PUTs only the fields provided and returns the updated user", async () => {
-    const updated = { ...user, role: "SUPER_ADMIN" };
+    const updated = { ...user, status: "INACTIVE" };
     respondWith(200, updated);
 
-    await expect(
-      updateUserByUserId(USER_ID, { role: "SUPER_ADMIN" }),
-    ).resolves.toEqual(updated);
+    const res = await updateUserByUserId(USER_ID, { status: "INACTIVE" });
+    assert.deepEqual(res, updated);
 
-    const { url, init } = lastRequest();
-    expect(url).toBe(`${BASE_URL}/${USER_ID}`);
-    expect(init?.method).toBe("PUT");
-    expect(init?.body).toBe(JSON.stringify({ role: "SUPER_ADMIN" }));
+    assert.equal(lastCallUrl, `${BASE_URL}/${USER_ID}`);
+    assert.equal(lastCallInit?.method, "PUT");
+    assert.equal(lastCallInit?.body, JSON.stringify({ status: "INACTIVE" }));
   });
 
   it("rejects when the user is not found", async () => {
     respondWith(404);
 
-    await expect(updateUserByUserId(USER_ID, { role: "ADMIN" })).rejects.toThrow(
-      "404",
-    );
+    await assert.rejects(async () => updateUserByUserId(USER_ID, { status: "ACTIVE" }), /404/);
   });
 });
 
@@ -132,16 +131,16 @@ describe("deactivateUserByUserId", () => {
   it("DELETEs the user and resolves with no value on 204", async () => {
     respondWith(204);
 
-    await expect(deactivateUserByUserId(USER_ID)).resolves.toBeUndefined();
+    const res = await deactivateUserByUserId(USER_ID);
+    assert.equal(res, undefined);
 
-    const { url, init } = lastRequest();
-    expect(url).toBe(`${BASE_URL}/${USER_ID}`);
-    expect(init?.method).toBe("DELETE");
+    assert.equal(lastCallUrl, `${BASE_URL}/${USER_ID}`);
+    assert.equal(lastCallInit?.method, "DELETE");
   });
 
   it("rejects when the user is not found", async () => {
     respondWith(404);
 
-    await expect(deactivateUserByUserId(USER_ID)).rejects.toThrow("404");
+    await assert.rejects(async () => deactivateUserByUserId(USER_ID), /404/);
   });
 });

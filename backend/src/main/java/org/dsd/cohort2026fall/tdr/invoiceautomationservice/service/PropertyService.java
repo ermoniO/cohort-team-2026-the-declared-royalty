@@ -95,6 +95,21 @@ public class PropertyService {
                 .build();
 
         PropertyEntity savedProperty = propertyRepository.save(createdProperty);
+
+        // Automatically initialize default Step 0 (Intake Floor) and Step 5 (Permanent Safety Net)
+        try {
+            String initStepSql = """
+                INSERT INTO accounts_payable_approval_matrix 
+                    (property_uuid, accounts_payable_seat_slug, accounts_payable_threshold_slug, accounts_payable_approval_sequence, status)
+                VALUES 
+                    (?, 'CORP_HQ_ACCOUNTANT_01', 'LIMIT_LOW', 0, 'ACTIVE'),
+                    (?, 'CORP_VP_OF_OPERATIONS', 'LIMIT_UNLIMITED', 5, 'ACTIVE')
+            """;
+            jdbcTemplate.update(initStepSql, savedProperty.getPropertyId(), savedProperty.getPropertyId());
+        } catch (Exception ignored) {
+            // Best-effort initialization if default seats exist
+        }
+
         return savedProperty.toResponse();
     }
 }

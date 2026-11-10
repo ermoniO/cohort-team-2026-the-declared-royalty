@@ -128,79 +128,87 @@ CREATE TABLE invoices
                                      'PROCESSING_PAYMENT', 'VOID'))
 );
 
-CREATE TABLE roles
+CREATE TABLE corporate_designations
 (
-    role_slug    VARCHAR(50) PRIMARY KEY,
-    display_name VARCHAR(100) NOT NULL,
-    description  TEXT,
-    status       VARCHAR(10)  NOT NULL DEFAULT 'ACTIVE',
-    created_at   TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at   TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    CONSTRAINT check_role_status CHECK (status IN ('ACTIVE', 'INACTIVE')),
-    CONSTRAINT check_role_slug CHECK (role_slug IN ('ADMIN', 'ACCOUNTANT', 'PROPERTY_MANAGER', 'SENIOR_PROPERTY_MANAGER', 'REGIONAL_DIRECTOR', 'VICE_PRESIDENT'))
+    designation_slug VARCHAR(50) PRIMARY KEY,
+    display_name     VARCHAR(100) NOT NULL,
+    status           VARCHAR(10)  NOT NULL DEFAULT 'ACTIVE',
+    created_at       TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at       TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT check_designation_status CHECK (status IN ('ACTIVE', 'INACTIVE'))
 );
 
-INSERT INTO roles (role_slug, display_name, description) VALUES
-('ADMIN', 'System Administrator', 'Global system controller.'),
-('ACCOUNTANT', 'Property Accountant', 'Manages books and general ledgers. No approval rights.'),
-('PROPERTY_MANAGER', 'Property Manager (PM)', 'Handles baseline routine operations.'),
-('SENIOR_PROPERTY_MANAGER', 'Senior Property Manager (SPM)', 'Manages flagship assets or regional complexes.'),
-('REGIONAL_DIRECTOR', 'Regional Operations Director', 'Portfolio supervisor handling escalation limits.'),
-('VICE_PRESIDENT', 'Vice President of Operations', 'Executive officer with portfolio-wide allocation power.');
+CREATE TABLE accounts_payable_seats
+(
+    accounts_payable_seat_slug VARCHAR(50) PRIMARY KEY,
+    display_name               VARCHAR(100) NOT NULL,
+    status                     VARCHAR(10)  NOT NULL DEFAULT 'ACTIVE',
+    created_at                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT check_ap_seat_status CHECK (status IN ('ACTIVE', 'INACTIVE'))
+);
+
+CREATE TABLE accounts_payable_threshold_presets
+(
+    accounts_payable_threshold_slug VARCHAR(50) PRIMARY KEY,
+    variable_max                    NUMERIC(12, 2) NOT NULL CHECK (variable_max >= 0.00),
+    fixed_auto_max                  NUMERIC(12, 2) NOT NULL CHECK (fixed_auto_max >= 0.00),
+    status                          VARCHAR(10)    NOT NULL DEFAULT 'ACTIVE',
+    created_at                      TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at                      TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT check_ap_preset_status CHECK (status IN ('ACTIVE', 'INACTIVE'))
+);
 
 CREATE TABLE users
 (
-    user_uuid   UUID PRIMARY KEY         DEFAULT gen_random_uuid(),
-    user_name   VARCHAR(255)             NOT NULL,
-    email       VARCHAR(255)             NOT NULL UNIQUE,
-    global_role VARCHAR(50)              NOT NULL REFERENCES roles (role_slug),
-    status      VARCHAR(10)              NOT NULL DEFAULT 'ACTIVE',
-    created_at  TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at  TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    user_uuid           UUID PRIMARY KEY         DEFAULT gen_random_uuid(),
+    user_name           VARCHAR(255)             NOT NULL,
+    email               VARCHAR(255)             NOT NULL UNIQUE,
+    delegate_user_uuid  UUID                     REFERENCES users (user_uuid) ON DELETE SET NULL,
+    delegate_expires_at TIMESTAMP WITH TIME ZONE,
+    status              VARCHAR(10)              NOT NULL DEFAULT 'ACTIVE',
+    created_at          TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at          TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     CONSTRAINT check_user_status CHECK (status IN ('ACTIVE', 'INACTIVE')),
-    CONSTRAINT unique_user_role_bridge UNIQUE (user_uuid, global_role)
+    CONSTRAINT check_no_self_delegation CHECK (delegate_user_uuid != user_uuid)
 );
 
-CREATE TABLE corporate_policy_tiers
+CREATE TABLE accounts_payable_seat_assignment
 (
-    tier_slug      VARCHAR(50) PRIMARY KEY,
-    display_name   VARCHAR(100)   NOT NULL,
-    allowed_role   VARCHAR(50)    NOT NULL REFERENCES roles (role_slug),
-    variable_max   NUMERIC(12, 2) NOT NULL,
-    fixed_auto_max NUMERIC(12, 2) NOT NULL,
-    status         VARCHAR(10)    NOT NULL DEFAULT 'ACTIVE',
-    created_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    CONSTRAINT check_policy_tier_status CHECK (status IN ('ACTIVE', 'INACTIVE')),
-    CONSTRAINT check_policy_tier_slug CHECK (tier_slug IN ('TIER_NONE_ACCT', 'TIER_1_LOW_PM', 'TIER_2_MID_SPM', 'TIER_3_HIGH_RD', 'TIER_4_UNLIMITED_VP')),
-    CONSTRAINT unique_tier_role_bridge UNIQUE (tier_slug, allowed_role)
+    assignment_uuid            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    accounts_payable_seat_slug VARCHAR(50) NOT NULL REFERENCES accounts_payable_seats (accounts_payable_seat_slug) ON DELETE CASCADE,
+    user_uuid                  UUID        NOT NULL REFERENCES users (user_uuid) ON DELETE CASCADE,
+    status                     VARCHAR(10) NOT NULL DEFAULT 'ACTIVE',
+    created_at                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at                 TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT check_seat_assign_status CHECK (status IN ('ACTIVE', 'INACTIVE')),
+    CONSTRAINT unique_user_seat_pairing UNIQUE (accounts_payable_seat_slug, user_uuid)
 );
 
-INSERT INTO corporate_policy_tiers (tier_slug, display_name, allowed_role, variable_max, fixed_auto_max) VALUES
-('TIER_NONE_ACCT', 'Accountant Processing Only', 'ACCOUNTANT', 0.00, 0.00),
-('TIER_1_LOW_PM', 'Standard PM Operations Limit', 'PROPERTY_MANAGER', 1000.00, 2500.00),
-('TIER_2_MID_SPM', 'Senior PM Operational Tier', 'SENIOR_PROPERTY_MANAGER', 5000.00, 10000.00),
-('TIER_3_HIGH_RD', 'Regional Director Escalation', 'REGIONAL_DIRECTOR', 25000.00, 50000.00),
-('TIER_4_UNLIMITED_VP', 'Executive VP Clearance Tier', 'VICE_PRESIDENT', 99999999.99, 99999999.99);
+CREATE UNIQUE INDEX unique_active_seat_occupant
+ON accounts_payable_seat_assignment (accounts_payable_seat_slug)
+WHERE (status = 'ACTIVE');
 
-CREATE TABLE property_user_policies
+CREATE TABLE accounts_payable_approval_matrix
 (
-    property_uuid UUID        NOT NULL REFERENCES properties (property_uuid) ON DELETE CASCADE,
-    user_uuid     UUID        NOT NULL,
-    user_role     VARCHAR(50) NOT NULL,
-    tier_slug     VARCHAR(50) NOT NULL,
-    status        VARCHAR(10) NOT NULL DEFAULT 'ACTIVE',
-    created_at    TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at    TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    PRIMARY KEY (property_uuid, user_uuid),
-    CONSTRAINT check_prop_user_policy_status CHECK (status IN ('ACTIVE', 'INACTIVE')),
-    CONSTRAINT fk_enforce_user_identity_match
-        FOREIGN KEY (user_uuid, user_role)
-            REFERENCES users (user_uuid, global_role) ON DELETE CASCADE,
-    CONSTRAINT fk_enforce_policy_role_legality
-        FOREIGN KEY (tier_slug, user_role)
-            REFERENCES corporate_policy_tiers (tier_slug, allowed_role) ON DELETE RESTRICT
+    matrix_uuid                        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    property_uuid                      UUID        NOT NULL REFERENCES properties (property_uuid) ON DELETE CASCADE,
+    accounts_payable_seat_slug         VARCHAR(50) NOT NULL REFERENCES accounts_payable_seats (accounts_payable_seat_slug),
+    accounts_payable_threshold_slug    VARCHAR(50) NOT NULL REFERENCES accounts_payable_threshold_presets (accounts_payable_threshold_slug),
+    accounts_payable_approval_sequence INT         NOT NULL CHECK (accounts_payable_approval_sequence BETWEEN 0 AND 5),
+    status                             VARCHAR(10) NOT NULL DEFAULT 'ACTIVE',
+    created_at                         TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at                         TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT check_matrix_status CHECK (status IN ('ACTIVE', 'INACTIVE'))
 );
+
+CREATE UNIQUE INDEX unique_active_property_seat_step
+ON accounts_payable_approval_matrix (property_uuid, accounts_payable_seat_slug)
+WHERE (status = 'ACTIVE');
+
+CREATE UNIQUE INDEX unique_active_property_sequence_step
+ON accounts_payable_approval_matrix (property_uuid, accounts_payable_approval_sequence)
+WHERE (status = 'ACTIVE');
 
 CREATE TABLE audit_logs
 (

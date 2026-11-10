@@ -1,0 +1,16 @@
+get:
+  tags:
+    - AccountsPayableThresholdPresets
+  summary: List threshold presets
+  description: Returns standard AP spending threshold limit presets.
+  operationId: getAccountsPayableThresholdPresets
+  responses:
+    '200':
+      description: A list of AP threshold presets
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: '../components/schemas/AccountsPayableThresholdPresetResponse.yaml'
+

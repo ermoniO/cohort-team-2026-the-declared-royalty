@@ -4,7 +4,11 @@
 -- ============================================================================
 
 -- 1. Clean existing seed data (child tables first)
-DELETE FROM property_user_policies;
+DELETE FROM accounts_payable_approval_matrix;
+DELETE FROM accounts_payable_seat_assignment;
+DELETE FROM accounts_payable_seats;
+DELETE FROM accounts_payable_threshold_presets;
+DELETE FROM corporate_designations;
 DELETE FROM audit_logs;
 DELETE FROM invoices;
 DELETE FROM property_vendor_mapping;
@@ -163,45 +167,62 @@ SELECT
 FROM property_vendor_mapping m
 WHERE m.vendor_account_number = 'ACT-9483920';
 
--- 9. Seed Corporate Roles & Standard Policy Tiers
-INSERT INTO roles (role_slug, display_name, description) VALUES
-('ADMIN',                   'System Administrator',         'Global system controller.'),
-('ACCOUNTANT',              'Property Accountant',          'Manages books and general ledgers. No approval rights.'),
-('PROPERTY_MANAGER',        'Property Manager (PM)',        'Handles baseline routine operations.'),
-('SENIOR_PROPERTY_MANAGER', 'Senior Property Manager (SPM)','Manages flagship assets or regional complexes.'),
-('REGIONAL_DIRECTOR',       'Regional Operations Director', 'Portfolio supervisor handling escalation limits.'),
-('VICE_PRESIDENT',          'Vice President of Operations', 'Executive officer with portfolio-wide allocation power.')
-ON CONFLICT (role_slug) DO UPDATE SET display_name = EXCLUDED.display_name, description = EXCLUDED.description;
+-- 9. Seed Corporate Designations, AP Seats & Threshold Presets
+INSERT INTO corporate_designations (designation_slug, display_name) VALUES
+('ACCOUNTANT',              'Property Accountant'),
+('PROPERTY_MANAGER',        'Property Manager'),
+('SENIOR_PROPERTY_MANAGER', 'Senior Property Manager'),
+('REGIONAL_DIRECTOR',       'Regional Operations Director'),
+('VICE_PRESIDENT',          'Vice President of Operations')
+ON CONFLICT (designation_slug) DO UPDATE SET display_name = EXCLUDED.display_name;
 
-INSERT INTO corporate_policy_tiers (tier_slug, display_name, allowed_role, variable_max, fixed_auto_max) VALUES
-('TIER_NONE_ACCT',        'Accountant Processing Only',   'ACCOUNTANT',              0.00,        0.00),
-('TIER_1_LOW_PM',         'Standard PM Operations Limit', 'PROPERTY_MANAGER',        1000.00,     2500.00),
-('TIER_2_MID_SPM',        'Senior PM Operational Tier',   'SENIOR_PROPERTY_MANAGER', 5000.00,     10000.00),
-('TIER_3_HIGH_RD',        'Regional Director Escalation', 'REGIONAL_DIRECTOR',       25000.00,    50000.00),
-('TIER_4_UNLIMITED_VP',   'Executive VP Clearance Tier',  'VICE_PRESIDENT',          99999999.99, 99999999.99)
-ON CONFLICT (tier_slug) DO UPDATE SET display_name = EXCLUDED.display_name, variable_max = EXCLUDED.variable_max, fixed_auto_max = EXCLUDED.fixed_auto_max;
+INSERT INTO accounts_payable_seats (accounts_payable_seat_slug, display_name) VALUES
+('CORP_HQ_ACCOUNTANT_01', 'HQ Senior Accountant - Seat 1'),
+('PM_SEAT_FRISCO_OFFICE', 'Frisco Commercial Complex PM Seat'),
+('SPM_SEAT_DOWNTOWN',     'Downtown Flagship Senior PM Seat'),
+('REG_DIR_TEXAS_REGION',  'Texas Portfolio Regional Director'),
+('CORP_VP_OF_OPERATIONS', 'Central Executive VP Chair')
+ON CONFLICT (accounts_payable_seat_slug) DO UPDATE SET display_name = EXCLUDED.display_name;
 
--- 10. Seed CRE Users
-INSERT INTO users (user_name, email, global_role, status) VALUES
-('Sarah Jenkins', 's.jenkins@pmfirm.com', 'SENIOR_PROPERTY_MANAGER', 'ACTIVE'),
-('Marcus Vance', 'm.vance@pmfirm.com', 'PROPERTY_MANAGER', 'ACTIVE'),
-('Elena Rostova', 'e.rostova@pmfirm.com', 'ACCOUNTANT', 'ACTIVE'),
-('David Sterling', 'd.sterling@pmfirm.com', 'REGIONAL_DIRECTOR', 'ACTIVE'),
-('Victoria Chen', 'v.chen@pmfirm.com', 'VICE_PRESIDENT', 'ACTIVE')
-ON CONFLICT (email) DO UPDATE SET user_name = EXCLUDED.user_name, global_role = EXCLUDED.global_role;
+INSERT INTO accounts_payable_threshold_presets (accounts_payable_threshold_slug, variable_max, fixed_auto_max) VALUES
+('LIMIT_NONE',       0.00,        0.00),
+('LIMIT_LOW',       1000.00,     2500.00),
+('LIMIT_MID',       5000.00,     10000.00),
+('LIMIT_HIGH',      25000.00,    50000.00),
+('LIMIT_UNLIMITED', 99999999.99, 99999999.99)
+ON CONFLICT (accounts_payable_threshold_slug) DO UPDATE SET variable_max = EXCLUDED.variable_max, fixed_auto_max = EXCLUDED.fixed_auto_max;
 
--- 11. Seed Property User Policy Clearances (Grandview Office Tower)
-INSERT INTO property_user_policies (property_uuid, user_uuid, user_role, tier_slug, status)
-SELECT p.property_uuid, u.user_uuid, u.global_role, 'TIER_2_MID_SPM', 'ACTIVE'
-FROM properties p, users u
-WHERE p.name = 'Grandview Office Tower' AND u.email = 's.jenkins@pmfirm.com'
-UNION ALL
-SELECT p.property_uuid, u.user_uuid, u.global_role, 'TIER_1_LOW_PM', 'ACTIVE'
-FROM properties p, users u
-WHERE p.name = 'Grandview Office Tower' AND u.email = 'm.vance@pmfirm.com'
-UNION ALL
-SELECT p.property_uuid, u.user_uuid, u.global_role, 'TIER_3_HIGH_RD', 'ACTIVE'
-FROM properties p, users u
-WHERE p.name = 'Grandview Office Tower' AND u.email = 'd.sterling@pmfirm.com'
-ON CONFLICT (property_uuid, user_uuid) DO UPDATE SET tier_slug = EXCLUDED.tier_slug;
+-- 10. Seed Users Master Directory
+INSERT INTO users (user_name, email, status) VALUES
+('Sarah Jenkins',   's.jenkins@pmfirm.com', 'ACTIVE'),
+('Marcus Vance',    'm.vance@pmfirm.com',   'ACTIVE'),
+('Elena Rostova',   'e.rostova@pmfirm.com', 'ACTIVE'),
+('David Sterling',  'd.sterling@pmfirm.com','ACTIVE'),
+('Victoria Chen',   'v.chen@pmfirm.com',    'ACTIVE')
+ON CONFLICT (email) DO UPDATE SET user_name = EXCLUDED.user_name;
+
+-- 11. Seed Accounts Payable Seat Assignments
+INSERT INTO accounts_payable_seat_assignment (accounts_payable_seat_slug, user_uuid, status)
+SELECT 'CORP_VP_OF_OPERATIONS', user_uuid, 'ACTIVE' FROM users WHERE email = 'v.chen@pmfirm.com' UNION ALL
+SELECT 'REG_DIR_TEXAS_REGION',  user_uuid, 'ACTIVE' FROM users WHERE email = 'd.sterling@pmfirm.com' UNION ALL
+SELECT 'SPM_SEAT_DOWNTOWN',     user_uuid, 'ACTIVE' FROM users WHERE email = 's.jenkins@pmfirm.com' UNION ALL
+SELECT 'PM_SEAT_FRISCO_OFFICE', user_uuid, 'ACTIVE' FROM users WHERE email = 'm.vance@pmfirm.com' UNION ALL
+SELECT 'CORP_HQ_ACCOUNTANT_01', user_uuid, 'ACTIVE' FROM users WHERE email = 'e.rostova@pmfirm.com'
+ON CONFLICT (accounts_payable_seat_slug, user_uuid) DO UPDATE SET status = 'ACTIVE';
+
+-- 12. Seed Property Approval Matrix (Grandview Office Tower Sequential Chain)
+INSERT INTO accounts_payable_approval_matrix (property_uuid, accounts_payable_seat_slug, accounts_payable_threshold_slug, accounts_payable_approval_sequence, status)
+SELECT p.property_uuid, 'CORP_HQ_ACCOUNTANT_01', 'LIMIT_NONE', 0, 'ACTIVE'
+FROM properties p WHERE p.name = 'Grandview Office Tower' UNION ALL
+SELECT p.property_uuid, 'PM_SEAT_FRISCO_OFFICE', 'LIMIT_LOW', 1, 'ACTIVE'
+FROM properties p WHERE p.name = 'Grandview Office Tower' UNION ALL
+SELECT p.property_uuid, 'SPM_SEAT_DOWNTOWN',     'LIMIT_MID', 2, 'ACTIVE'
+FROM properties p WHERE p.name = 'Grandview Office Tower' UNION ALL
+-- Permanent Fiduciary Safety Net
+SELECT p.property_uuid, 'CORP_VP_OF_OPERATIONS', 'LIMIT_UNLIMITED', 5, 'ACTIVE'
+FROM properties p WHERE p.name = 'Grandview Office Tower'
+ON CONFLICT (property_uuid, accounts_payable_approval_sequence) DO UPDATE
+SET accounts_payable_seat_slug = EXCLUDED.accounts_payable_seat_slug,
+    accounts_payable_threshold_slug = EXCLUDED.accounts_payable_threshold_slug,
+    status = 'ACTIVE';
 

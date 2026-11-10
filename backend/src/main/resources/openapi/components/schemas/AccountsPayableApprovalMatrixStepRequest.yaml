@@ -1,0 +1,15 @@
+type: object
+required:
+  - accountsPayableSeatSlug
+  - accountsPayableThresholdSlug
+  - accountsPayableApprovalSequence
+properties:
+  accountsPayableSeatSlug:
+    type: string
+  accountsPayableThresholdSlug:
+    type: string
+  accountsPayableApprovalSequence:
+    type: integer
+    minimum: 0
+    maximum: 5
+

@@ -4,7 +4,8 @@ export type User = {
     userId: string,
     userName: string,
     email: string,
-    role: string,
+    delegateUserUuid?: string | null,
+    delegateExpiresAt?: string | null,
     status: string,
     properties: Property[],
     createdAt: string,
@@ -15,17 +16,18 @@ export type UserResponse = {
     userId: string,
     username?: string,
     email?: string,
-    role?: string,
+    delegateUserUuid?: string | null,
+    delegateExpiresAt?: string | null,
     status?: string,
     createdAt: string,
     updatedAt: string,
 }
 
-// role defaults to ADMIN and status to ACTIVE when omitted
 export type UserCreateRequest = {
     username: string,
     email: string,
-    role?: string,
+    delegateUserUuid?: string | null,
+    delegateExpiresAt?: string | null,
     status?: string,
 }
 
