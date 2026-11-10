@@ -1,6 +1,9 @@
 import type { Vendor, VendorResponse, VendorCreateRequest, VendorUpdateRequest } from "@/types/vendor.ts";
 import {apiClient} from "@/app/services/apiClient.ts";
 
+// TODO(auth): every call passes withAuth=false, so no token is sent. Drop the
+// `undefined, false` arguments (apiClient defaults to sending the token) once login exists.
+
 export function getVendors(): Promise<VendorResponse[]> {
     return apiClient.get<VendorResponse[]>("/api/v1/vendors", undefined, false);
 }
