@@ -4,7 +4,7 @@ import type {
     PropertyCreateRequest,
     PropertyResponse
 } from "@/types/property";
-import { getProperties, getPropertyById, createProperty } from "@/app/services/propertyService"
+import { getProperties, getPropertyById, createProperty } from "@/features/properties/propertyService"
 
 export interface PropertyState {
     properties: PropertyResponse[];

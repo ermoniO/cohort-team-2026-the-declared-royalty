@@ -5,7 +5,7 @@ import type {
   VendorCreateRequest,
   VendorUpdateRequest,
 } from "@/types/vendor";
-import { vendorService } from "@/app/services/vendorService";
+import { vendorService } from "@/features/vendors/vendorService";
 
 /**
  * State and Action interfaces for Vendor Management

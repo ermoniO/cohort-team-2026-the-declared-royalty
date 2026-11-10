@@ -22,6 +22,11 @@ export function updateVendor(vendorUuid: string, request: VendorUpdateRequest): 
     return apiClient.put<VendorResponse, VendorUpdateRequest>(`/api/v1/vendors/${vendorUuid}`, request, undefined, false);
 }
 
+// Not in the backend yet; until it ships this fails with 405 Method Not Allowed
+export function deleteVendor(vendorUuid: string): Promise<void> {
+  return apiClient.delete<void>(`/api/v1/vendors/${vendorUuid}`, undefined, false);
+}
+
 export const vendorService = {
   /**
    * Fetch all vendors from the Spring Boot API.
