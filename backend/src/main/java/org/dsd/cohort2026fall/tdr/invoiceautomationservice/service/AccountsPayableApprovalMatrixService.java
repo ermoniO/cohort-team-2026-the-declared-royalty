@@ -175,7 +175,7 @@ public class AccountsPayableApprovalMatrixService {
             INSERT INTO accounts_payable_approval_matrix 
             (property_uuid, accounts_payable_seat_slug, accounts_payable_threshold_slug, accounts_payable_approval_sequence, status, updated_at)
             VALUES (?, ?, ?, ?, 'ACTIVE', CURRENT_TIMESTAMP)
-            ON CONFLICT (property_uuid, accounts_payable_approval_sequence)
+            ON CONFLICT (property_uuid, accounts_payable_approval_sequence) WHERE (status = 'ACTIVE')
             DO UPDATE SET accounts_payable_seat_slug = EXCLUDED.accounts_payable_seat_slug,
                           accounts_payable_threshold_slug = EXCLUDED.accounts_payable_threshold_slug,
                           status = 'ACTIVE', updated_at = CURRENT_TIMESTAMP

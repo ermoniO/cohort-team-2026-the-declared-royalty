@@ -221,7 +221,7 @@ FROM properties p WHERE p.name = 'Grandview Office Tower' UNION ALL
 -- Permanent Fiduciary Safety Net
 SELECT p.property_uuid, 'CORP_VP_OF_OPERATIONS', 'LIMIT_UNLIMITED', 5, 'ACTIVE'
 FROM properties p WHERE p.name = 'Grandview Office Tower'
-ON CONFLICT (property_uuid, accounts_payable_approval_sequence) DO UPDATE
+ON CONFLICT (property_uuid, accounts_payable_approval_sequence) WHERE (status = 'ACTIVE') DO UPDATE
 SET accounts_payable_seat_slug = EXCLUDED.accounts_payable_seat_slug,
     accounts_payable_threshold_slug = EXCLUDED.accounts_payable_threshold_slug,
     status = 'ACTIVE';
