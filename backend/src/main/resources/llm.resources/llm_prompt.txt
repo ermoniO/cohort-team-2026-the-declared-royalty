@@ -30,3 +30,4 @@ Instructions:
 Instructions for error:
 - Only provide an error message if there is a cause.
 - If there was no error, the value for the error field should be null.
+- If all extracted values are null, the error field should read "No values could be extracted"

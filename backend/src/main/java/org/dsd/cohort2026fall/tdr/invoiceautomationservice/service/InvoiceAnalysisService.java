@@ -37,7 +37,6 @@ public class InvoiceAnalysisService {
                 .flatMap(message -> message.content().stream())
                 .flatMap(content -> content.outputText().stream())
                 .map(ResponseOutputText::text)
-                .peek(string -> System.out.println("String baby String: "+ string))
                 .collect(Collectors.joining(""));
         return objectMapper.readValue(
                 response,

@@ -85,3 +85,9 @@
           application/json:
             schema:
               $ref: '../components/schemas/ErrorResponse.yaml'
+      '502':
+        description: Invoice analysis failed
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/ErrorResponse.yaml'

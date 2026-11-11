@@ -4,13 +4,12 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
+import lombok.extern.slf4j.Slf4j;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.InvoiceEntity;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.PropertyEntity;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.PropertyVendorMappingEntity;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.VendorEntity;
-import org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.InvoiceAlreadyExistsException;
-import org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.InvalidInvoiceException;
-import org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.ResourceNotFoundException;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.*;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.*;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository.InvoiceRepository;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository.PropertyVendorMappingRepository;
@@ -30,6 +29,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @Transactional
 public class InvoiceService {
@@ -183,14 +183,12 @@ public class InvoiceService {
     public InvoiceAnalysisResponse analyzeInvoice(UUID invoiceUuid) {
         for(int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++){
             try {
-                return invoiceAnalysisService.analyzeInvoice(invoiceUuid);
+                InvoiceAnalysisResponse response = invoiceAnalysisService.analyzeInvoice(invoiceUuid);
+                if(response.getError().contains("No values could be extracted")) throw new InvoiceNoDataException("File " + invoiceUuid + " contains no valid data, likely not an invoice");
+                return response;
             } catch(JsonProcessingException e){
-                System.out.println("Attempt " + attempt + " failed " + e.getMessage());
-                if(attempt== MAX_ATTEMPTS){
-                    throw new RuntimeException(
-                            "Invoice extraction failed after " + attempt +" attempts", e
-                    );
-                }
+                log.error("Attempt " + attempt + " failed. Model returned malformed Json object:  " + e.getMessage());
+                if(attempt== MAX_ATTEMPTS) throw new InvoiceAnalysisFailureException("Invoice extraction failed after " + attempt +" attempts. Model returned malformed Json object.");
             }
         }
         throw new IllegalStateException("Unexpected retry state.");
