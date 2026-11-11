@@ -1,0 +1,25 @@
+type: object
+required:
+  - paymentMethodId
+  - currency
+  - approvedAmount
+  - humanApprovalConfirmed
+properties:
+  paymentMethodId:
+    type: string
+    minLength: 1
+    description: Stripe test PaymentMethod identifier collected through Stripe.js or Checkout.
+  currency:
+    type: string
+    minLength: 3
+    maxLength: 3
+    example: usd
+  approvedAmount:
+    type: number
+    minimum: 0.01
+    multipleOf: 0.01
+    description: Must exactly match the persisted invoice amount.
+  humanApprovalConfirmed:
+    type: boolean
+    description: Explicit human confirmation required before the backend finalizes the Stripe request.
+    enum: [true]

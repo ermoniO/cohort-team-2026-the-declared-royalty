@@ -246,6 +246,21 @@ From the `backend/` directory:
 
 > When running the backend locally, leave `backend` out of `COMPOSE_PROFILES` so the container doesn't also bind port `8080`. The local process doesn't receive the environment compose sets, so provide `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `MINIO_ENDPOINT=localhost:9000`, `MINIO_USER`, and `MINIO_PASSWORD` (values from `.env`) in your IDE run configuration or shell.
 
+### Stripe test mode
+
+The Stripe integration is disabled by default. To enable the test-mode payment endpoint, add test credentials to the environment used by the backend:
+
+```env
+STRIPE_ENABLED=true
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_CURRENCY=usd
+```
+
+The endpoint `POST /api/v1/invoices/{invoiceUuid}/stripe-payment` requires an `APPROVED` invoice, an `approvedAmount` that exactly matches the stored invoice amount, a Stripe test PaymentMethod ID, and `humanApprovalConfirmed: true`. The backend rejects the request until those conditions are met. Stripe webhook events are received at `POST /api/v1/stripe/webhook` and must include a valid `Stripe-Signature` header.
+
+Use Stripe test keys and test PaymentMethods only. Live keys and real payment credentials are not supported by this integration phase.
+
 From the root directory, you can run/redeploy the backend container only with (naming the service enables its profile automatically):
 
 ```bash
