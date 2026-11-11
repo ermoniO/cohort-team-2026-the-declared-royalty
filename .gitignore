@@ -70,3 +70,13 @@ out/
 !**/src/main/**/build/
 !**/src/test/**/build/
 STRIPE_INTEGRATION_PLAN.md
+
+# ==============================================================================
+# AI Agents & Documentation
+# ==============================================================================
+.agents/
+SKILLS/
+skills/
+.worktrees/
+docs/
+
