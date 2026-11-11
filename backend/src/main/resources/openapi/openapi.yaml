@@ -36,6 +36,10 @@ paths:
     $ref: './paths/invoice_upload_check_duplicates.yaml'
   /api/v1/invoices/{invoiceId}/file:
     $ref: './paths/invoice_file.yaml'
+  /api/v1/invoices/{invoiceUuid}/stripe-payment:
+    $ref: './paths/stripe_payment.yaml'
+  /api/v1/stripe/webhook:
+    $ref: './paths/stripe_webhook.yaml'
 
 components:
   parameters:
@@ -81,3 +85,7 @@ components:
       $ref: './components/schemas/InvoiceStatus.yaml'
     InvoiceSummaryResponse:
       $ref: './components/schemas/InvoiceSummaryResponse.yaml'
+    StripePaymentRequest:
+      $ref: './components/schemas/StripePaymentRequest.yaml'
+    StripePaymentResponse:
+      $ref: './components/schemas/StripePaymentResponse.yaml'
