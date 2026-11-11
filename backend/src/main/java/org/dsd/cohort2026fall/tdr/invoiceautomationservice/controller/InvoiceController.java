@@ -43,4 +43,9 @@ public class InvoiceController implements InvoicesApi {
     public ResponseEntity<InvoiceResponse> patchInvoice(UUID invoiceUuid, InvoiceUpdateRequest invoiceUpdateRequest) {
         return ResponseEntity.ok(invoiceService.updateInvoice(invoiceUuid, invoiceUpdateRequest));
     }
+
+    @Override
+    public ResponseEntity<InvoiceAnalysisResponse> analyzeInvoice(UUID invoiceUuid) {
+        return ResponseEntity.ok(invoiceService.analyzeInvoice(invoiceUuid));
+    }
 }

@@ -1,5 +1,6 @@
 package org.dsd.cohort2026fall.tdr.invoiceautomationservice.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
@@ -13,6 +14,7 @@ import org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.ResourceNot
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.*;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository.InvoiceRepository;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository.PropertyVendorMappingRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -43,12 +45,16 @@ public class InvoiceService {
 
     private final InvoiceRepository invoiceRepository;
     private final PropertyVendorMappingRepository mappingRepository;
+    private final InvoiceAnalysisService invoiceAnalysisService;
 
     public InvoiceService(
             InvoiceRepository invoiceRepository,
-            PropertyVendorMappingRepository mappingRepository) {
+            PropertyVendorMappingRepository mappingRepository,
+            InvoiceAnalysisService invoiceAnalysisService
+    ) {
         this.invoiceRepository = invoiceRepository;
         this.mappingRepository = mappingRepository;
+        this.invoiceAnalysisService = invoiceAnalysisService;
     }
 
     @Transactional(readOnly = true)
@@ -164,6 +170,30 @@ public class InvoiceService {
         invoice.setUpdatedAt(now());
 
         return toResponse(invoiceRepository.save(invoice));
+    }
+
+    @Value("${llm.max-attempts}")
+    private int MAX_ATTEMPTS;
+
+    /*
+    Calls the analyzeInvoice method in InvoiceAnalysisService
+    Reattempts call if a malformed String is returned
+    Will stop reattempting calls after three failures
+     */
+    public InvoiceAnalysisResponse analyzeInvoice(UUID invoiceUuid) {
+        for(int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++){
+            try {
+                return invoiceAnalysisService.analyzeInvoice(invoiceUuid);
+            } catch(JsonProcessingException e){
+                System.out.println("Attempt " + attempt + " failed " + e.getMessage());
+                if(attempt== MAX_ATTEMPTS){
+                    throw new RuntimeException(
+                            "Invoice extraction failed after " + attempt +" attempts", e
+                    );
+                }
+            }
+        }
+        throw new IllegalStateException("Unexpected retry state.");
     }
 
     private InvoiceEntity findInvoice(UUID invoiceUuid) {

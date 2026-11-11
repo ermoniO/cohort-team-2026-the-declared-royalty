@@ -23,7 +23,10 @@ Instructions:
 - Return the total amount due, not the minimum payment or previous balance.
 - Do not include explanations or commentary.
 - All dates should be formatted as YYYY-MM-DD.
+- A property_address should begin with a street address and end with the city, state, and five digit zipcode.
+- A property_name should not contain a street address, city, state, or zipcode
 
 
 Instructions for error:
-- Only provide an error message if there is a cause. If there was no error, the value for the error field should be null    .
+- Only provide an error message if there is a cause.
+- If there was no error, the value for the error field should be null.

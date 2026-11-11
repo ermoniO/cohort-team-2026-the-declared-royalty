@@ -1,9 +1,12 @@
 package org.dsd.cohort2026fall.tdr.invoiceautomationservice.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openai.client.OpenAIClient;
 import com.openai.core.JsonValue;
 import com.openai.models.responses.*;
 import lombok.RequiredArgsConstructor;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.InvoiceAnalysisResponse;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -26,14 +29,20 @@ public class InvoiceAnalysisService {
     private final OpenApiToMapService openApiToMapService;
 
 //    sends a request to the AI model to analyze the invoice and returns the extracted values as a string
-    public String analyzeInvoice(UUID invoiceId) {
+    public InvoiceAnalysisResponse analyzeInvoice(UUID invoiceId) throws JsonProcessingException {
+        ObjectMapper objectMapper = new ObjectMapper();
         ResponseCreateParams requestParams = getRequestParams(invoiceUploadService.loadFile(invoiceId));
-        return client.responses().create(requestParams).output().stream()
+        String response = client.responses().create(requestParams).output().stream()
                 .flatMap(item -> item.message().stream())
                 .flatMap(message -> message.content().stream())
                 .flatMap(content -> content.outputText().stream())
                 .map(ResponseOutputText::text)
-                .collect(Collectors.joining("\n"));
+                .peek(string -> System.out.println("String baby String: "+ string))
+                .collect(Collectors.joining(""));
+        return objectMapper.readValue(
+                response,
+                InvoiceAnalysisResponse.class
+        );
     }
 
 //    https://developers.openai.com/api/docs/guides/structured-outputs?api-mode=responses&lang=java
