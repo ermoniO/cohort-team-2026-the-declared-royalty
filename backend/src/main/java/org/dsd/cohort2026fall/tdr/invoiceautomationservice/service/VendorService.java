@@ -2,15 +2,13 @@ package org.dsd.cohort2026fall.tdr.invoiceautomationservice.service;
 
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.VendorEntity;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.ResourceNotFoundException;
-import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.PaymentMethod;
-import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.VendorCreateRequest;
-import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.VendorResponse;
-import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.VendorStatus;
-import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.VendorUpdateRequest;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.*;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository.VendorRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
@@ -18,14 +16,20 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
+@Transactional
 public class VendorService {
-    private final VendorRepository vendorRepository;
+
     private static final String MISSING_VALUE = "NULL";
 
-    public VendorService(VendorRepository vendorRepository) {
+    private final VendorRepository vendorRepository;
+    private final JdbcTemplate jdbcTemplate;
+
+    public VendorService(VendorRepository vendorRepository, JdbcTemplate jdbcTemplate) {
         this.vendorRepository = vendorRepository;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
+    @Transactional(readOnly = true)
     public ResponseEntity<List<VendorResponse>> getVendors() {
         List<VendorResponse> vendors = vendorRepository.findAll().stream()
                 .map(VendorEntity::toResponse)
@@ -33,8 +37,40 @@ public class VendorService {
         return ResponseEntity.ok(vendors);
     }
 
+    @Transactional(readOnly = true)
+    public List<VendorResponse> getAllVendors() {
+        return vendorRepository.findAll().stream()
+                .map(VendorEntity::toResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public ResponseEntity<VendorResponse> getVendorByUuid(UUID vendorUuid) {
         return ResponseEntity.ok(findVendor(vendorUuid).toResponse());
+    }
+
+    @Transactional(readOnly = true)
+    public List<VendorCategoryResponse> getAllVendorCategories() {
+        String sql = "SELECT category_code, name, description FROM vendor_categories WHERE status = 'ACTIVE' ORDER BY name ASC";
+        return jdbcTemplate.query(sql, (rs, rowNum) -> {
+            VendorCategoryResponse res = new VendorCategoryResponse();
+            res.setCategoryCode(rs.getString("category_code"));
+            res.setName(rs.getString("name"));
+            res.setDescription(rs.getString("description"));
+            return res;
+        });
+    }
+
+    @Transactional(readOnly = true)
+    public List<PaymentMethodResponse> getAllPaymentMethods() {
+        String sql = "SELECT method_code, name, description FROM payment_methods WHERE status = 'ACTIVE' ORDER BY name ASC";
+        return jdbcTemplate.query(sql, (rs, rowNum) -> {
+            PaymentMethodResponse res = new PaymentMethodResponse();
+            res.setMethodCode(rs.getString("method_code"));
+            res.setName(rs.getString("name"));
+            res.setDescription(rs.getString("description"));
+            return res;
+        });
     }
 
     public ResponseEntity<VendorResponse> createVendor(VendorCreateRequest request) {
@@ -45,6 +81,8 @@ public class VendorService {
         VendorEntity entity = VendorEntity.builder()
                 .vendorId(UUID.randomUUID())
                 .name(request.getName())
+                .category(request.getCategory())
+                .taxId(request.getTaxId())
                 .phoneNumber(toStored(request.getPhoneNumber()))
                 .status(status.getValue())
                 .paymentUrl(toStored(request.getPaymentUrl()))
@@ -59,10 +97,14 @@ public class VendorService {
     public ResponseEntity<VendorResponse> updateVendor(UUID vendorUuid, VendorUpdateRequest request) {
         VendorEntity entity = findVendor(vendorUuid);
 
-        // Partial update: only fields present in the request are changed; omitted (null) fields keep their value.
-        // vendorId and createdAt are intentionally left untouched.
         if (request.getName() != null) {
             entity.setName(request.getName());
+        }
+        if (request.getCategory() != null) {
+            entity.setCategory(request.getCategory());
+        }
+        if (request.getTaxId() != null) {
+            entity.setTaxId(request.getTaxId());
         }
         if (isProvided(request.getPhoneNumber())) {
             entity.setPhoneNumber(nullIfNullKeyword(request.getPhoneNumber()));
@@ -82,12 +124,10 @@ public class VendorService {
         return ResponseEntity.ok(saved.toResponse());
     }
 
-    // Missing values use the legacy placeholder; the explicit NULL keyword clears a nullable column.
     private String toStored(String value) {
         return isProvided(value) ? nullIfNullKeyword(value) : MISSING_VALUE;
     }
 
-    // Update: null or "" means the field was not provided and is left unchanged
     private boolean isProvided(String value) {
         return value != null && !value.isEmpty();
     }
@@ -96,7 +136,6 @@ public class VendorService {
         return MISSING_VALUE.equalsIgnoreCase(value) ? null : value;
     }
 
-    // Postgres stores microseconds; truncate so the response matches what later reads return
     private OffsetDateTime now() {
         return OffsetDateTime.now().truncatedTo(ChronoUnit.MICROS);
     }

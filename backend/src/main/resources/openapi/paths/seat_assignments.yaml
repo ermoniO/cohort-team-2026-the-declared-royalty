@@ -1,0 +1,59 @@
+put:
+  tags:
+    - AccountsPayableSeats
+  summary: Assign user to seat
+  description: Maps a human occupant to an operational seat. Deactivates previous occupant if any.
+  operationId: assignSeatOccupant
+  parameters:
+    - name: seatSlug
+      in: path
+      required: true
+      schema:
+        type: string
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../components/schemas/SeatAssignmentRequest.yaml'
+  responses:
+    '200':
+      description: Seat assignment created or updated
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/SeatAssignmentResponse.yaml'
+    '400':
+      description: Invalid request or user mismatch
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'
+    '404':
+      description: Seat or user not found
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'
+delete:
+  tags:
+    - AccountsPayableSeats
+  summary: Vacate seat
+  description: Vacates an operational seat by marking the active assignment inactive.
+  operationId: vacateSeat
+  parameters:
+    - name: seatSlug
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    '204':
+      description: Seat vacated successfully
+    '404':
+      description: Seat not found
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'
+

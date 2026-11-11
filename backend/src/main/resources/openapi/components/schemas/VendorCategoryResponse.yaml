@@ -1,0 +1,15 @@
+type: object
+required:
+  - categoryCode
+  - name
+properties:
+  categoryCode:
+    type: string
+    example: "UTILITIES_ENERGY"
+  name:
+    type: string
+    example: "Utilities & Energy Management"
+  description:
+    type: string
+    example: "Electric, water, gas, solar, and utility monitoring"
+

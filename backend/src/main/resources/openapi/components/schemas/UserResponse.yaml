@@ -11,8 +11,12 @@ properties:
     type: string
   email:
     type: string
-  role:
+  delegateUserUuid:
     type: string
+    format: uuid
+  delegateExpiresAt:
+    type: string
+    format: date-time
   status:
     type: string
   createdAt:

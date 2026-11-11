@@ -1,0 +1,16 @@
+get:
+  tags:
+    - AccountsPayableSeats
+  summary: List accounts payable seats
+  description: Returns all accounts payable operational chairs and their active occupants.
+  operationId: getAccountsPayableSeats
+  responses:
+    '200':
+      description: A list of AP operational seats
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: '../components/schemas/AccountsPayableSeatResponse.yaml'
+

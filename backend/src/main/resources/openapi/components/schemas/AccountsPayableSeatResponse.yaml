@@ -1,0 +1,26 @@
+type: object
+required:
+  - accountsPayableSeatSlug
+  - displayName
+  - status
+properties:
+  accountsPayableSeatSlug:
+    type: string
+    example: "PM_SEAT_FRISCO_OFFICE"
+  displayName:
+    type: string
+    example: "Frisco Commercial Complex PM Seat"
+  status:
+    type: string
+    example: "ACTIVE"
+  assignedUserUuid:
+    type: string
+    format: uuid
+    nullable: true
+  assignedUserName:
+    type: string
+    nullable: true
+  assignedUserEmail:
+    type: string
+    nullable: true
+

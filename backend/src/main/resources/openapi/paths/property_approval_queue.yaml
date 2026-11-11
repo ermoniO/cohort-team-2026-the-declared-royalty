@@ -1,0 +1,39 @@
+get:
+  tags:
+    - Properties
+  summary: Calculate invoice routing queue
+  description: Returns the sequential list of approvers who must sign off on an invoice based on gross amount and cost type.
+  operationId: calculateInvoiceApprovalQueue
+  parameters:
+    - name: propertyId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: grossAmount
+      in: query
+      required: true
+      schema:
+        type: number
+        format: double
+    - name: costType
+      in: query
+      required: false
+      schema:
+        type: string
+        default: "VARIABLE"
+  responses:
+    '200':
+      description: Calculated routing queue
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ApprovalQueueResponse.yaml'
+    '404':
+      description: Property not found
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'
+

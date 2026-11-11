@@ -1,0 +1,77 @@
+put:
+  tags:
+    - Properties
+  summary: Update property approval matrix step
+  description: Updates a sequence step in the property's approval matrix. Sequence 5 cannot be updated to non-unlimited presets.
+  operationId: updatePropertyApprovalMatrixStep
+  parameters:
+    - name: propertyId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: sequence
+      in: path
+      required: true
+      schema:
+        type: integer
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../components/schemas/AccountsPayableApprovalMatrixStepRequest.yaml'
+  responses:
+    '200':
+      description: Matrix step updated
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/AccountsPayableApprovalMatrixResponse.yaml'
+    '400':
+      description: Invalid sequence or safety net modification attempt
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'
+    '404':
+      description: Property or step not found
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'
+delete:
+  tags:
+    - Properties
+  summary: Delete property approval matrix step
+  description: Soft-deletes a matrix step (0-4). Sequence step 5 is permanently locked and cannot be deleted.
+  operationId: deletePropertyApprovalMatrixStep
+  parameters:
+    - name: propertyId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: sequence
+      in: path
+      required: true
+      schema:
+        type: integer
+  responses:
+    '204':
+      description: Matrix step removed
+    '400':
+      description: Attempted to delete protected step 5
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'
+    '404':
+      description: Step not found
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'
+

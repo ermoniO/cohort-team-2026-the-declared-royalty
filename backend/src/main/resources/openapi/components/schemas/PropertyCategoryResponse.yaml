@@ -1,0 +1,15 @@
+type: object
+required:
+  - categoryCode
+  - name
+properties:
+  categoryCode:
+    type: string
+    example: "COMMERCIAL_OFFICE"
+  name:
+    type: string
+    example: "Commercial Office Tower"
+  description:
+    type: string
+    example: "Multi-tenant high-rise and corporate office properties"
+

@@ -1,0 +1,6 @@
+type: string
+enum:
+  - COMMERCIAL_OFFICE
+  - RETAIL_PLAZA
+  - INDUSTRIAL_PARK
+  - MEDICAL_CENTER

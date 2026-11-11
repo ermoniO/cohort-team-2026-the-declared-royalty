@@ -2,7 +2,11 @@ package org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.Address;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.AddressRecord;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.PropertyResponse;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -23,17 +27,19 @@ public class PropertyEntity {
     @Column(name = "name", nullable = false)
     private String name;
 
-    @Column(name = "street_address", nullable = false)
-    private String streetAddress;
+    @Builder.Default
+    @Column(name = "category", nullable = false)
+    private String category = "COMMERCIAL_OFFICE";
 
-    @Column(name = "city", nullable = false)
-    private String city;
+    @Column(name = "owner_entity")
+    private String ownerEntity;
 
-    @Column(name = "state", nullable = false)
-    private String state;
+    @Column(name = "sqft")
+    private Integer sqft;
 
-    @Column(name = "zip_code", nullable = false)
-    private String zipCode;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "address", columnDefinition = "jsonb", nullable = false)
+    private AddressRecord address;
 
     @Builder.Default
     @Column(name = "status", nullable = false)
@@ -48,6 +54,17 @@ public class PropertyEntity {
     private OffsetDateTime updatedAt = OffsetDateTime.now();
 
     public PropertyResponse toResponse() {
-        return new PropertyResponse(propertyId, name, streetAddress, city, state, zipCode, status);
+        Address addressDto = address != null
+                ? new Address(address.streetAddress(), address.city(), address.state(), address.zipCode())
+                : null;
+        PropertyResponse res = new PropertyResponse();
+        res.setPropertyId(propertyId);
+        res.setName(name);
+        res.setCategory(category);
+        res.setOwnerEntity(ownerEntity);
+        res.setSqft(sqft);
+        res.setAddress(addressDto);
+        res.setStatus(status);
+        return res;
     }
 }

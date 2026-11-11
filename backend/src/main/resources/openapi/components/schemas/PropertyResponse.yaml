@@ -2,10 +2,8 @@ type: object
 required:
   - propertyId
   - name
-  - streetAddress
-  - city
-  - state
-  - zipCode
+  - category
+  - address
   - status
 properties:
   propertyId:
@@ -13,14 +11,18 @@ properties:
     format: uuid
   name:
     type: string
-  streetAddress:
+    example: "Grandview Office Tower"
+  category:
     type: string
-  city:
+    example: "COMMERCIAL_OFFICE"
+  ownerEntity:
     type: string
-  state:
-    type: string
-  zipCode:
-    type: string
+    example: "Apex Holdings LLC"
+  sqft:
+    type: integer
+    example: 720000
+  address:
+    $ref: './Address.yaml'
   status:
     type: string
     example: "ACTIVE"

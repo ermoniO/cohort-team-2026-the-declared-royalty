@@ -23,7 +23,7 @@ class OpenApiSpecStructureTest {
     void rootSpecOnlyReferencesFragments() throws IOException {
         assertThat(ROOT).exists();
         List<String> lines = Files.readAllLines(ROOT);
-        assertThat(lines.size()).isLessThan(150);
+        assertThat(lines.size()).isLessThan(160);
 
         boolean inPaths = false;
         for (int i = 0; i < lines.size(); i++) {
@@ -56,11 +56,15 @@ class OpenApiSpecStructureTest {
     /** Returns descriptions of file $refs in the given file whose target does not exist. */
     private static List<String> resolveAllRefs(Path file) throws IOException {
         List<String> missing = new ArrayList<>();
-        Matcher matcher = FILE_REF.matcher(Files.readString(file));
-        while (matcher.find()) {
-            Path target = file.getParent().resolve(matcher.group(1)).normalize();
-            if (!Files.exists(target)) {
-                missing.add(file + " -> " + matcher.group(1));
+        Path parent = file.getParent();
+        for (String line : Files.readAllLines(file)) {
+            Matcher matcher = FILE_REF.matcher(line);
+            while (matcher.find()) {
+                String ref = matcher.group(1);
+                Path target = (parent == null ? Path.of(ref) : parent.resolve(ref)).normalize();
+                if (!Files.exists(target)) {
+                    missing.add(file + " references missing " + ref + " (looked at " + target + ")");
+                }
             }
         }
         return missing;
