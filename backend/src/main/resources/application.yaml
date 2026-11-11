@@ -41,3 +41,9 @@ minio:
   access-key: ${MINIO_USER:minio_user}
   secret-key: ${MINIO_PASSWORD:minio_password}
   bucket: ${MINIO_BUCKET:invoices}
+
+stripe:
+  enabled: ${STRIPE_ENABLED:false}
+  secret-key: ${STRIPE_SECRET_KEY:}
+  webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+  currency: ${STRIPE_CURRENCY:usd}

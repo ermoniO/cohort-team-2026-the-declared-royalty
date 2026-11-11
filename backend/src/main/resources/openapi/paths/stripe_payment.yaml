@@ -1,0 +1,38 @@
+post:
+  tags:
+    - Stripe Payments
+  summary: Create a Stripe test-mode payment request
+  description: Requires explicit human confirmation and an approved amount that exactly matches the persisted invoice.
+  operationId: createStripePayment
+  parameters:
+    - name: invoiceUuid
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../components/schemas/StripePaymentRequest.yaml'
+  responses:
+    '200':
+      description: Stripe payment request created
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/StripePaymentResponse.yaml'
+    '400':
+      description: Invalid approval, invoice state, amount, or Stripe request
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'
+    '404':
+      description: Invoice not found
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'
