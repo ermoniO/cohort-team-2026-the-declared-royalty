@@ -168,6 +168,19 @@ Expand Servers ➔ Invoice DB Local ➔ Databases ➔ invoice_automation_postgre
 1. Drill down into Servers ➔ PostgreSQL ➔ Databases ➔ [Your DB Name] ➔ Schemas ➔ public ➔ Tables.
 2. Look for a brand new metadata table named flyway_schema_history. Flyway automatically creates this table to log every migration script version, description, execution date, and success status.
 
+### Seeding Demo Bills
+
+`seed_data/` holds five fictional vendor bills (PDFs) for 125 Industrial Way, plus `bills.json` with the values printed on each one. `bills.json` is also the expected output when testing invoice extraction. With postgres, minio and the backend running, from the repo root:
+
+```bash
+node scripts/seed.mjs              # vendors + property mappings, and the PDFs uploaded as INGESTED invoices
+node scripts/seed.mjs --processed  # also fills amount, dates and vendor match, as PENDING_APPROVAL
+```
+
+- The PDFs go through `POST /api/v1/invoices/upload`, so they're stored in MinIO, hashed and audit-logged like a real upload. The property, vendors and mappings are written with SQL, since there's no mapping endpoint yet.
+- It's safe to re-run: existing rows are kept and files that were already uploaded are skipped.
+- Options: `--api-url <url>` (or `SEED_API_URL`) if the backend isn't on `localhost:8080`, and `--help`.
+- This is demo data, so it's deliberately not a Flyway migration. Migrations run in every environment.
 
 ---
 

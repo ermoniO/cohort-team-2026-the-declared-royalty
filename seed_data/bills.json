@@ -1,0 +1,98 @@
+{
+  "_comment": "Values read off the PDFs in this folder. Used by scripts/seed.mjs, and doubles as the expected output when testing invoice extraction. All bills are fictional demo documents.",
+  "property": {
+    "propertyUuid": "11111111-1111-1111-1111-111111111101",
+    "name": "Industrial Business Park",
+    "streetAddress": "125 Industrial Way",
+    "city": "Springfield",
+    "state": "IL",
+    "zipCode": "62701"
+  },
+  "bills": [
+    {
+      "file": "alder-creek-bill.pdf",
+      "vendor": {
+        "vendorUuid": "22222222-0000-0000-0000-000000000001",
+        "name": "Alder Creek Landscaping",
+        "paymentUrl": "https://alder-creek-utility-demo.vercel.app",
+        "paymentMethod": "ACH"
+      },
+      "mappingUuid": "33333333-0000-0000-0000-000000000001",
+      "accountNumber": "2000456700",
+      "customerName": "Alder Creek Workshop",
+      "invoiceNumber": "BILL-1001",
+      "description": "Monthly grounds maintenance - mowing and edging",
+      "invoiceDate": "2026-10-02",
+      "dueDate": "2026-10-16",
+      "amount": 186.42
+    },
+    {
+      "file": "brightwater-bill.pdf",
+      "vendor": {
+        "vendorUuid": "22222222-0000-0000-0000-000000000002",
+        "name": "Brightwater Water & Sewer",
+        "paymentUrl": "https://brightwater-utility-demo.vercel.app",
+        "paymentMethod": "ACH"
+      },
+      "mappingUuid": "33333333-0000-0000-0000-000000000002",
+      "accountNumber": "2000456701",
+      "customerName": "Brightwater Print Studio",
+      "invoiceNumber": "BILL-1001",
+      "description": "Monthly water usage and sewer service",
+      "invoiceDate": "2026-10-02",
+      "dueDate": "2026-10-16",
+      "amount": 324.16
+    },
+    {
+      "file": "copper-ridge-bill.pdf",
+      "vendor": {
+        "vendorUuid": "22222222-0000-0000-0000-000000000003",
+        "name": "Copper Ridge Waste Services",
+        "paymentUrl": "https://copper-ridge-utility-demo.vercel.app",
+        "paymentMethod": "ACH"
+      },
+      "mappingUuid": "33333333-0000-0000-0000-000000000003",
+      "accountNumber": "2000456702",
+      "customerName": "Copper Ridge Fabrication",
+      "invoiceNumber": "BILL-1001",
+      "description": "Commercial waste collection - four weekly pickups",
+      "invoiceDate": "2026-10-02",
+      "dueDate": "2026-10-16",
+      "amount": 518.70
+    },
+    {
+      "file": "cedar-valley-bill.pdf",
+      "vendor": {
+        "vendorUuid": "22222222-0000-0000-0000-000000000004",
+        "name": "Cedar Valley Pest Control",
+        "paymentUrl": "https://cedar-valley-utility-demo.vercel.app",
+        "paymentMethod": "ACH"
+      },
+      "mappingUuid": "33333333-0000-0000-0000-000000000004",
+      "accountNumber": "2000456705",
+      "customerName": "Cedar Valley Market",
+      "invoiceNumber": "BILL-1001",
+      "description": "Quarterly pest prevention and inspection",
+      "invoiceDate": "2026-10-02",
+      "dueDate": "2026-10-16",
+      "amount": 206.54
+    },
+    {
+      "file": "harborlight-bill.pdf",
+      "vendor": {
+        "vendorUuid": "22222222-0000-0000-0000-000000000005",
+        "name": "Harborlight Security",
+        "paymentUrl": "https://harborlight-utility-demo.vercel.app",
+        "paymentMethod": "ACH"
+      },
+      "mappingUuid": "33333333-0000-0000-0000-000000000005",
+      "accountNumber": "2000456706",
+      "customerName": "Harborlight Design Co.",
+      "invoiceNumber": "BILL-1001",
+      "description": "Monthly business alarm monitoring",
+      "invoiceDate": "2026-10-02",
+      "dueDate": "2026-10-16",
+      "amount": 392.08
+    }
+  ]
+}
