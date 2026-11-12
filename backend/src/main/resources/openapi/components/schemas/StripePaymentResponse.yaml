@@ -1,0 +1,24 @@
+type: object
+required:
+  - paymentAttemptId
+  - invoiceId
+  - amount
+  - currency
+  - status
+properties:
+  paymentAttemptId:
+    type: string
+    format: uuid
+  invoiceId:
+    type: string
+    format: uuid
+  stripePaymentIntentId:
+    type: string
+    nullable: true
+  amount:
+    type: number
+    multipleOf: 0.01
+  currency:
+    type: string
+  status:
+    type: string

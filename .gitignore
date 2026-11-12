@@ -69,3 +69,4 @@ out/
 **/.nb-gradle/
 !**/src/main/**/build/
 !**/src/test/**/build/
+STRIPE_INTEGRATION_PLAN.md

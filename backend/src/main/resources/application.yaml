@@ -1,9 +1,12 @@
+server:
+  port: ${PORT:8080}
+
 spring:
   application:
     name: invoice-automation-service
 
   datasource:
-    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:5432/${POSTGRES_DB}
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB}
     username: ${POSTGRES_USER}
     password: ${POSTGRES_PASSWORD}
     driver-class-name: org.postgresql.Driver
@@ -41,3 +44,9 @@ minio:
   access-key: ${MINIO_USER:minio_user}
   secret-key: ${MINIO_PASSWORD:minio_password}
   bucket: ${MINIO_BUCKET:invoices}
+
+stripe:
+  enabled: ${STRIPE_ENABLED:false}
+  secret-key: ${STRIPE_SECRET_KEY:}
+  webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+  currency: ${STRIPE_CURRENCY:usd}
