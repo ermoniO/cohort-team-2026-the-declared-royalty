@@ -1,5 +1,5 @@
 import { API_BASE_URL, apiClient } from "@/app/services/apiClient";
-import type { InvoicePageResponse, InvoiceStatus, InvoiceSummaryResponse } from "@/types/invoice";
+import type { InvoicePageResponse, InvoiceResponse, InvoiceStatus, InvoiceSummaryResponse } from "@/types/invoice"
 
 export type InvoiceListQuery = {
   page?: number;
@@ -20,6 +20,11 @@ export function invoiceListUrl({ page = 0, size = 20, statuses = [], search = ""
 // TODO(auth): passes withAuth=false like the other services; drop `undefined, false` once login exists
 export function getInvoices(query: InvoiceListQuery): Promise<InvoicePageResponse> {
   return apiClient.get<InvoicePageResponse>(invoiceListUrl(query), undefined, false);
+}
+
+// One invoice; rejects with a 404 HttpError when it doesn't exist
+export function getInvoiceByUuid(invoiceUuid: string): Promise<InvoiceResponse> {
+  return apiClient.get<InvoiceResponse>(`/api/v1/invoices/${invoiceUuid}`, undefined, false);
 }
 
 // receivedSince is the start of the user's "today", so "received today" follows their time zone
