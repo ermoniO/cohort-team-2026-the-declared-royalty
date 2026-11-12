@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 import type {
-    User,
     UserResponse,
     UserCreateRequest,
     UserUpdateRequest
