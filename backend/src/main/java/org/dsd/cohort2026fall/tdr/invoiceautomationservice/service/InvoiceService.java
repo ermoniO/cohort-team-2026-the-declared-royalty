@@ -1,18 +1,19 @@
 package org.dsd.cohort2026fall.tdr.invoiceautomationservice.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
+import lombok.extern.slf4j.Slf4j;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.InvoiceEntity;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.PropertyEntity;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.PropertyVendorMappingEntity;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.VendorEntity;
-import org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.InvoiceAlreadyExistsException;
-import org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.InvalidInvoiceException;
-import org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.ResourceNotFoundException;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.*;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.*;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository.InvoiceRepository;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository.PropertyVendorMappingRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -28,6 +29,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @Transactional
 public class InvoiceService {
@@ -43,12 +45,16 @@ public class InvoiceService {
 
     private final InvoiceRepository invoiceRepository;
     private final PropertyVendorMappingRepository mappingRepository;
+    private final InvoiceAnalysisService invoiceAnalysisService;
 
     public InvoiceService(
             InvoiceRepository invoiceRepository,
-            PropertyVendorMappingRepository mappingRepository) {
+            PropertyVendorMappingRepository mappingRepository,
+            InvoiceAnalysisService invoiceAnalysisService
+    ) {
         this.invoiceRepository = invoiceRepository;
         this.mappingRepository = mappingRepository;
+        this.invoiceAnalysisService = invoiceAnalysisService;
     }
 
     @Transactional(readOnly = true)
@@ -164,6 +170,28 @@ public class InvoiceService {
         invoice.setUpdatedAt(now());
 
         return toResponse(invoiceRepository.save(invoice));
+    }
+
+    @Value("${llm.max-attempts}")
+    private int MAX_ATTEMPTS;
+
+    /*
+    Calls the analyzeInvoice method in InvoiceAnalysisService
+    Reattempts call if a malformed String is returned
+    Will stop reattempting calls after three failures
+     */
+    public InvoiceAnalysisResponse analyzeInvoice(UUID invoiceUuid) {
+        for(int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++){
+            try {
+                InvoiceAnalysisResponse response = invoiceAnalysisService.analyzeInvoice(invoiceUuid);
+                if(response.getError().contains("No values could be extracted")) throw new InvoiceNoDataException("File " + invoiceUuid + " contains no valid data, likely not an invoice");
+                return response;
+            } catch(JsonProcessingException e){
+                log.error("Attempt " + attempt + " failed. Model returned malformed Json object:  " + e.getMessage());
+                if(attempt== MAX_ATTEMPTS) throw new InvoiceAnalysisFailureException("Invoice extraction failed after " + attempt +" attempts. Model returned malformed Json object.");
+            }
+        }
+        throw new IllegalStateException("Unexpected retry state.");
     }
 
     private InvoiceEntity findInvoice(UUID invoiceUuid) {

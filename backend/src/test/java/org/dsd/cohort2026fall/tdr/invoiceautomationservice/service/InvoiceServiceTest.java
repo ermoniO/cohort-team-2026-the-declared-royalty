@@ -39,7 +39,8 @@ class InvoiceServiceTest {
 
     private final InvoiceRepository invoiceRepository = mock(InvoiceRepository.class);
     private final PropertyVendorMappingRepository mappingRepository = mock(PropertyVendorMappingRepository.class);
-    private final InvoiceService invoiceService = new InvoiceService(invoiceRepository, mappingRepository);
+    private final InvoiceAnalysisService invoiceAnalysisService = mock(InvoiceAnalysisService.class);
+    private final InvoiceService invoiceService = new InvoiceService(invoiceRepository, mappingRepository, invoiceAnalysisService);
     private final UUID mappingUuid = UUID.randomUUID();
 
     @BeforeEach

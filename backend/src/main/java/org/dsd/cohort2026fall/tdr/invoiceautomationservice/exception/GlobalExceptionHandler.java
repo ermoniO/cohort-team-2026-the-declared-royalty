@@ -63,6 +63,23 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.SERVICE_UNAVAILABLE, "File storage is unavailable, try again later", request);
     }
 
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalState(IllegalStateException ex, HttpServletRequest request){
+        return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(InvoiceAnalysisFailureException.class)
+    public ResponseEntity<ErrorResponse> handleInvoiceAnalysisFailure(InvoiceAnalysisFailureException ex, HttpServletRequest request){
+        log.error("Invoice extraction failed: ", ex);
+        return build(HttpStatus.BAD_GATEWAY, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(InvoiceNoDataException.class)
+    public ResponseEntity<ErrorResponse> handleInvoiceNoData(InvoiceNoDataException ex, HttpServletRequest request){
+        log.error(ex.getMessage());
+        return build(HttpStatus.UNPROCESSABLE_CONTENT, ex.getMessage(), request);
+    }
+
     private ResponseEntity<ErrorResponse> build(HttpStatus status, String message, HttpServletRequest request) {
         ErrorResponse body = new ErrorResponse();
         body.setStatus(status.value());
