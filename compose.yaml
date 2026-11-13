@@ -33,9 +33,9 @@ services:
       - backend
 
   # --- Frontend Layer ---
-  # Enable one via COMPOSE_PROFILES in .env (dev or prod); both use port 5173 by default
+  # Enable one via COMPOSE_PROFILES in .env (frontend-dev or frontend-prod); both use port 5173 by default
   frontend-dev:
-    profiles: ["dev"]
+    profiles: ["frontend-dev"]
     build:
       context: ./frontend
       dockerfile: Dockerfile
@@ -54,7 +54,7 @@ services:
         required: false # don't fail when the backend profile is off
 
   frontend:
-    profiles: ["prod"]
+    profiles: ["frontend-prod"]
     build:
       context: ./frontend
       dockerfile: Dockerfile

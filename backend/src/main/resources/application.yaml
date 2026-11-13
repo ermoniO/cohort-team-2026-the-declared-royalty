@@ -1,5 +1,5 @@
 server:
-  port: ${PORT:8080}
+  port: ${BACKEND_PORT:${SERVER_PORT:${PORT:8080}}}
 
 spring:
   application:
@@ -34,14 +34,14 @@ management:
       show-details: always
 
 frontend:
-  url: ${FRONTEND_URL:http://localhost:5173}
+  url: ${FRONTEND_URL:http://localhost:${FRONTEND_PORT:5173}}
 
 llm:
   api-key: ${LLM_API_KEY:-test-api-key}
   max-attempts: ${MAX_QUERY_ATTEMPTS_PER_CALL:-3}
 
 minio:
-  endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+  endpoint: ${MINIO_ENDPOINT:http://localhost:${MINIO_PORT:9000}}
   access-key: ${MINIO_USER:minio_user}
   secret-key: ${MINIO_PASSWORD:minio_password}
   bucket: ${MINIO_BUCKET:invoices}
