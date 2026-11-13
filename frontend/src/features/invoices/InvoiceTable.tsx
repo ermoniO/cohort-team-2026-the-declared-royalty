@@ -1,8 +1,11 @@
 import { FiSearch } from "react-icons/fi";
+import { navigateTo } from "@/app/navigation";
+import { auditHistoryPath } from "@/features/auditLogs/auditLogDisplay";
 import type { InvoiceResponse } from "@/types/invoice";
 import { formatCurrency, formatReceived, plural } from "./invoiceFormat";
 import { invoiceFileUrl } from "./invoiceService";
-import { INVOICE_STATUS_BADGES, INVOICE_TABS, type InvoiceTabId } from "./invoiceStatus";
+import InvoiceStatusPill from "./InvoiceStatusPill";
+import { INVOICE_TABS, type InvoiceTabId } from "./invoiceStatus";
 import type { InvoicePageState } from "./useInvoices";
 
 type InvoiceTableProps = {
@@ -21,19 +24,6 @@ function NotSet() {
     <span className="text-[#b0bab5]">
       <span aria-hidden="true">—</span>
       <span className="sr-only">Not set</span>
-    </span>
-  );
-}
-
-function StatusPill({ invoice }: { invoice: InvoiceResponse }) {
-  const badge = INVOICE_STATUS_BADGES[invoice.invoiceStatus];
-  return (
-    <span
-      className={`font-inter-medium inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs ${badge.className}`}
-      title={invoice.failureReason ?? undefined}
-    >
-      <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${badge.dotClassName}`} />
-      {badge.label}
     </span>
   );
 }
@@ -82,6 +72,20 @@ function ReviewAction({ invoice }: { invoice: InvoiceResponse }) {
     >
       Review
     </a>
+  );
+}
+
+function HistoryAction({ invoice }: { invoice: InvoiceResponse }) {
+  const label = invoice.vendorName ?? invoice.originalFilename ?? "invoice";
+  return (
+    <button
+      aria-label={`History for ${label}`}
+      className={`${actionClass} hover:bg-[#f8faf9]`}
+      onClick={() => navigateTo(auditHistoryPath(invoice.invoiceUuid))}
+      type="button"
+    >
+      History
+    </button>
   );
 }
 
@@ -184,10 +188,13 @@ export default function InvoiceTable({ state, tab, onTabChange, search, onSearch
                   </td>
                   <td className="whitespace-nowrap px-5 py-3.5 text-[#68766f]">{formatReceived(invoice.createdAt)}</td>
                   <td className="px-5 py-3.5">
-                    <StatusPill invoice={invoice} />
+                    <InvoiceStatusPill invoice={invoice} />
                   </td>
                   <td className="px-5 py-3.5 text-right">
-                    <ReviewAction invoice={invoice} />
+                    <div className="flex justify-end gap-2">
+                      <HistoryAction invoice={invoice} />
+                      <ReviewAction invoice={invoice} />
+                    </div>
                   </td>
                 </tr>
               ))
