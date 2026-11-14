@@ -12,9 +12,42 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      MINIO_ENDPOINT: http://minio:9000
-      MINIO_USER: ${MINIO_USER}
-      MINIO_PASSWORD: ${MINIO_PASSWORD}
+      BLOB_ENDPOINT: http://minio:9000
+      BLOB_USER: ${MINIO_USER}
+      BLOB_PASSWORD: ${MINIO_PASSWORD}
+      BLOB_REGION: us-east-1
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:${FRONTEND_PORT:-5173}}
+      LLM_API_KEY: ${LLM_API_KEY}
+      MAX_QUERY_ATTEMPTS_PER_CALL: ${MAX_QUERY_ATTEMPTS_PER_CALL:-3}
+      STRIPE_ENABLED: ${STRIPE_ENABLED:-false}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_CURRENCY: ${STRIPE_CURRENCY:-usd}
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - backend
+  # Runs only when the "prod" profile is enabled; omit it to run the backend locally
+  backend-prod:
+    profiles: ["prod"]
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${SUPABASE_DB}
+      POSTGRES_USER: ${SUPABASE_USER}
+      POSTGRES_PASSWORD: ${SUPABASE_PASSWORD}
+      BLOB_ENDPOINT: ${SUPABASE_S3_ENDPOINT}
+      BLOB_USER: ${MINIO_USER}
+      BLOB_PASSWORD: ${MINIO_PASSWORD}
+      BLOB_REGION: ${SUPABASE_S3_REGION}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:${FRONTEND_PORT:-5173}}
       LLM_API_KEY: ${LLM_API_KEY}
       MAX_QUERY_ATTEMPTS_PER_CALL: ${MAX_QUERY_ATTEMPTS_PER_CALL:-3}
