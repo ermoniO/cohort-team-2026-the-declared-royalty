@@ -6,6 +6,7 @@ import BillsPage from "./pages/BillsPage";
 import PropertiesPage from "./pages/PropertiesPage";
 import VendorsPage from "./pages/VendorsPage";
 import AuditLogsPage from "./pages/AuditLogsPage";
+import PaymentsPage from "./pages/PaymentsPage";
 import { navigateTo } from "./app/navigation";
 import {
   TbAlertTriangle,
@@ -94,6 +95,8 @@ export default function App() {
         <AuditLogsPage
           invoiceUuid={new URLSearchParams(location.search).get("invoice")}
         />
+      ) : currentRoute.path === "/payments" ? (
+        <PaymentsPage />
       ) : (
         <WorkspacePage title={currentRoute.label} />
       )}
