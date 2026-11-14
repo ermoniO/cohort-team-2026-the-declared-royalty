@@ -86,9 +86,10 @@ type FieldState = {
 
 type Extraction =
   | { status: "loading" }
-  | { status: "done"; data: InvoiceExtractionResponse | null; error: string | null };
+  // failed: the request failed (vs. error being a note the AI returned with a result)
+  | { status: "done"; data: InvoiceExtractionResponse | null; error: string | null; failed: boolean }
 
-const EMPTY_VALUES: Values = {
+  const EMPTY_VALUES: Values = {
   vendorUuid: "",
   invoiceNumber: "",
   accountNumber: "",
@@ -110,7 +111,8 @@ const asAmount = (field: ExtractedField) => {
 
 function initialState(data: InvoiceExtractionResponse | null): { values: Values; fields: Record<FieldKey, FieldState> } {
   if (!data) {
-    const blank: FieldState = { level: null, confidence: null, reason: null, aiText: null, confirmed: false };    return {
+    const blank: FieldState = { level: null, confidence: null, reason: null, aiText: null, confirmed: false };    
+    return {
       values: EMPTY_VALUES,
       fields: Object.fromEntries(FIELD_ORDER.map((key) => [key, blank])) as Record<FieldKey, FieldState>,
     };
@@ -276,8 +278,8 @@ type ReviewInvoiceModalProps = {
 
 export default function ReviewInvoiceModal({ invoice, onClose }: ReviewInvoiceModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const formRef = useRef<HTMLFormElement>(null);
   const runId = useRef(0);
+  const lastDataRef = useRef<InvoiceExtractionResponse | null>(null);
   const titleId = useId();
 
   const [extraction, setExtraction] = useState<Extraction>({ status: "loading" });
@@ -337,19 +339,24 @@ export default function ReviewInvoiceModal({ invoice, onClose }: ReviewInvoiceMo
     const id = ++runId.current;
     setExtraction({ status: "loading" });
     setSaveError(null);
-    let result: InvoiceExtractionResponse | null = null;
-    let error: string | null = null;
     try {
-      result = await extractInvoice(invoice.invoiceUuid);
-      error = result.error;
+      const result = await extractInvoice(invoice.invoiceUuid);
+      if (id !== runId.current) return; // a newer run started
+      lastDataRef.current = result;
+      const initial = initialState(result);
+      setValues(initial.values);
+      setFields(initial.fields);
+      setExtraction({ status: "done", data: result, error: result.error, failed: false });
     } catch (extractError) {
-      error = extractError instanceof ApiError ? extractError.message : "AI extraction failed.";
+      if (id !== runId.current) return;
+      // Leave the form alone: a failed re-extract keeps the last good result and the reviewer's edits
+      setExtraction({
+        status: "done",
+        data: lastDataRef.current,
+        error: extractError instanceof ApiError ? extractError.message : "AI extraction failed.",
+        failed: true,
+      });
     }
-    if (id !== runId.current) return; // closed, or a newer run started
-    const initial = initialState(result);
-    setValues(initial.values);
-    setFields(initial.fields);
-    setExtraction({ status: "done", data: result, error });
   }, [invoice.invoiceUuid]);
 
   // Run the AI once per opening. React StrictMode mounts effects twice in development, which
@@ -361,10 +368,9 @@ export default function ReviewInvoiceModal({ invoice, onClose }: ReviewInvoiceMo
     void runExtraction();
   }, [runExtraction]);
 
+  // By id rather than through formRef: the lint rule flags refs read by functions created during render
   const focusField = (key: FieldKey) =>
-    requestAnimationFrame(() =>
-      formRef.current?.querySelector<HTMLElement>(`[data-field="${key}"] :is(input, select)`)?.focus(),
-    );
+  requestAnimationFrame(() => document.getElementById(`review-${key}`)?.focus());
 
   // Typing or picking a value is the reviewer's own entry, so it counts as confirmed
   const update = (key: FieldKey, patch: Partial<Values>) => {
@@ -465,7 +471,7 @@ export default function ReviewInvoiceModal({ invoice, onClose }: ReviewInvoiceMo
       onClose={onClose}
       ref={dialogRef}
     >
-      <form className="flex h-full flex-col" noValidate onSubmit={(event) => void onSubmit(event)} ref={formRef}>
+       <form className="flex h-full flex-col" noValidate onSubmit={(event) => void onSubmit(event)}>        
         {/* Header */}
         <div className="flex items-start justify-between gap-4 border-b border-[#e6ebe8] px-6 py-5">
           <div className="min-w-0">
@@ -535,13 +541,15 @@ export default function ReviewInvoiceModal({ invoice, onClose }: ReviewInvoiceMo
             {extraction.status === "done" && extraction.error && (
               <p
                 className={`font-inter-regular flex items-start gap-2 rounded-lg px-3 py-2.5 text-sm ${
-                  data ? "bg-[#fdf6e3] text-[#946200]" : "bg-[#fef3f2] text-[#b42318]"
+                extraction.failed ? "bg-[#fef3f2] text-[#b42318]" : "bg-[#fdf6e3] text-[#946200]"                
                 }`}
                 role="alert"
               >
                 <FiAlertCircle className="mt-0.5 shrink-0" size={15} />
                 <span>
-                  {data ? `AI note: ${extraction.error}` : `${extraction.error} Fill in the fields from the file.`}
+                  {extraction.failed
+                    ? `${extraction.error} ${data ? "Showing the previous result." : "Fill in the fields from the file."}`
+                    : `AI note: ${extraction.error}`}                
                 </span>
               </p>
             )}
