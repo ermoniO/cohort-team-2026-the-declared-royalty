@@ -7,11 +7,12 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     environment:
-      POSTGRES_HOST: postgres
+#      POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_URL: jdbc:postgresql://${POSTGRES_HOST:-localhost}:5432/${POSTGRES_DB}
       BLOB_ENDPOINT: http://minio:9000
       BLOB_USER: ${MINIO_USER}
       BLOB_PASSWORD: ${MINIO_PASSWORD}
@@ -39,14 +40,15 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     environment:
-      POSTGRES_HOST: postgres
+#      POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       POSTGRES_DB: ${SUPABASE_DB}
       POSTGRES_USER: ${SUPABASE_USER}
       POSTGRES_PASSWORD: ${SUPABASE_PASSWORD}
+      POSTGRES_URL: ${SUPABASE_URL}
       BLOB_ENDPOINT: ${SUPABASE_S3_ENDPOINT}
-      BLOB_USER: ${MINIO_USER}
-      BLOB_PASSWORD: ${MINIO_PASSWORD}
+      BLOB_USER: ${SUPABASE_S3_ACCESS_KEY_ID}
+      BLOB_PASSWORD: ${SUPABASE_S3_SECRET_ACCESS_KEY}
       BLOB_REGION: ${SUPABASE_S3_REGION}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:${FRONTEND_PORT:-5173}}
       LLM_API_KEY: ${LLM_API_KEY}
@@ -57,11 +59,6 @@ services:
       STRIPE_CURRENCY: ${STRIPE_CURRENCY:-usd}
     ports:
       - "${BACKEND_PORT:-8080}:8080"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
     networks:
       - backend
 
@@ -101,6 +98,7 @@ services:
 
   # --- Database Layer ---
   postgres:
+    profiles: ["dev"]
     image: postgres:16-alpine
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
@@ -120,6 +118,7 @@ services:
 
   # --- Database Admin Layer ---
   pgadmin:
+    profiles: ["dev"]
     image: dpage/pgadmin4:9.18
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
@@ -136,6 +135,7 @@ services:
 
   # --- Object Storage Layer (Blob) ---
   minio:
+    profiles: ["dev"]
     image: public.ecr.aws/y9w4h2u9/minio:RELEASE.2025-09-07T16-13-09Z # Stable 2025 release
     ports:
       - "${MINIO_PORT:-9000}:9000" # MinIO API Port

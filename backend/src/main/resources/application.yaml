@@ -6,7 +6,7 @@ spring:
     name: invoice-automation-service
 
   datasource:
-    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB}
+    url: ${POSTGRES_URL}
     username: ${POSTGRES_USER}
     password: ${POSTGRES_PASSWORD}
     driver-class-name: org.postgresql.Driver
@@ -45,7 +45,7 @@ blob-storage:
   access-key: ${BLOB_USER:minio_user}
   secret-key: ${BLOB_PASSWORD:minio_password}
   bucket: ${BLOB_BUCKET:invoices}
-  region: ${:us-east-1}
+  region: ${BLOB_REGION:us-east-1}
 
 stripe:
   enabled: ${STRIPE_ENABLED:false}

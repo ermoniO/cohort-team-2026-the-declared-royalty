@@ -1,6 +1,5 @@
 package org.dsd.cohort2026fall.tdr.invoiceautomationservice.config;
 
-import io.minio.MinioClient;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,17 +15,8 @@ import java.net.URI;
 @EnableConfigurationProperties(BlobStorageProperties.class)
 public class BlobStorageConfig {
 
-    // Building the client does not connect to MinIO,
-    // so the app still starts if MinIO isn't running.
-    @Bean
-    public MinioClient minioClient(BlobStorageProperties props) {
-        return MinioClient.builder()
-                .endpoint(props.endpoint())
-                .region(props.region())
-                .credentials(props.accessKey(), props.secretKey())
-                .build();
-    }
-
+    // Building the client does not connect to blob storage,
+    // so the app still starts if blob storage isn't running.
     @Bean
     public S3Client s3Client(BlobStorageProperties props) {
 

@@ -1,6 +1,5 @@
 package org.dsd.cohort2026fall.tdr.invoiceautomationservice.service;
 
-import io.minio.*;
 import lombok.RequiredArgsConstructor;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.config.BlobStorageProperties;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.StorageException;
@@ -75,11 +74,7 @@ public class DocumentStorageService {
             if (bucketReady) return;
             try {
                 boolean exists = doesBucketExist(props.bucket());
-//                boolean exists = minioClient.bucketExists(
-//                        BucketExistsArgs.builder().bucket(props.bucket()).build());
                 if (!exists) {
-//                    minioClient.makeBucket(
-//                            MakeBucketArgs.builder().bucket(props.bucket()).build());
                     s3Client.createBucket(CreateBucketRequest.builder()
                             .bucket(props.bucket())
                             .build());
