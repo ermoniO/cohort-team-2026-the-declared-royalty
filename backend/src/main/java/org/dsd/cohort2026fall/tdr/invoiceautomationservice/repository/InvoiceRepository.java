@@ -36,6 +36,13 @@ public interface InvoiceRepository extends JpaRepository<InvoiceEntity, UUID>, J
 
     boolean existsByBlobFileSha256(String blobFileSha256);
 
+    // Recent bills on the same vendor + property link, for comparing amounts and billing periods
+    List<InvoiceEntity> findTop6ByMapping_MappingIdAndInvoiceIdNotOrderByCreatedAtDesc(UUID mappingId, UUID invoiceId);
+
+    boolean existsByMapping_MappingIdAndVendorSuppliedInvoiceIdAndInvoiceIdNot(
+            UUID mappingId, String vendorSuppliedInvoiceId, UUID invoiceId);
+
+
     @Query("select i.blobFileSha256 from InvoiceEntity i where i.blobFileSha256 in :hashes")
     List<String> findExistingHashes(@Param("hashes") Collection<String> hashes);
 

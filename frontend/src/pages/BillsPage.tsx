@@ -3,8 +3,10 @@ import { FiPlus } from "react-icons/fi";
 import InvoiceSummaryCards from "@/features/invoices/InvoiceSummaryCards";
 import InvoiceTable from "@/features/invoices/InvoiceTable";
 import { type InvoiceTabId, statusesForTab } from "@/features/invoices/invoiceStatus";
+import ReviewInvoiceModal from "@/features/invoices/ReviewInvoiceModal";
 import UploadInvoicesModal from "@/features/invoices/UploadInvoicesModal";
 import { useInvoicePage, useInvoiceSummary } from "@/features/invoices/useInvoices";
+import type { InvoiceResponse } from "@/types/invoice";
 
 const PAGE_SIZE = 20;
 const SEARCH_DELAY_MS = 300;
@@ -16,6 +18,7 @@ export default function BillsPage() {
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const [reviewing, setReviewing] = useState<InvoiceResponse | null>(null);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -46,6 +49,7 @@ export default function BillsPage() {
 
       <InvoiceTable
         onPageChange={setPage}
+        onReview={setReviewing}
         onSearchChange={setSearchInput}
         onTabChange={(next) => {
           setTab(next);
@@ -60,6 +64,18 @@ export default function BillsPage() {
         <UploadInvoicesModal
           onClose={() => setUploadOpen(false)}
           onUploaded={() => setReloadKey((key) => key + 1)}
+        />
+      )}
+      
+      {/* Reload on close either way: extraction alone moves the invoice to "Needs review" */}
+      {reviewing && (
+        <ReviewInvoiceModal
+          invoice={reviewing}
+          key={reviewing.invoiceUuid}
+          onClose={() => {
+            setReviewing(null);
+            setReloadKey((key) => key + 1);
+          }}
         />
       )}
     </div>
