@@ -1,0 +1,46 @@
+parameters:
+  - name: invoiceUuid
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+post:
+  tags:
+    - Invoice Extraction
+  summary: Save reviewer-confirmed invoice details and send for approval
+  description: >
+    Links the invoice to the vendor + property (creating the mapping if it doesn't exist),
+    saves the confirmed fields and moves the invoice to PENDING_APPROVAL.
+  operationId: verifyInvoice
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../components/schemas/InvoiceVerifyRequest.yaml'
+  responses:
+    '200':
+      description: Invoice verified
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/InvoiceResponse.yaml'
+    '400':
+      description: Invalid values (e.g. billing period start after end)
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'
+    '404':
+      description: Invoice, vendor or property not found
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'
+    '409':
+      description: Invoice is past review, the account number doesn't match the mapping on file, or it duplicates another invoice
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'

@@ -1,0 +1,29 @@
+type: object
+required:
+  - invoiceUuid
+  - invoiceStatus
+  - fields
+properties:
+  invoiceUuid:
+    type: string
+    format: uuid
+  invoiceStatus:
+    $ref: './InvoiceStatus.yaml'
+  fields:
+    $ref: './InvoiceExtractedFields.yaml'
+  error:
+    type: string
+    nullable: true
+    description: A problem the AI reported with the document (e.g. unreadable scan)
+  suggestedVendorUuid:
+    type: string
+    format: uuid
+    nullable: true
+  suggestedPropertyUuid:
+    type: string
+    format: uuid
+    nullable: true
+  suggestedMappingUuid:
+    type: string
+    format: uuid
+    nullable: true

@@ -68,3 +68,52 @@ export type InvoiceSummaryResponse = {
     awaitingApprovalTotal: number;
     exceptionsCount: number;
 };
+
+export type ConfidenceLevel = "HIGH" | "MEDIUM" | "LOW" | "NOT_FOUND";
+
+// One value the AI read from the bill. level and reason come from checks against our
+// vendors, properties, account numbers and past bills; value is null when it wasn't found.
+export type ExtractedField = {
+    value: string | null;
+    confidence: number; // AI's readability score, 0–1
+    level: ConfidenceLevel;
+    reason: string | null;
+};
+
+export type InvoiceExtractedFields = {
+    vendorName: ExtractedField;
+    propertyAddress: ExtractedField;
+    propertyName: ExtractedField;
+    vendorSuppliedInvoiceId: ExtractedField;
+    vendorAccountNumber: ExtractedField;
+    amount: ExtractedField;
+    dueDate: ExtractedField;
+    billingPeriodStart: ExtractedField;
+    billingPeriodEnd: ExtractedField;
+    invoiceCreationDate: ExtractedField;
+};
+
+export type InvoiceExtractionResponse = {
+    invoiceUuid: string;
+    invoiceStatus: InvoiceStatus;
+    fields: InvoiceExtractedFields;
+    error: string | null;
+    suggestedVendorUuid: string | null;
+    suggestedPropertyUuid: string | null;
+    suggestedMappingUuid: string | null;
+};
+
+// Body for POST /api/v1/invoices/{invoiceUuid}/verify
+export type InvoiceVerifyRequest = {
+    vendorUuid: string;
+    propertyUuid: string;
+    vendorAccountNumber: string;
+    vendorSuppliedInvoiceId?: string;
+    amount: number;
+    dueDate: string;
+    billingPeriodStart?: string;
+    billingPeriodEnd?: string;
+    invoiceCreationDate?: string;
+    notes?: string; // audit note: what the reviewer changed from the AI's values
+    aiValuesChanged?: boolean; // true → logged as USER_IDENTIFIED instead of USER_VALIDATED
+};
