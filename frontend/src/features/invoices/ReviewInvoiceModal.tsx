@@ -144,14 +144,6 @@ function initialState(data: InvoiceExtractionResponse | null): { values: Values;
   const periodUsable = (!start.value || values.periodStart !== "") && (!end.value || values.periodEnd !== "");
   const periodConfidence = [start, end].filter((x) => x.value).map((x) => x.confidence);
 
-  // Property card: the worse of address and name, ignoring whichever wasn't on the bill
-  const propertyFound = [
-    { label: "Address", field: f.propertyAddress },
-    { label: "Name", field: f.propertyName },
-  ].filter((p) => p.field.level !== "NOT_FOUND");
-  const propertyWorst = propertyFound.length
-    ? propertyFound.reduce((a, b) => (LEVEL_RANK[a.field.level] <= LEVEL_RANK[b.field.level] ? a : b)).field
-    : f.propertyAddress;
 
   return {
     values,
