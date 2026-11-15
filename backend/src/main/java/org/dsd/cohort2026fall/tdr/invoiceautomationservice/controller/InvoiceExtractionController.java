@@ -3,6 +3,7 @@ package org.dsd.cohort2026fall.tdr.invoiceautomationservice.controller;
 import lombok.RequiredArgsConstructor;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.api.InvoiceExtractionApi;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.InvoiceExtractionResponse;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.InvoiceProgressRequest;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.InvoiceResponse;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.InvoiceVerifyRequest;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.service.InvoiceExtractionService;
@@ -26,4 +27,10 @@ public class InvoiceExtractionController implements InvoiceExtractionApi {
     public ResponseEntity<InvoiceResponse> verifyInvoice(UUID invoiceUuid, InvoiceVerifyRequest invoiceVerifyRequest) {
         return ResponseEntity.ok(extractionService.verify(invoiceUuid, invoiceVerifyRequest));
     }
+
+    @Override
+    public ResponseEntity<InvoiceResponse> saveInvoiceProgress(UUID invoiceUuid, InvoiceProgressRequest invoiceProgressRequest) {
+        return ResponseEntity.ok(extractionService.saveProgress(invoiceUuid, invoiceProgressRequest));
+     }
+
 }

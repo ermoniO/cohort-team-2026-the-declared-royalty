@@ -19,6 +19,7 @@ import org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository.VendorRepo
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
@@ -28,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 /**
  * Manual review flow: run the AI on an uploaded invoice (extract), then save what a
@@ -118,60 +120,17 @@ public class InvoiceExtractionService {
         return transactionTemplate.execute(tx -> {
             InvoiceEntity invoice = findInvoice(invoiceUuid);
             requireReviewable(invoice);
-            validate(request);
-
-            VendorEntity vendor = vendorRepository.findById(request.getVendorUuid())
-                    .orElseThrow(() -> new ResourceNotFoundException("Vendor not found: " + request.getVendorUuid()));
-            PropertyEntity property = propertyRepository.findById(request.getPropertyUuid())
-                    .orElseThrow(() -> new ResourceNotFoundException("Property not found: " + request.getPropertyUuid()));
-            String accountNumber = request.getVendorAccountNumber().trim();
-
-            PropertyVendorMappingEntity mapping = mappingRepository
-                    .findByVendor_VendorIdAndProperty_PropertyId(vendor.getVendorId(), property.getPropertyId())
-                    .orElse(null);
-            boolean newMapping = mapping == null;
-            if (newMapping) {
-                mapping = mappingRepository.save(PropertyVendorMappingEntity.builder()
-                        .mappingId(UUID.randomUUID())
-                        .vendor(vendor)
-                        .property(property)
-                        .vendorAccountNumber(accountNumber)
-                        .build());
-            } else if (!ExtractionScorer.normalize(mapping.getVendorAccountNumber())
-                    .equals(ExtractionScorer.normalize(accountNumber))) {
-                // Paying against the wrong account is worse than stopping here
-                throw new InvoiceConflictException("Account number " + accountNumber + " doesn't match the one on file for "
-                        + vendor.getName() + " at " + property.getName() + " (" + mapping.getVendorAccountNumber() + ").");
-            }
-
-            String invoiceNumber = blankToNull(request.getVendorSuppliedInvoiceId());
-            LocalDate periodEnd = request.getBillingPeriodEnd();
-            if (invoiceNumber != null && periodEnd != null && invoiceRepository
-                    .existsByMapping_MappingIdAndVendorSuppliedInvoiceIdAndBillingPeriodEndAndInvoiceIdNot(
-                            mapping.getMappingId(), invoiceNumber, periodEnd, invoiceUuid)) {
-                throw new InvoiceAlreadyExistsException(
-                        "Invoice " + invoiceNumber + " for this billing period is already in the system.");
-            }
-
             String fromStatus = invoice.getInvoiceStatus();
+            // replace=true: the form sends every field, so ones left empty are cleared
+            Applied applied = apply(invoice, Confirmed.of(request), true);
+
             String toStatus = InvoiceStatus.PENDING_APPROVAL.getValue();
-            invoice.setMapping(mapping);
-            invoice.setVendorSuppliedInvoiceId(invoiceNumber);
-            invoice.setAmount(request.getAmount());
-            invoice.setDueDate(request.getDueDate());
-            invoice.setBillingPeriodStart(request.getBillingPeriodStart());
-            invoice.setBillingPeriodEnd(periodEnd);
-            invoice.setInvoiceCreationDate(request.getInvoiceCreationDate());
             invoice.setInvoiceStatus(toStatus);
             invoice.setFailureReason(null);
             invoice.setUpdatedAt(now());
             invoiceRepository.saveAndFlush(invoice);
 
-            String notes = (request.getNotes() == null ? "" : request.getNotes())
-                    + (newMapping
-                    ? "\n\nCreated vendor/property link: " + vendor.getName() + " at " + property.getName()
-                            + " (account " + accountNumber + ")"
-                    : "");
+            String notes = (request.getNotes() == null ? "" : request.getNotes()) + linkNote(applied, invoice);
             boolean corrected = Boolean.TRUE.equals(request.getAiValuesChanged());
             // TODO(auth): record the signed-in reviewer instead of the system user
             auditLogService.record(invoiceUuid, InvoiceUploadService.SYSTEM_USER_ID,
@@ -181,6 +140,133 @@ public class InvoiceExtractionService {
 
             return invoiceService.getInvoice(invoiceUuid);
         });
+    }
+
+    /** Saves the fields confirmed so far; the invoice stays in PENDING_MAPPING until it's verified. */
+    public InvoiceResponse saveProgress(UUID invoiceUuid, InvoiceProgressRequest request) {
+        return transactionTemplate.execute(tx -> {
+            InvoiceEntity invoice = findInvoice(invoiceUuid);
+            requireReviewable(invoice);
+            String fromStatus = invoice.getInvoiceStatus();
+            // replace=false: only what was sent is written; everything else stays as it was
+            Applied applied = apply(invoice, Confirmed.of(request), false);
+            if (applied.saved().isEmpty()) {
+                throw new InvalidInvoiceException("Nothing to save: confirm at least one field first.");
+            }
+
+            String toStatus = InvoiceStatus.PENDING_MAPPING.getValue();
+            invoice.setInvoiceStatus(toStatus);
+            invoice.setUpdatedAt(now());
+            invoiceRepository.saveAndFlush(invoice);
+
+            // TODO(auth): record the signed-in reviewer instead of the system user
+            auditLogService.record(invoiceUuid, InvoiceUploadService.SYSTEM_USER_ID,
+                    ActionTypeEnum.USER_IDENTIFIED, "Reviewer saved review progress",
+                    fromStatus, toStatus,
+                    truncate("Saved: " + String.join(", ", applied.saved()) + linkNote(applied, invoice), AUDIT_NOTES_MAX));
+
+            return invoiceService.getInvoice(invoiceUuid);
+        });
+    }
+
+    // ---- writing confirmed values ----------------------------------------
+
+    // The values a reviewer confirmed; null means not confirmed (or left empty)
+    private record Confirmed(UUID vendorUuid, UUID propertyUuid, String accountNumber, String invoiceNumber,
+                             BigDecimal amount, LocalDate dueDate, LocalDate periodStart, LocalDate periodEnd,
+                             LocalDate issued) {
+
+        static Confirmed of(InvoiceVerifyRequest r) {
+            return new Confirmed(r.getVendorUuid(), r.getPropertyUuid(), blankToNull(r.getVendorAccountNumber()),
+                    blankToNull(r.getVendorSuppliedInvoiceId()), r.getAmount(), r.getDueDate(),
+                    r.getBillingPeriodStart(), r.getBillingPeriodEnd(), r.getInvoiceCreationDate());
+        }
+
+        static Confirmed of(InvoiceProgressRequest r) {
+            return new Confirmed(r.getVendorUuid(), r.getPropertyUuid(), blankToNull(r.getVendorAccountNumber()),
+                    blankToNull(r.getVendorSuppliedInvoiceId()), r.getAmount(), r.getDueDate(),
+                    r.getBillingPeriodStart(), r.getBillingPeriodEnd(), r.getInvoiceCreationDate());
+        }
+    }
+
+    private record Applied(boolean newLink, List<String> saved) {}
+
+    /**
+     * Writes confirmed values onto the invoice, then checks the result.
+     * Vendor, property and account number make up the vendor/property link, so they're applied together.
+     * replace=true also clears optional fields that were left empty; replace=false leaves them alone.
+     */
+    private Applied apply(InvoiceEntity invoice, Confirmed c, boolean replace) {
+        if (c.amount() != null && c.amount().stripTrailingZeros().scale() > 2) {
+            throw new InvalidInvoiceException("amount can have at most 2 decimal places.");
+        }
+
+        List<String> saved = new ArrayList<>();
+        boolean newLink = false;
+        if (c.vendorUuid() != null && c.propertyUuid() != null && c.accountNumber() != null) {
+            VendorEntity vendor = vendorRepository.findById(c.vendorUuid())
+                    .orElseThrow(() -> new ResourceNotFoundException("Vendor not found: " + c.vendorUuid()));
+            PropertyEntity property = propertyRepository.findById(c.propertyUuid())
+                    .orElseThrow(() -> new ResourceNotFoundException("Property not found: " + c.propertyUuid()));
+
+            PropertyVendorMappingEntity mapping = mappingRepository
+                    .findByVendor_VendorIdAndProperty_PropertyId(vendor.getVendorId(), property.getPropertyId())
+                    .orElse(null);
+            if (mapping == null) {
+                mapping = mappingRepository.save(PropertyVendorMappingEntity.builder()
+                        .mappingId(UUID.randomUUID())
+                        .vendor(vendor)
+                        .property(property)
+                        .vendorAccountNumber(c.accountNumber())
+                        .build());
+                newLink = true;
+            } else if (!ExtractionScorer.normalize(mapping.getVendorAccountNumber())
+                    .equals(ExtractionScorer.normalize(c.accountNumber()))) {
+                // Paying against the wrong account is worse than stopping here
+                throw new InvoiceConflictException("Account number " + c.accountNumber() + " doesn't match the one on file for "
+                        + vendor.getName() + " at " + property.getName() + " (" + mapping.getVendorAccountNumber() + ").");
+            }
+            invoice.setMapping(mapping);
+            saved.add("vendor, property and account number");
+        }
+
+        set(c.invoiceNumber(), replace, invoice::setVendorSuppliedInvoiceId, "invoice number", saved);
+        set(c.amount(), replace, invoice::setAmount, "amount", saved);
+        set(c.dueDate(), replace, invoice::setDueDate, "due date", saved);
+        set(c.periodStart(), replace, invoice::setBillingPeriodStart, "billing period start", saved);
+        set(c.periodEnd(), replace, invoice::setBillingPeriodEnd, "billing period end", saved);
+        set(c.issued(), replace, invoice::setInvoiceCreationDate, "invoice date", saved);
+
+        // Check the invoice as it now stands: earlier saves can supply the other half of a pair
+        LocalDate start = invoice.getBillingPeriodStart();
+        LocalDate end = invoice.getBillingPeriodEnd();
+        if (start != null && end != null && start.isAfter(end)) {
+            throw new InvalidInvoiceException("Billing period start must be on or before its end.");
+        }
+        PropertyVendorMappingEntity mapping = invoice.getMapping();
+        String number = invoice.getVendorSuppliedInvoiceId();
+        if (mapping != null && number != null && end != null && invoiceRepository
+                .existsByMapping_MappingIdAndVendorSuppliedInvoiceIdAndBillingPeriodEndAndInvoiceIdNot(
+                        mapping.getMappingId(), number, end, invoice.getInvoiceId())) {
+            throw new InvoiceAlreadyExistsException("Invoice " + number + " for this billing period is already in the system.");
+        }
+        return new Applied(newLink, saved);
+    }
+
+    private static <T> void set(T value, boolean replace, Consumer<T> setter, String label, List<String> saved) {
+        if (value != null) {
+            setter.accept(value);
+            saved.add(label);
+        } else if (replace) {
+            setter.accept(null);
+        }
+    }
+
+    private static String linkNote(Applied applied, InvoiceEntity invoice) {
+        if (!applied.newLink()) return "";
+        PropertyVendorMappingEntity m = invoice.getMapping();
+        return "\n\nCreated vendor/property link: " + m.getVendor().getName() + " at " + m.getProperty().getName()
+                + " (account " + m.getVendorAccountNumber() + ")";
     }
 
     // ---- helpers ----------------------------------------------------------
@@ -193,17 +279,6 @@ public class InvoiceExtractionService {
     private static void requireReviewable(InvoiceEntity invoice) {
         if (!REVIEWABLE.contains(invoice.getInvoiceStatus())) {
             throw new InvoiceConflictException("This invoice is " + invoice.getInvoiceStatus() + " and is past review.");
-        }
-    }
-
-    private static void validate(InvoiceVerifyRequest request) {
-        if (request.getAmount().stripTrailingZeros().scale() > 2) {
-            throw new InvalidInvoiceException("amount can have at most 2 decimal places.");
-        }
-        LocalDate start = request.getBillingPeriodStart();
-        LocalDate end = request.getBillingPeriodEnd();
-        if (start != null && end != null && start.isAfter(end)) {
-            throw new InvalidInvoiceException("Billing period start must be on or before its end.");
         }
     }
 

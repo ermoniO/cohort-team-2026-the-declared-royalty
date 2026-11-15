@@ -1,5 +1,5 @@
 import { API_BASE_URL, apiClient } from "@/app/services/apiClient";
-import type {InvoiceExtractionResponse, InvoicePageResponse, InvoiceResponse, InvoiceStatus, InvoiceSummaryResponse, InvoiceVerifyRequest } from "@/types/invoice";
+import type {InvoiceExtractionResponse, InvoicePageResponse, InvoiceProgressRequest, InvoiceResponse, InvoiceStatus, InvoiceSummaryResponse, InvoiceVerifyRequest } from "@/types/invoice";
 import { ApiError } from "./invoiceUploadService";
 
 export type InvoiceListQuery = {
@@ -82,4 +82,9 @@ export async function fetchInvoiceFile(invoiceUuid: string): Promise<Blob> {
   const response = await fetch(invoiceFileUrl(invoiceUuid));
   if (!response.ok) throw new ApiError(response.status, `Couldn't load the file (${response.status})`);
   return response.blob();
+}
+
+// Saves the confirmed fields; the invoice stays in Needs review so the review can be finished later
+export function saveInvoiceProgress(invoiceUuid: string, request: InvoiceProgressRequest): Promise<InvoiceResponse> {
+  return postForJson<InvoiceResponse>(`/api/v1/invoices/${invoiceUuid}/progress`, request);
 }

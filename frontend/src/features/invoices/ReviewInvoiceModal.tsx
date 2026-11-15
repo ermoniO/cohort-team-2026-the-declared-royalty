@@ -8,19 +8,21 @@ import {
   useRef,
   useState,
 } from "react";
-import { FiAlertCircle, FiCheck, FiExternalLink, FiFileText, FiLoader, FiRefreshCw, FiX } from "react-icons/fi";
+import { FiAlertCircle, FiCheck, FiExternalLink, FiFileText, FiLoader, FiRefreshCw, FiSave, FiX } from "react-icons/fi";
 import { getProperties } from "@/features/properties/propertyService";
 import { getVendors } from "@/features/vendors/vendorService";
 import type {
   ConfidenceLevel,
   ExtractedField,
   InvoiceExtractionResponse,
+  InvoiceProgressRequest,
   InvoiceResponse,
   InvoiceVerifyRequest,
 } from "@/types/invoice";
 import type { PropertyResponse } from "@/types/property";
 import type { VendorResponse } from "@/types/vendor";
-import { extractInvoice, fetchInvoiceFile, invoiceFileUrl, verifyInvoice } from "./invoiceService";
+import AddVendorInline from "./AddVendorInline";
+import { extractInvoice, fetchInvoiceFile, invoiceFileUrl, saveInvoiceProgress, verifyInvoice } from "./invoiceService";
 import { ApiError } from "./invoiceUploadService";
 
 type FieldKey =
@@ -147,9 +149,7 @@ function initialState(data: InvoiceExtractionResponse | null): { values: Values;
   const periodConfidence = [start, end].filter((x) => x.value).map((x) => x.confidence);
 
 
-  return {
-    values,
-    fields: {
+  const fields: Record<FieldKey, FieldState> = {
       vendor: state(f.vendorName, values.vendorUuid !== ""),
       invoiceNumber: state(f.vendorSuppliedInvoiceId, true),
       accountNumber: state(f.vendorAccountNumber, true),
@@ -183,8 +183,43 @@ function initialState(data: InvoiceExtractionResponse | null): { values: Values;
       },
       amount: state(f.amount, values.amount !== ""),
       invoiceDate: state(f.invoiceCreationDate, values.invoiceDate !== ""),
-    },
+    };
+
+  // Optional fields the bill doesn't have need nothing from the reviewer
+  for (const key of OPTIONAL) {
+    if (fields[key].level === "NOT_FOUND" && FIELD_VALUES[key].every((v) => values[v] === "")) {
+      fields[key] = { ...fields[key], confirmed: true };
+    }
+  }
+
+  return { values, fields };
+}
+
+function withSaved(
+  state: { values: Values; fields: Record<FieldKey, FieldState> },
+  saved: InvoiceResponse,
+): { values: Values; fields: Record<FieldKey, FieldState> } {
+  const values = { ...state.values };
+  const fields = { ...state.fields };
+  const keep = (key: FieldKey, patch: Partial<Values>) => {
+    Object.assign(values, patch);
+    fields[key] = { ...fields[key], confirmed: true, error: undefined, aiText: null, reason: "Saved earlier by a reviewer" };
   };
+
+  // Vendor, property and account number are saved together, as the vendor/property link
+  if (saved.vendorUuid && saved.propertyUuid) {
+    keep("vendor", { vendorUuid: saved.vendorUuid });
+    keep("property", { propertyUuid: saved.propertyUuid });
+    keep("accountNumber", { accountNumber: saved.vendorAccountNumber ?? "" });
+  }
+  if (saved.vendorSuppliedInvoiceId) keep("invoiceNumber", { invoiceNumber: saved.vendorSuppliedInvoiceId });
+  if (saved.amount !== null) keep("amount", { amount: saved.amount.toFixed(2) });
+  if (saved.dueDate) keep("dueDate", { dueDate: saved.dueDate });
+  if (saved.billingPeriodStart || saved.billingPeriodEnd) {
+    keep("servicePeriod", { periodStart: saved.billingPeriodStart ?? "", periodEnd: saved.billingPeriodEnd ?? "" });
+  }
+  if (saved.invoiceCreationDate) keep("invoiceDate", { invoiceDate: saved.invoiceCreationDate });
+  return { values, fields };
 }
 
 function validateField(key: FieldKey, v: Values): string | undefined {
@@ -250,6 +285,7 @@ function describeReview(
     (key) =>
       fields[key].level !== null &&
       fields[key].level !== "HIGH" &&
+      fields[key].level !== "NOT_FOUND" &&
       FIELD_VALUES[key].every((v) => ai[v] === values[v]),
   ).map((key) => LABELS[key]);
 
@@ -280,6 +316,8 @@ export default function ReviewInvoiceModal({ invoice, onClose }: ReviewInvoiceMo
   const dialogRef = useRef<HTMLDialogElement>(null);
   const runId = useRef(0);
   const lastDataRef = useRef<InvoiceExtractionResponse | null>(null);
+  // The invoice as last saved: the prop on open, then whatever Save progress returns
+  const savedRef = useRef(invoice);
   const titleId = useId();
 
   const [extraction, setExtraction] = useState<Extraction>({ status: "loading" });
@@ -290,10 +328,12 @@ export default function ReviewInvoiceModal({ invoice, onClose }: ReviewInvoiceMo
   const [listError, setListError] = useState<string | null>(null);
   const [file, setFile] = useState<{ url: string } | { error: string } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [savingProgress, setSavingProgress] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [savedMessage, setSavedMessage] = useState<string | null>(null);
 
   const extracting = extraction.status === "loading";
-  const busy = saving || extracting;
+  const busy = saving || savingProgress || extracting;
   const data = extraction.status === "done" ? extraction.data : null;
   const remaining = FIELD_ORDER.filter((key) => !fields[key].confirmed);
 
@@ -343,12 +383,18 @@ export default function ReviewInvoiceModal({ invoice, onClose }: ReviewInvoiceMo
       const result = await extractInvoice(invoice.invoiceUuid);
       if (id !== runId.current) return; // a newer run started
       lastDataRef.current = result;
-      const initial = initialState(result);
+      const initial = withSaved(initialState(result), savedRef.current);
       setValues(initial.values);
       setFields(initial.fields);
       setExtraction({ status: "done", data: result, error: result.error, failed: false });
     } catch (extractError) {
       if (id !== runId.current) return;
+      if (!lastDataRef.current) {
+        // Nothing read yet: still show what was saved earlier
+        const initial = withSaved(initialState(null), savedRef.current);
+        setValues(initial.values);
+        setFields(initial.fields);
+      }
       // Leave the form alone: a failed re-extract keeps the last good result and the reviewer's edits
       setExtraction({
         status: "done",
@@ -377,6 +423,7 @@ export default function ReviewInvoiceModal({ invoice, onClose }: ReviewInvoiceMo
     setValues((prev) => ({ ...prev, ...patch }));
     setFields((prev) => ({ ...prev, [key]: { ...prev[key], confirmed: true, error: undefined } }));
     setSaveError(null);
+    setSavedMessage(null);
   };
 
   const confirm = (key: FieldKey) => {
@@ -459,6 +506,51 @@ export default function ReviewInvoiceModal({ invoice, onClose }: ReviewInvoiceMo
     onKeyDown: onFieldKeyDown(key),
   });
 
+  // Saves the confirmed fields onto the invoice; it stays in Needs review until sent for approval
+  const onSaveProgress = async () => {
+    if (busy) return;
+    const ready = (key: FieldKey) => fields[key].confirmed && !validateField(key, values);
+    const linkReady = ready("vendor") && ready("property") && ready("accountNumber");
+
+    const request: InvoiceProgressRequest = {};
+    if (linkReady) {
+      request.vendorUuid = values.vendorUuid;
+      request.propertyUuid = values.propertyUuid;
+      request.vendorAccountNumber = values.accountNumber.trim();
+    }
+    if (ready("invoiceNumber") && values.invoiceNumber.trim()) request.vendorSuppliedInvoiceId = values.invoiceNumber.trim();
+    if (ready("amount")) request.amount = Number(cleanAmount(values.amount));
+    if (ready("dueDate")) request.dueDate = values.dueDate;
+    if (ready("servicePeriod") && values.periodStart) {
+      request.billingPeriodStart = values.periodStart;
+      request.billingPeriodEnd = values.periodEnd;
+    }
+    if (ready("invoiceDate") && values.invoiceDate) request.invoiceCreationDate = values.invoiceDate;
+
+    if (Object.keys(request).length === 0) {
+      setSaveError("Confirm at least one field before saving.");
+      return;
+    }
+
+    setSavingProgress(true);
+    setSaveError(null);
+    setSavedMessage(null);
+    try {
+      savedRef.current = await saveInvoiceProgress(invoice.invoiceUuid, request);
+      const partialLink =
+        !linkReady && (fields.vendor.confirmed || fields.property.confirmed || fields.accountNumber.confirmed);
+      setSavedMessage(
+        partialLink
+          ? "Progress saved. Vendor, property and account number are saved together once all three are confirmed."
+          : "Progress saved. You can close this and finish later.",
+      );
+    } catch (saveFailure) {
+      setSaveError(saveFailure instanceof ApiError ? saveFailure.message : "Couldn't save progress. Try again.");
+    } finally {
+      setSavingProgress(false);
+    }
+  };
+
   const fileName = invoice.originalFilename ?? "Invoice file";
 
   return (
@@ -466,7 +558,7 @@ export default function ReviewInvoiceModal({ invoice, onClose }: ReviewInvoiceMo
       aria-labelledby={titleId}
       className="m-auto h-[92dvh] w-[calc(100vw-2rem)] max-w-[1120px] overflow-hidden rounded-xl border-0 bg-white p-0 text-[#25362f] shadow-xl backdrop:bg-black/30"
       onCancel={(event) => {
-        if (saving) event.preventDefault();
+        if (saving || savingProgress) event.preventDefault();
       }}
       onClose={onClose}
       ref={dialogRef}
@@ -485,7 +577,7 @@ export default function ReviewInvoiceModal({ invoice, onClose }: ReviewInvoiceMo
           <button
             aria-label="Close"
             className="flex size-8 shrink-0 items-center justify-center rounded-md border border-[#e6ebe8] text-[#68766f] hover:bg-[#f8faf9] disabled:opacity-40"
-            disabled={saving}
+            disabled={saving || savingProgress}
             onClick={() => dialogRef.current?.close()}
             type="button"
           >
@@ -574,6 +666,14 @@ export default function ReviewInvoiceModal({ invoice, onClose }: ReviewInvoiceMo
                     </option>
                   ))}
                 </select>
+                <AddVendorInline
+                  disabled={busy}
+                  onAdded={(vendor) => {
+                    setVendors((prev) => [...prev, vendor].sort((a, b) => a.name.localeCompare(b.name)));
+                    update("vendor", { vendorUuid: vendor.vendorUuid });
+                  }}
+                  suggestedName={data?.fields.vendorName.value ?? ""}
+                />
               </FieldCard>
 
               <FieldCard {...fieldProps("invoiceNumber")}>
@@ -677,6 +777,13 @@ export default function ReviewInvoiceModal({ invoice, onClose }: ReviewInvoiceMo
                 <span>Couldn't confirm this invoice. {saveError}</span>
               </p>
             )}
+
+            {savedMessage && (
+              <p className="flex items-start gap-2 text-sm text-[#16834a]" role="status">
+                <FiCheck className="mt-0.5 shrink-0" size={16} />
+                <span>{savedMessage}</span>
+              </p>
+            )}
           </section>
         </div>
 
@@ -690,11 +797,21 @@ export default function ReviewInvoiceModal({ invoice, onClose }: ReviewInvoiceMo
               className={secondaryButton}
               disabled={busy}
               onClick={() => void runExtraction()}
-              title="Runs the AI again and discards your edits"
+              title="Runs the AI again: saved values are kept, unsaved edits are replaced"
               type="button"
             >
               <FiRefreshCw aria-hidden="true" size={14} />
               Re-extract
+            </button>
+            <button
+              className={secondaryButton}
+              disabled={busy}
+              onClick={() => void onSaveProgress()}
+              title="Save the fields you've confirmed and finish later"
+              type="button"
+            >
+              <FiSave aria-hidden="true" size={14} />
+              {savingProgress ? "Saving…" : "Save progress"}
             </button>
             <button className={primaryButton} disabled={busy || remaining.length > 0} type="submit">
               {saving
