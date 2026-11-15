@@ -47,6 +47,11 @@ blob-storage:
   bucket: ${BLOB_BUCKET:invoices}
   region: ${BLOB_REGION:us-east-1}
 
+oauth:
+  jwk-set-uri: ${OAUTH_JWK_SET_URI}
+  issuer-uri: ${OAUTH_ISSUER_URI}
+  secret-key: ${OAUTH_SECRET_KEY}
+
 stripe:
   enabled: ${STRIPE_ENABLED:false}
   secret-key: ${STRIPE_SECRET_KEY:}
