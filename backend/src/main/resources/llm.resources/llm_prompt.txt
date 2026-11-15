@@ -12,6 +12,8 @@ following information:
 7. Billing period start
 8. Billing period end
 9. Invoice issued date
+10. Service description: one short line saying what the bill is for, as written on it
+    (e.g. "Monthly water usage and sewer service"), not the vendor name or amounts
 
 Instructions:
 

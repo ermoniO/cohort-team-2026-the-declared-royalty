@@ -10,6 +10,7 @@ import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.InvoiceCreateRe
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.InvoicePageResponse;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.InvoiceStatus;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.InvoiceSummaryResponse;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.InvoiceUpdateRequest;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository.InvoiceRepository;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository.PropertyVendorMappingRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -67,6 +68,40 @@ class InvoiceServiceTest {
         assertEquals(new BigDecimal("1250.40"), response.getAmount());
         assertEquals(mappingUuid, response.getMappingUuid());
         verify(invoiceRepository).save(any(InvoiceEntity.class));
+    }
+
+    @Test
+    void createInvoice_storesTrimmedDescription_andBlankAsNull() {
+        InvoiceCreateRequest request = new InvoiceCreateRequest(mappingUuid);
+        request.setDescription("  Monthly water usage and sewer service  ");
+        assertEquals("Monthly water usage and sewer service", invoiceService.createInvoice(request).getDescription());
+
+        InvoiceCreateRequest blank = new InvoiceCreateRequest(mappingUuid);
+        blank.setDescription("   ");
+        assertNull(invoiceService.createInvoice(blank).getDescription());
+    }
+
+    @Test
+    void updateInvoice_changesDescription_keepsItWhenOmitted_andClearsItWhenEmpty() {
+        InvoiceEntity invoice = new InvoiceEntity();
+        UUID invoiceUuid = UUID.randomUUID();
+        invoice.setInvoiceId(invoiceUuid);
+        invoice.setInvoiceStatus(InvoiceStatus.PENDING_APPROVAL.getValue());
+        invoice.setMapping(mappingRepository.findById(mappingUuid).orElseThrow());
+        invoice.setDescription("Old description");
+        when(invoiceRepository.findById(invoiceUuid)).thenReturn(Optional.of(invoice));
+
+        InvoiceUpdateRequest statusOnly = new InvoiceUpdateRequest();
+        statusOnly.setInvoiceStatus(InvoiceStatus.APPROVED);
+        assertEquals("Old description", invoiceService.updateInvoice(invoiceUuid, statusOnly).getDescription());
+
+        InvoiceUpdateRequest change = new InvoiceUpdateRequest();
+        change.setDescription("Quarterly pest prevention and inspection");
+        assertEquals("Quarterly pest prevention and inspection", invoiceService.updateInvoice(invoiceUuid, change).getDescription());
+
+        InvoiceUpdateRequest clear = new InvoiceUpdateRequest();
+        clear.setDescription("");
+        assertNull(invoiceService.updateInvoice(invoiceUuid, clear).getDescription());
     }
 
     @Test

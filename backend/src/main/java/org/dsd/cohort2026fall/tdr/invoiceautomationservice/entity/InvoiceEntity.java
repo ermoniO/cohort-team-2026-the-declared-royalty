@@ -29,6 +29,10 @@ public class InvoiceEntity {
     @JoinColumn(name = "mapping_uuid")
     private PropertyVendorMappingEntity mapping;
 
+    // What the bill is for, as written on it; null until extracted or entered
+    @Column(name = "description", length = 500)
+    private String description;
+
     @Column(name = "billing_period_start")
     private LocalDate billingPeriodStart;
 

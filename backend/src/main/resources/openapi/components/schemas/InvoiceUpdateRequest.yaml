@@ -7,6 +7,11 @@
       example: "f9e8d7c6-b5a4-3210-fedc-ba9876543210"
     invoiceStatus:
       $ref: './InvoiceStatus.yaml'
+    description:
+      type: string
+      maxLength: 500
+      description: What the bill is for, as written on it. An empty string clears it.
+      example: "Monthly water usage and sewer service"
     billingPeriodStart:
       type: string
       format: date

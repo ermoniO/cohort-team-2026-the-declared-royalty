@@ -105,6 +105,7 @@ public class InvoiceService {
         InvoiceEntity invoice = InvoiceEntity.builder()
                 .invoiceId(UUID.randomUUID())
                 .vendorSuppliedInvoiceId(request.getVendorSuppliedInvoiceId())
+                .description(trimToNull(request.getDescription()))
                 .mapping(mapping)
                 .billingPeriodStart(request.getBillingPeriodStart())
                 .billingPeriodEnd(request.getBillingPeriodEnd())
@@ -157,6 +158,10 @@ public class InvoiceService {
         }
         if (request.getInvoiceStatus() != null) {
             invoice.setInvoiceStatus(request.getInvoiceStatus().getValue());
+        }
+        // Omitted keeps it; an empty string clears it
+        if (request.getDescription() != null) {
+            invoice.setDescription(trimToNull(request.getDescription()));
         }
         if (request.getFailureReason() != null) {
             invoice.setFailureReason(request.getFailureReason());
@@ -249,12 +254,20 @@ public class InvoiceService {
                 predicates.add(cb.or(
                         cb.like(cb.lower(root.get("vendorSuppliedInvoiceId")), pattern, '\\'),
                         cb.like(cb.lower(root.get("originalFilename")), pattern, '\\'),
+                        cb.like(cb.lower(root.get("description")), pattern, '\\'),
                         cb.like(cb.lower(vendor.get("name")), pattern, '\\'),
                         cb.like(cb.lower(property.get("name")), pattern, '\\')));
             }
 
             return cb.and(predicates.toArray(Predicate[]::new));
         };
+    }
+
+    // Blank text is stored as null, so "no description" has one representation
+    private static String trimToNull(String value) {
+        if (value == null) return null;
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     // Treat % and _ typed by the user as literal characters, not wildcards
@@ -284,6 +297,7 @@ public class InvoiceService {
         }
         response.setOriginalFilename(entity.getOriginalFilename());
         response.setVendorSuppliedInvoiceId(entity.getVendorSuppliedInvoiceId());
+        response.setDescription(entity.getDescription());
         response.setBillingPeriodStart(entity.getBillingPeriodStart());
         response.setBillingPeriodEnd(entity.getBillingPeriodEnd());
         response.setInvoiceCreationDate(entity.getInvoiceCreationDate());

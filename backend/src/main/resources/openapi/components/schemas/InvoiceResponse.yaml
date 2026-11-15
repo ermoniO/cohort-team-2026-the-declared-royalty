@@ -43,6 +43,11 @@ properties:
   vendorSuppliedInvoiceId:
     type: string
     nullable: true
+  description:
+    type: string
+    nullable: true
+    description: What the bill is for, as written on it
+    example: "Monthly water usage and sewer service"
   billingPeriodStart:
     type: string
     format: date
