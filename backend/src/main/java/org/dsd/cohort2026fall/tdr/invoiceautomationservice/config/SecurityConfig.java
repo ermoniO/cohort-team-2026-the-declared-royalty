@@ -1,7 +1,7 @@
 package org.dsd.cohort2026fall.tdr.invoiceautomationservice.config;
 
-import com.nimbusds.jwt.SignedJWT;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
@@ -16,12 +16,10 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
 
 @Configuration
+@EnableConfigurationProperties(OauthProperties.class)
 public class SecurityConfig {
 
     @Value("${frontend.url}")
@@ -41,33 +39,31 @@ public class SecurityConfig {
 
     @Bean
     public JwtDecoder jwtDecoder(OauthProperties props) {
-        if (props.jwkSetUri() != null && !props.issuerUri().isBlank()) {
-            return NimbusJwtDecoder.withJwkSetUri(props.jwkSetUri()).build();
+        if (props.issuerUri() == null || props.issuerUri().isBlank()) {
+            throw new IllegalStateException("oauth.issuer-uri must be configured.");
         }
-        if (props.issuerUri() != null && !props.issuerUri().isBlank()) {
-            return JwtDecoders.fromIssuerLocation(props.issuerUri());
+
+        if (props.jwkSetUri() != null && !props.jwkSetUri().isBlank()) {
+            NimbusJwtDecoder decoder = NimbusJwtDecoder
+                    .withJwkSetUri(props.jwkSetUri())
+                    .build();
+            decoder.setJwtValidator(JwtValidators.createDefaultWithIssuer(props.issuerUri()));
+            return decoder;
         }
+
         if (props.secretKey() != null && !props.secretKey().isBlank()) {
             SecretKeySpec secretKeySpec = new SecretKeySpec(props.secretKey().getBytes(StandardCharsets.UTF_8), "HmacSHA256");
-            return NimbusJwtDecoder.withSecretKey(secretKeySpec).macAlgorithm(MacAlgorithm.HS256).build();
+            NimbusJwtDecoder decoder = NimbusJwtDecoder
+                    .withSecretKey(secretKeySpec)
+                    .macAlgorithm(MacAlgorithm.HS256)
+                    .build();
+            decoder.setJwtValidator(JwtValidators.createDefaultWithIssuer(props.issuerUri()));
+            return decoder;
         }
 
-//         Fallback decoder for dev/testing when no external issuer or secret is configured
-        return token -> {
-            try {
-                SignedJWT signedJWT = SignedJWT.parse(token);
-                var claimsSet = signedJWT.getJWTClaimsSet();
-                Map<String, Object> headers = new HashMap<>(signedJWT.getHeader().toJSONObject());
-                Map<String, Object> claims = new HashMap<>(claimsSet.getClaims());
-
-                Instant issuedAt = claimsSet.getIssueTime() != null ? claimsSet.getIssueTime().toInstant() : Instant.now();
-                Instant expiresAt = claimsSet.getExpirationTime() != null ? claimsSet.getExpirationTime().toInstant() : Instant.now().plusSeconds(3600);
-
-                return new Jwt(token, issuedAt, expiresAt, headers, claims);
-            } catch (Exception e) {
-                throw new JwtException("Failed to decode token", e);
-            }
-        };
+        throw new IllegalStateException(
+                "Configure oauth.jwk-set-uri or oauth.secret-key to verify JWT signatures."
+        );
     }
 
     @Bean
@@ -75,17 +71,7 @@ public class SecurityConfig {
          return http
                  .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                  .csrf(AbstractHttpConfigurer::disable)
-                 .authorizeHttpRequests(auth -> {
-                     auth.requestMatchers(
-                             "/swagger-ui/**",
-                             "/swagger-ui.html",
-                             "/v3/api-docs/**",
-                             "/swagger-resources/**",
-                             "/webjars/**"
-                     ).permitAll();
-                     auth.anyRequest().authenticated();
-//                    auth.anyRequest().permitAll();
-                 })
+                 .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
                  .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
                  .build();
     }
