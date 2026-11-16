@@ -1,9 +1,10 @@
+import { useState } from "react";
 import { FiSearch } from "react-icons/fi";
 import { navigateTo } from "@/app/navigation";
 import { auditHistoryPath } from "@/features/auditLogs/auditLogDisplay";
 import type { InvoiceResponse } from "@/types/invoice";
 import { formatCurrency, formatReceived, plural } from "./invoiceFormat";
-import { invoiceFileUrl } from "./invoiceService";
+import { getInvoiceFile } from "./invoiceService";
 import InvoiceStatusPill from "./InvoiceStatusPill";
 import { INVOICE_TABS, type InvoiceTabId } from "./invoiceStatus";
 import type { InvoicePageState } from "./useInvoices";
@@ -55,6 +56,8 @@ const actionClass =
 // Opens the original file until a review screen exists; manual invoices have no file
 function ReviewAction({ invoice }: { invoice: InvoiceResponse }) {
   const label = invoice.vendorName ?? invoice.originalFilename ?? "invoice";
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   if (!invoice.blobFileUrl) {
     return (
       <button aria-label={`Review ${label}: no file attached`} className={`${actionClass} cursor-not-allowed opacity-50`} disabled type="button">
@@ -62,16 +65,45 @@ function ReviewAction({ invoice }: { invoice: InvoiceResponse }) {
       </button>
     );
   }
+
+  const openFile = async () => {
+    const fileWindow = window.open("about:blank", "_blank");
+    if (!fileWindow) {
+      setErrorMessage("Allow pop-ups to open the invoice file.");
+      return;
+    }
+
+    fileWindow.opener = null;
+    setErrorMessage(null);
+    try {
+      const file = await getInvoiceFile(invoice.invoiceUuid);
+      const fileUrl = URL.createObjectURL(file);
+      fileWindow.location.href = fileUrl;
+      window.setTimeout(() => URL.revokeObjectURL(fileUrl), 60_000);
+    } catch (error: unknown) {
+      fileWindow.close();
+      setErrorMessage(
+        error instanceof Error ? error.message : "Unable to open the invoice file.",
+      );
+    }
+  };
+
   return (
-    <a
-      aria-label={`Review ${label} (opens the file in a new tab)`}
-      className={`${actionClass} hover:bg-[#f8faf9]`}
-      href={invoiceFileUrl(invoice.invoiceUuid)}
-      rel="noopener noreferrer"
-      target="_blank"
-    >
-      Review
-    </a>
+    <>
+      <button
+        aria-label={`Review ${label} (opens the file in a new tab)`}
+        className={`${actionClass} hover:bg-[#f8faf9]`}
+        onClick={() => void openFile()}
+        type="button"
+      >
+        Review
+      </button>
+      {errorMessage && (
+        <p className="mt-1 text-xs text-[#b42318]" role="alert">
+          {errorMessage}
+        </p>
+      )}
+    </>
   );
 }
 

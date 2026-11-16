@@ -11,6 +11,8 @@ CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
 # --- Build: compile the production bundle ---
 FROM base AS build
 COPY . .
+ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_ANON_KEY
 RUN npm run build
 
 # --- Prod: serve the static bundle with nginx ---

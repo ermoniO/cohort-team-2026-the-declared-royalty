@@ -1,4 +1,9 @@
-import { API_BASE_URL, apiClient } from "@/app/services/apiClient";
+import {
+  API_BASE_URL,
+  apiClient,
+  fetchWithAuth,
+  HttpError,
+} from "@/app/services/apiClient";
 import type { InvoicePageResponse, InvoiceResponse, InvoiceStatus, InvoiceSummaryResponse } from "@/types/invoice"
 
 export type InvoiceListQuery = {
@@ -17,23 +22,30 @@ export function invoiceListUrl({ page = 0, size = 20, statuses = [], search = ""
   return `/api/v1/invoices?${params.toString()}`;
 }
 
-// TODO(auth): passes withAuth=false like the other services; drop `undefined, false` once login exists
 export function getInvoices(query: InvoiceListQuery): Promise<InvoicePageResponse> {
-  return apiClient.get<InvoicePageResponse>(invoiceListUrl(query), undefined, false);
+  return apiClient.get<InvoicePageResponse>(invoiceListUrl(query));
 }
 
 // One invoice; rejects with a 404 HttpError when it doesn't exist
 export function getInvoiceByUuid(invoiceUuid: string): Promise<InvoiceResponse> {
-  return apiClient.get<InvoiceResponse>(`/api/v1/invoices/${invoiceUuid}`, undefined, false);
+  return apiClient.get<InvoiceResponse>(`/api/v1/invoices/${invoiceUuid}`);
 }
 
 // receivedSince is the start of the user's "today", so "received today" follows their time zone
 export function getInvoiceSummary(receivedSince: Date): Promise<InvoiceSummaryResponse> {
   const params = new URLSearchParams({ receivedSince: receivedSince.toISOString() });
-  return apiClient.get<InvoiceSummaryResponse>(`/api/v1/invoices/summary?${params.toString()}`, undefined, false);
+  return apiClient.get<InvoiceSummaryResponse>(`/api/v1/invoices/summary?${params.toString()}`);
 }
 
-// The original uploaded file, served inline by the backend (opens in a new tab)
-export function invoiceFileUrl(invoiceUuid: string): string {
-  return `${API_BASE_URL}/api/v1/invoices/${invoiceUuid}/file`;
+export async function getInvoiceFile(invoiceUuid: string): Promise<Blob> {
+  const response = await fetchWithAuth(
+    `${API_BASE_URL}/api/v1/invoices/${invoiceUuid}/file`,
+  );
+  if (!response.ok) {
+    throw new HttpError(
+      response.status,
+      `Request failed with status ${response.status}: ${response.statusText}`,
+    );
+  }
+  return response.blob();
 }

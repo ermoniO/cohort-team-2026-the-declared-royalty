@@ -26,7 +26,7 @@ services:
       STRIPE_CURRENCY: ${STRIPE_CURRENCY:-usd}
       OAUTH_JWK_SET_URI: ${OAUTH_JWK_SET_URI}
       OAUTH_ISSUER_URI: ${OAUTH_ISSUER_URI}
-      OAUTH_SECRET_KEY: ${OAUTH_SECRET_KEY}
+      OAUTH_SECRET_KEY: ${OAUTH_SECRET_KEY:-}
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     depends_on:
@@ -62,7 +62,7 @@ services:
       STRIPE_CURRENCY: ${STRIPE_CURRENCY:-usd}
       OAUTH_JWK_SET_URI: ${OAUTH_JWK_SET_URI}
       OAUTH_ISSUER_URI: ${OAUTH_ISSUER_URI}
-      OAUTH_SECRET_KEY: ${OAUTH_SECRET_KEY}
+      OAUTH_SECRET_KEY: ${OAUTH_SECRET_KEY:-}
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     networks:
@@ -71,7 +71,7 @@ services:
   # --- Frontend Layer ---
   # Enable one via COMPOSE_PROFILES in .env (frontend-dev or frontend-prod); both use port 5173 by default
   frontend-dev:
-    profiles: ["frontend-dev"]
+    profiles: ["dev"]
     build:
       context: ./frontend
       dockerfile: Dockerfile
@@ -79,6 +79,8 @@ services:
     environment:
       VITE_USE_POLLING: "true"
       VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:${BACKEND_PORT:-8080}}
+      VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-}
+      VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-}
     ports:
       - "${FRONTEND_PORT:-5173}:5173"
     volumes:
@@ -90,11 +92,14 @@ services:
         required: false # don't fail when the backend profile is off
 
   frontend:
-    profiles: ["frontend-prod"]
+    profiles: ["prod"]
     build:
       context: ./frontend
       dockerfile: Dockerfile
       target: prod
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-}
     ports:
       - "${FRONTEND_PROD_PORT:-5173}:80"
     depends_on:

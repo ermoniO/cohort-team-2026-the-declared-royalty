@@ -1,24 +1,7 @@
-// import { createClient } from "@/lib/supabaseClient";
+import { getAuthHeader, handleUnauthorized } from "@/auth/supabaseClient";
 
 export const API_BASE_URL: string =
   (import.meta.env?.VITE_API_BASE_URL as string) || "http://localhost:8080";
-// const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "";
-
-// /**
-//  * Get the authentication header for the API request
-//  * @returns The authentication header
-//  */
-// async function getAuthHeader(): Promise<Record<string, string>> {
-//   const supabase = createClient();
-//   const {
-//     data: { session },
-//   } = await supabase.auth.getSession();
-
-//   if (session?.access_token) {
-//     return { Authorization: `Bearer ${session.access_token}` };
-//   }
-//   return {};
-// }
 
 // Thrown for non-2xx responses. Still an Error (same message as before), plus the
 // status so callers can tell e.g. 404, 405 and 409 apart.
@@ -32,15 +15,20 @@ export class HttpError extends Error {
   }
 }
 
-// TODO(auth): when login is integrated
-//   1. Implement getAuthHeader() with the chosen provider (the commented Supabase
-//      version above is one option; the auth provider is still an open team decision)
-//      and uncomment the call in request() below.
-//   2. Handle 401 Unauthorized in request(): refresh the token or clear the session
-//      and send the user to the sign-in page, instead of throwing a generic error.
-//   3. Callers that pass withAuth=false (propertyService, vendorService,
-//      invoiceUploadService) and apiClient.delete's false default must be switched
-//      to send the token. Search for "TODO(auth)" to find them all.
+export async function fetchWithAuth(
+  url: string,
+  options: RequestInit = {},
+): Promise<Response> {
+  const headers = new Headers(options.headers);
+  const authHeaders = await getAuthHeader();
+  for (const [name, value] of Object.entries(authHeaders)) {
+    headers.set(name, value);
+  }
+
+  const response = await fetch(url, { ...options, headers });
+  if (response.status === 401) await handleUnauthorized();
+  return response;
+}
 
 /**
  * Make a request to the API
@@ -51,20 +39,15 @@ export class HttpError extends Error {
 async function request<T>(
   endpoint: string,
   options: RequestInit = {},
-  withAuth: boolean,
 ): Promise<T> {
-  const authHeaders = {};
-  if (withAuth) {
-    // authHeaders = await getAuthHeader();
+  const headers = new Headers(options.headers);
+  if (!headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+  const response = await fetchWithAuth(`${API_BASE_URL}${endpoint}`, {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...authHeaders,
-      ...options.headers,
-    },
+    headers,
   });
 
   if (!response.ok) {
@@ -81,20 +64,13 @@ async function request<T>(
   return (text ? JSON.parse(text) : undefined) as T;
 }
 
-// type RequestHeaders<T> = {
-//   url: string;
-//   body?: T;
-//   headers?: HeadersInit;
-//   withAuth?: boolean;
-// };
-
 /**
  * The API client
  * @returns The API client
  */
 export const apiClient = {
-  get: <T>(url: string, headers?: HeadersInit, withAuth?: boolean) =>
-    request<T>(url, { method: "GET", headers }, withAuth ?? true),
+  get: <T>(url: string, headers?: HeadersInit) =>
+    request<T>(url, { method: "GET", headers }),
 
   /**
    * Make a POST request to the API
@@ -103,29 +79,13 @@ export const apiClient = {
    * @param headers The headers for the request
    * @returns The response from the API
    */
-  post: <T, B = unknown>(
-    url: string,
-    body?: B,
-    headers?: HeadersInit,
-    withAuth?: boolean,
-  ) =>
-    request<T>(
-      url,
-      {
-        method: "POST",
-        body: body ? JSON.stringify(body) : undefined,
-        headers,
-      },
-      withAuth ?? true,
-    ),
+  post: <T, B = unknown>(url: string, body?: B, headers?: HeadersInit) =>
+    request<T>(url, {
+      method: "POST",
+      body: body === undefined ? undefined : JSON.stringify(body),
+      headers,
+    }),
 
-  /**
-   * Make a PATCH request to the API
-   * @param url The URL to request
-   * @param body The body of the request
-   * @param headers The headers for the request
-   * @returns The response from the API
-   */
   /**
    * Make a PUT request to the API
    * @param url The URL to request
@@ -133,45 +93,26 @@ export const apiClient = {
    * @param headers The headers for the request
    * @returns The response from the API
    */
-  put: <T, B = unknown>(
-    url: string,
-    body?: B,
-    headers?: HeadersInit,
-    withAuth?: boolean,
-  ) =>
-    request<T>(
-      url,
-      {
-        method: "PUT",
-        body: body ? JSON.stringify(body) : undefined,
-        headers,
-      },
-      withAuth ?? true,
-    ),
+  put: <T, B = unknown>(url: string, body?: B, headers?: HeadersInit) =>
+    request<T>(url, {
+      method: "PUT",
+      body: body === undefined ? undefined : JSON.stringify(body),
+      headers,
+    }),
 
   /**
    * Make a PATCH request to the API
    * @param url The URL to request
    * @param body The body of the request
    * @param headers The headers for the request
-   * @param withAuth Whether to attach the auth header
    * @returns The response from the API
    */
-  patch: <T, B = unknown>(
-    url: string,
-    body?: B,
-    headers?: HeadersInit,
-    withAuth?: boolean,
-  ) =>
-    request<T>(
-      url,
-      {
-        method: "PATCH",
-        body: body ? JSON.stringify(body) : undefined,
-        headers,
-      },
-      withAuth ?? true,
-    ),
+  patch: <T, B = unknown>(url: string, body?: B, headers?: HeadersInit) =>
+    request<T>(url, {
+      method: "PATCH",
+      body: body === undefined ? undefined : JSON.stringify(body),
+      headers,
+    }),
 
   /**
    * Make a DELETE request to the API
@@ -179,8 +120,6 @@ export const apiClient = {
    * @param headers The headers for the request
    * @returns The response from the API
    */
-  // TODO(auth): defaults to false, unlike get/post/put/patch; change to true so
-  // deletes (e.g. deactivating a user) send the token
-  delete: <T>(url: string, headers?: HeadersInit, withAuth?: boolean) =>
-    request<T>(url, { method: "DELETE", headers }, withAuth ?? false),
+  delete: <T>(url: string, headers?: HeadersInit) =>
+    request<T>(url, { method: "DELETE", headers }),
 };

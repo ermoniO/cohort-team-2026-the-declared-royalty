@@ -83,6 +83,23 @@ Common setups:
 
 > `dev` and `prod` both use port `5173` (the backend's default CORS origin), so enable only one at a time.
 
+### Supabase email/password authentication
+
+Copy the Supabase project URL and its public anon/publishable key into the root `.env`:
+
+```env
+VITE_SUPABASE_URL=https://<project-ref>.supabase.co
+VITE_SUPABASE_ANON_KEY=<public-anon-or-publishable-key>
+OAUTH_ISSUER_URI=https://<project-ref>.supabase.co/auth/v1
+OAUTH_JWK_SET_URI=https://<project-ref>.supabase.co/auth/v1/.well-known/jwks.json
+```
+
+Enable the Email provider in Supabase Auth and create the users who should be able to sign in. The app uses email/password sign-in; it does not expose public account registration. The frontend receives only the public key. Keep any JWT signing secret backend-only; the JWK set URI is preferred when the project uses asymmetric JWT signing keys.
+
+Unauthenticated app routes go to `/login`; a validated session visiting `/login` is sent to the home page. Every API request includes the access token, and a backend `401` clears the local session and returns the user to sign-in.
+
+The backend requires a configured issuer and a JWK set URI or signing key, and verifies token signatures and issuer claims. When running the backend outside Compose, provide `OAUTH_ISSUER_URI` and `OAUTH_JWK_SET_URI` in its environment as well.
+
 To override `.env` for a single run, pass `--profile` flags (these replace the `.env` value, not add to it):
 
 ```bash

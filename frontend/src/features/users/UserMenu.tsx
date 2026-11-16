@@ -1,5 +1,6 @@
 import { type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
 import { TbCheck, TbLogout } from "react-icons/tb";
+import { getSupabaseClient } from "@/auth/supabaseClient";
 import Icon from "@/components/ui/Icon";
 import type { UserResponse } from "@/types/user";
 import type { CurrentUser } from "./useCurrentUser";
@@ -25,6 +26,7 @@ export default function UserMenu({ currentUser }: UserMenuProps) {
   const { user, switchUser } = currentUser;
   const [open, setOpen] = useState(false);
   const [userList, setUserList] = useState<UserList>({ status: "idle" });
+  const [signOutError, setSignOutError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -93,6 +95,19 @@ export default function UserMenu({ currentUser }: UserMenuProps) {
     close(true);
   };
 
+  const signOut = async () => {
+    setSignOutError(null);
+    try {
+      const { error } = await getSupabaseClient().auth.signOut();
+      if (error) throw error;
+      close(false);
+    } catch (error: unknown) {
+      setSignOutError(
+        error instanceof Error ? error.message : "Unable to sign out.",
+      );
+    }
+  };
+
   return (
     <div className="relative" ref={containerRef}>
       <button
@@ -139,8 +154,7 @@ export default function UserMenu({ currentUser }: UserMenuProps) {
             )}
           </div>
 
-          {/* TODO(auth): remove Switch user (or keep it as admin-only impersonation,
-              if the backend adds support for that); it only exists because there's no login */}
+          {/* This development selector changes the UI actor only; it does not impersonate a JWT identity. */}
           {import.meta.env.DEV && (
             <div
               aria-labelledby={`${menuId}-switch`}
@@ -201,22 +215,22 @@ export default function UserMenu({ currentUser }: UserMenuProps) {
             </div>
           )}
 
-          {/* TODO(auth): enable Sign out: drop aria-disabled and the "Needs login" label,
-              call the auth provider's sign-out, clear the current user, and go to
-              the sign-in page. When signed out, show a "Sign in" item instead. */}
           <div className="mt-1.5 border-t border-[#e6ebe8] pt-1.5">
             <button
-              aria-disabled="true"
-              className={`${itemClass} cursor-not-allowed text-[#b0bab5] focus:bg-[#f8faf9]`}
+              className={`${itemClass} hover:bg-[#f8faf9] focus:bg-[#f1f4f2]`}
+              onClick={() => void signOut()}
               role="menuitem"
               tabIndex={-1}
-              title="Available once login is added"
               type="button"
             >
               <Icon icon={TbLogout} size={16} />
               <span className="font-inter-regular flex-1">Sign out</span>
-              <span className="font-inter-regular text-[11px]">Needs login</span>
             </button>
+            {signOutError && (
+              <p className="px-3 py-2 text-xs text-[#b42318]" role="alert">
+                {signOutError}
+              </p>
+            )}
           </div>
         </div>
       )}

@@ -9,6 +9,11 @@ import {
 import { API_BASE_URL } from "@/app/services/apiClient";
 import type { UserResponse } from "@/types/user";
 
+vi.mock("@/auth/supabaseClient", () => ({
+  getAuthHeader: vi.fn(async () => ({ Authorization: "Bearer test-token" })),
+  handleUnauthorized: vi.fn(async () => {}),
+}));
+
 const BASE_URL = `${API_BASE_URL}/api/v1/users`;
 const USER_ID = "6aabd049-1200-4b71-b72f-1e24907045d7";
 
@@ -93,7 +98,7 @@ describe("createUser", () => {
     expect(url).toBe(BASE_URL);
     expect(init?.method).toBe("POST");
     expect(init?.body).toBe(JSON.stringify(request));
-    expect(init?.headers).toMatchObject({ "Content-Type": "application/json" });
+    expect(new Headers(init?.headers).get("Content-Type")).toBe("application/json");
   });
 
   it("rejects when the backend returns a validation error", async () => {

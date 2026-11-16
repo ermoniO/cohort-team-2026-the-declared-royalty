@@ -10,13 +10,13 @@ export function getAuditLogs(filters: AuditLogFilters = {}): Promise<AuditLogsRe
     }
     const query = params.toString();
     const url = query ? `${AUDIT_LOGS_URL}?${query}` : AUDIT_LOGS_URL;
-    return apiClient.get<AuditLogsResponse[]>(url, undefined, false);
+    return apiClient.get<AuditLogsResponse[]>(url);
 }
 
 export function getAuditLogById(auditUuid: string): Promise<AuditLogsResponse> {
-    return apiClient.get<AuditLogsResponse>(`${AUDIT_LOGS_URL}/${auditUuid}`, undefined, false);
+    return apiClient.get<AuditLogsResponse>(`${AUDIT_LOGS_URL}/${auditUuid}`);
 }
 
 export function createAuditLog(request: AuditLogCreateRequest): Promise<AuditLogsResponse> {
-    return apiClient.post<AuditLogsResponse, AuditLogCreateRequest>(AUDIT_LOGS_URL, request, undefined, false);
+    return apiClient.post<AuditLogsResponse, AuditLogCreateRequest>(AUDIT_LOGS_URL, request);
 }

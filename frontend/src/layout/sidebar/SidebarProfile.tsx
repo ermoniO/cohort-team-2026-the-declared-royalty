@@ -9,8 +9,6 @@ type SidebarProfileProps = {
 function profileText({ user, loading }: CurrentUserState) {
   if (loading) return { name: "Loading…", detail: "" };
   if (user) return { name: getDisplayName(user), detail: user.email ?? user.role ?? "" };
-  // TODO(auth): with login, "no user" means signed out rather than an error;
-  // show "Not signed in" with a link to the sign-in page
   return { name: "Not signed in", detail: "Couldn't load user" };
 }
 

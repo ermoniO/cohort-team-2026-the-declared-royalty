@@ -10,6 +10,11 @@ import { getDisplayName, getInitials } from "@/features/users/userDisplay";
 import { API_BASE_URL } from "@/app/services/apiClient";
 import type { UserResponse } from "@/types/user";
 
+vi.mock("@/auth/supabaseClient", () => ({
+  getAuthHeader: vi.fn(async () => ({ Authorization: "Bearer test-token" })),
+  handleUnauthorized: vi.fn(async () => {}),
+}));
+
 const BASE_URL = `${API_BASE_URL}/api/v1/users`;
 
 const makeUser = (overrides: Partial<UserResponse>): UserResponse => ({

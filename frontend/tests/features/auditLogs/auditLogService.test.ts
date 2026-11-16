@@ -7,6 +7,11 @@ import {
 import { API_BASE_URL } from "@/app/services/apiClient";
 import type { AuditLogCreateRequest, AuditLogsResponse } from "@/types/auditlogs";
 
+vi.mock("@/auth/supabaseClient", () => ({
+  getAuthHeader: vi.fn(async () => ({ Authorization: "Bearer test-token" })),
+  handleUnauthorized: vi.fn(async () => {}),
+}));
+
 const BASE_URL = `${API_BASE_URL}/api/v1/audit-logs`;
 const AUDIT_ID = "3f1c2a9e-5b7d-4e8f-9a0b-1c2d3e4f5a6b";
 const INVOICE_ID = "7b8a9c0d-1e2f-3a4b-5c6d-7e8f9a0b1c2d";
@@ -128,7 +133,7 @@ describe("createAuditLog", () => {
     expect(url).toBe(BASE_URL);
     expect(init?.method).toBe("POST");
     expect(init?.body).toBe(JSON.stringify(request));
-    expect(init?.headers).toMatchObject({ "Content-Type": "application/json" });
+    expect(new Headers(init?.headers).get("Content-Type")).toBe("application/json");
   });
 
   it("rejects when the invoice or user doesn't exist", async () => {
