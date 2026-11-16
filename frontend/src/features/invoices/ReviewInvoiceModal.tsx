@@ -22,6 +22,7 @@ import type {
 import type { PropertyResponse } from "@/types/property";
 import type { VendorResponse } from "@/types/vendor";
 import AddVendorInline from "./AddVendorInline";
+import AddPropertyInline from "./AddPropertyInline";
 import { extractInvoice, fetchInvoiceFile, invoiceFileUrl, saveInvoiceProgress, verifyInvoice } from "./invoiceService";
 import { ApiError } from "./invoiceUploadService";
 
@@ -418,10 +419,12 @@ export default function ReviewInvoiceModal({ invoice, onClose }: ReviewInvoiceMo
   const focusField = (key: FieldKey) =>
   requestAnimationFrame(() => document.getElementById(`review-${key}`)?.focus());
 
-  // Typing or picking a value is the reviewer's own entry, so it counts as confirmed
+  // An edit counts as confirmed once the field holds a valid value. Clearing it
+  // (e.g. back to "Select a property") un-confirms it again.
   const update = (key: FieldKey, patch: Partial<Values>) => {
-    setValues((prev) => ({ ...prev, ...patch }));
-    setFields((prev) => ({ ...prev, [key]: { ...prev[key], confirmed: true, error: undefined } }));
+    const next = { ...values, ...patch };
+    setValues(next);
+    setFields((prev) => ({ ...prev, [key]: { ...prev[key], confirmed: !validateField(key, next), error: undefined } }));
     setSaveError(null);
     setSavedMessage(null);
   };
@@ -712,6 +715,15 @@ export default function ReviewInvoiceModal({ invoice, onClose }: ReviewInvoiceMo
                     </option>
                   ))}
                 </select>
+                <AddPropertyInline
+                  disabled={busy}
+                  onAdded={(property) => {
+                    setProperties((prev) => [...prev, property].sort((a, b) => a.name.localeCompare(b.name)));
+                    update("property", { propertyUuid: property.propertyId });
+                  }}
+                  suggestedAddress={data?.fields.propertyAddress.value ?? ""}
+                  suggestedName={data?.fields.propertyName.value ?? ""}
+                />
               </FieldCard>
 
               <FieldCard {...fieldProps("dueDate")}>
