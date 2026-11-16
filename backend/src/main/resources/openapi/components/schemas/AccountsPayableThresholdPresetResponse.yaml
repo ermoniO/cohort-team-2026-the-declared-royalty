@@ -1,0 +1,22 @@
+type: object
+required:
+  - accountsPayableThresholdSlug
+  - variableMax
+  - fixedAutoMax
+  - status
+properties:
+  accountsPayableThresholdSlug:
+    type: string
+    example: "LIMIT_MID"
+  variableMax:
+    type: number
+    format: double
+    example: 5000.00
+  fixedAutoMax:
+    type: number
+    format: double
+    example: 10000.00
+  status:
+    type: string
+    example: "ACTIVE"
+

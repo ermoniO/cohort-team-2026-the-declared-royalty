@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
 import { TbCheck, TbChevronDown, TbChevronUp } from "react-icons/tb";
 import Icon from "@/components/ui/Icon";
-import { navigateTo } from "@/app/navigation";
+import { UserAvatar } from "@/features/users/UserAvatar";
 import type { AuditLogsResponse } from "@/types/auditlogs";
-import { auditHistoryPath, describeActionType, formatFullTimestamp, formatTime } from "./auditLogDisplay";
+import { describeActionType, formatFullTimestamp, formatTime } from "./auditLogDisplay";
 import type { Actor } from "./useAuditHistory";
 
 type AuditEventItemProps = {
@@ -11,6 +11,7 @@ type AuditEventItemProps = {
   actor: Actor;
   // Shown on the all-bills view so each event says which bill it belongs to
   invoiceLabel?: string;
+  onSelectInvoice?: (invoiceUuid: string) => void;
   expanded: boolean;
   onToggle: () => void;
   last: boolean;
@@ -36,7 +37,15 @@ function IdRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-export default function AuditEventItem({ log, actor, invoiceLabel, expanded, onToggle, last }: AuditEventItemProps) {
+export default function AuditEventItem({
+  log,
+  actor,
+  invoiceLabel,
+  onSelectInvoice,
+  expanded,
+  onToggle,
+  last,
+}: AuditEventItemProps) {
   const { stage } = describeActionType(log.actionType);
   const detailsId = `audit-event-${log.auditLogId}`;
   const sameTimestamp = log.createdAt === log.updatedAt;
@@ -63,14 +72,23 @@ export default function AuditEventItem({ log, actor, invoiceLabel, expanded, onT
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h4 className="font-inter-semibold text-sm text-[#25362f]">{log.actionTaken}</h4>
-            <p className="font-inter-regular mt-0.5 text-xs text-[#68766f]">
-              {actor.name}
-              {actor.role && ` · ${actor.role}`} / {stage.toLowerCase()}
-            </p>
+            <div className="mt-1 flex items-center gap-2">
+              <UserAvatar
+                userId={log.user}
+                name={actor.name}
+                role={actor.role}
+                avatarUrl={actor.avatarUrl}
+                sizeClassName="size-6"
+              />
+              <p className="font-inter-regular text-xs text-[#68766f]">
+                <span className="font-medium text-[#25362f]">{actor.name}</span>
+                {actor.role && ` · ${actor.role}`} / {stage.toLowerCase()}
+              </p>
+            </div>
             {invoiceLabel && (
               <button
                 className="font-inter-medium mt-0.5 text-left text-xs text-[#16834a] hover:underline"
-                onClick={() => navigateTo(auditHistoryPath(log.invoice))}
+                onClick={() => onSelectInvoice?.(log.invoice)}
                 type="button"
               >
                 {invoiceLabel}
@@ -137,3 +155,4 @@ export default function AuditEventItem({ log, actor, invoiceLabel, expanded, onT
     </li>
   );
 }
+

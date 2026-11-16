@@ -11,6 +11,7 @@ Thumbs.db
 *.log
 .env
 .env.local
+.env.prod
 
 # ==============================================================================
 # Backend (Java / Maven / Spring Boot)
@@ -70,3 +71,11 @@ out/
 !**/src/main/**/build/
 !**/src/test/**/build/
 STRIPE_INTEGRATION_PLAN.md
+
+# ==============================================================================
+# AI Agents & Documentation
+# ==============================================================================
+.agents/
+SKILLS/
+skills/
+.worktrees/

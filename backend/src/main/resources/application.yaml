@@ -6,9 +6,9 @@ spring:
     name: invoice-automation-service
 
   datasource:
-    url: ${POSTGRES_URL}
-    username: ${POSTGRES_USER}
-    password: ${POSTGRES_PASSWORD}
+    url: ${DB_URL:${POSTGRES_URL:jdbc:postgresql://${DB_HOST:${POSTGRES_HOST:localhost}}:${DB_PORT:${POSTGRES_PORT:5432}}/${DB_NAME:${POSTGRES_DB:invoice_db}}}}
+    username: ${DB_USER:${POSTGRES_USER:postgres}}
+    password: ${DB_PASSWORD:${POSTGRES_PASSWORD:postgres}}
     driver-class-name: org.postgresql.Driver
 
   servlet:
@@ -42,8 +42,8 @@ llm:
 
 blob-storage:
   endpoint: ${BLOB_ENDPOINT:http://localhost:${MINIO_PORT:9000}}
-  access-key: ${BLOB_USER:minio_user}
-  secret-key: ${BLOB_PASSWORD:minio_password}
+  access-key: ${BLOB_ACCESS_KEY:${BLOB_USER:minio_user}}
+  secret-key: ${BLOB_SECRET_KEY:${BLOB_PASSWORD:minio_password}}
   bucket: ${BLOB_BUCKET:invoices}
   region: ${BLOB_REGION:us-east-1}
 
@@ -52,3 +52,7 @@ stripe:
   secret-key: ${STRIPE_SECRET_KEY:}
   webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
   currency: ${STRIPE_CURRENCY:usd}
+
+app:
+  seed:
+    demo-invoices: ${DEMO_INVOICES_SEED_ENABLED:true}

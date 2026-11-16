@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getUsers } from "./userService";
+import { getUsers } from "@/app/services/userService";
 import type { UserResponse } from "@/types/user";
 
 function UserList() {

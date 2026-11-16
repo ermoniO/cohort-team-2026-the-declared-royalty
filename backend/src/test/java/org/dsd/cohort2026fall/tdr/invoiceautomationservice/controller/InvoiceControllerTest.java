@@ -1,6 +1,7 @@
 package org.dsd.cohort2026fall.tdr.invoiceautomationservice.controller;
 
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.GlobalExceptionHandler;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.InvoiceAnalysisResponse;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.InvoicePageResponse;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.InvoiceResponse;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.InvoiceStatus;
@@ -27,6 +28,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -126,6 +128,57 @@ class InvoiceControllerTest {
                 .andExpect(jsonPath("$.invoiceUuid").value(invoiceUuid.toString()));
 
         verify(invoiceService).updateInvoice(eq(invoiceUuid), any());
+    }
+
+    @Test
+    void patchInvoice_illegalTransition_returns409() throws Exception {
+        UUID invoiceUuid = UUID.randomUUID();
+        when(invoiceService.updateInvoice(eq(invoiceUuid), any())).thenThrow(
+                new org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.InvalidStatusTransitionException(
+                        InvoiceStatus.PAID, InvoiceStatus.PENDING_APPROVAL));
+
+        mockMvc.perform(patch("/api/v1/invoices/{invoiceUuid}", invoiceUuid)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"invoiceStatus\":\"PENDING_APPROVAL\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.message").value("Invoice cannot move from PAID to PENDING_APPROVAL"));
+    }
+
+    @Test
+    void patchInvoice_approvedWithoutActor_returns400() throws Exception {
+        UUID invoiceUuid = UUID.randomUUID();
+        when(invoiceService.updateInvoice(eq(invoiceUuid), any())).thenThrow(
+                new org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.BadRequestException("A human approver is required"));
+
+        mockMvc.perform(patch("/api/v1/invoices/{invoiceUuid}", invoiceUuid)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"invoiceStatus\":\"APPROVED\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("A human approver is required"));
+    }
+
+    @Test
+    void patchInvoice_lockedInvoice_returns409() throws Exception {
+        UUID invoiceUuid = UUID.randomUUID();
+        when(invoiceService.updateInvoice(eq(invoiceUuid), any())).thenThrow(
+                new org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.InvoiceLockedException(
+                        "amount and mapping cannot change once the invoice is APPROVED"));
+
+        mockMvc.perform(patch("/api/v1/invoices/{invoiceUuid}", invoiceUuid)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"amount\":1.00}"))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void analyzeInvoice_returnsOk() throws Exception {
+        UUID invoiceUuid = UUID.randomUUID();
+        InvoiceAnalysisResponse response = new InvoiceAnalysisResponse();
+        when(invoiceService.analyzeInvoice(invoiceUuid)).thenReturn(response);
+
+        mockMvc.perform(put("/api/v1/invoices/{invoiceUuid}", invoiceUuid))
+                .andExpect(status().isOk());
     }
 
     private InvoiceResponse invoiceResponse(UUID invoiceUuid, UUID mappingUuid) {

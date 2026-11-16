@@ -18,3 +18,7 @@ spring:
   # Prevents flyway from crashing trying to run raw production-only migrations
   flyway:
     enabled: false
+
+app:
+  seed:
+    demo-invoices: false

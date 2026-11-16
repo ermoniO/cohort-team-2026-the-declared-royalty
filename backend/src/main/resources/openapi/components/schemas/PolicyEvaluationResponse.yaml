@@ -1,0 +1,66 @@
+type: object
+required:
+  - propertyUuid
+  - grossAmount
+  - costType
+  - confidenceScore
+  - isAutoApproved
+  - requiresHumanReview
+  - autoPayEligible
+  - tier
+  - reason
+  - step0Threshold
+  - routingSteps
+properties:
+  propertyUuid:
+    type: string
+    format: uuid
+    description: UUID of the evaluated property
+  grossAmount:
+    type: number
+    format: double
+    description: Gross amount evaluated
+    example: 450.00
+  costType:
+    type: string
+    description: Cost type evaluated
+    example: VARIABLE
+  confidenceScore:
+    type: integer
+    description: Confidence score evaluated
+    example: 95
+  isAutoApproved:
+    type: boolean
+    description: Whether the invoice qualifies for automatic AI approval
+    example: true
+  requiresHumanReview:
+    type: boolean
+    description: Whether human review is required before approval
+    example: false
+  autoPayEligible:
+    type: boolean
+    description: Whether the invoice is eligible for immediate automated payment release
+    example: true
+  tier:
+    type: string
+    enum:
+      - auto_approved
+      - property_manager
+      - vp_finance
+    description: Policy routing escalation tier
+    example: auto_approved
+  reason:
+    type: string
+    description: Human-readable explainable decision rationale
+    example: Auto-approved below Step 0 threshold with 95% OCR confidence
+  step0Threshold:
+    type: number
+    format: double
+    description: Step 0 dollar threshold preset cap for the property
+    example: 1000.00
+  clearingStep:
+    $ref: './ApprovalQueueStepResponse.yaml'
+  routingSteps:
+    type: array
+    items:
+      $ref: './ApprovalQueueStepResponse.yaml'

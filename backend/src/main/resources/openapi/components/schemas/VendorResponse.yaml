@@ -12,6 +12,12 @@ properties:
     format: uuid
   name:
     type: string
+  category:
+    type: string
+    example: "UTILITIES_ENERGY"
+  taxId:
+    type: string
+    example: "12-3456789"
   phoneNumber:
     type: string
   status:

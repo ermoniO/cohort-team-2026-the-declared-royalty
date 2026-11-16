@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { UserResponse } from "@/types/user";
-import { getUserByUserId } from "./userService";
+import { getUserByUserId } from "@/app/services/userService";
 
 // Seeded by backend migration V4 in every database ("stand-in actor until real
 // authentication exists"), so it's the default signed-in user for now.

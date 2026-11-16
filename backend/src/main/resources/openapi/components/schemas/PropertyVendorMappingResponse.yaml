@@ -1,0 +1,48 @@
+type: object
+required:
+  - mappingUuid
+  - propertyUuid
+  - vendorUuid
+  - vendorAccountNumber
+  - costType
+  - autoApprovalEnabled
+  - status
+  - createdAt
+  - updatedAt
+properties:
+  mappingUuid:
+    type: string
+    format: uuid
+  propertyUuid:
+    type: string
+    format: uuid
+  propertyName:
+    type: string
+  vendorUuid:
+    type: string
+    format: uuid
+  vendorName:
+    type: string
+  vendorCategory:
+    type: string
+    nullable: true
+  vendorAccountNumber:
+    type: string
+  costType:
+    type: string
+    enum: [FIXED_MONTHLY, VARIABLE]
+  defaultGlCode:
+    type: string
+    nullable: true
+  autoApprovalEnabled:
+    type: boolean
+  status:
+    type: string
+    enum: [ACTIVE, INACTIVE]
+  createdAt:
+    type: string
+    format: date-time
+  updatedAt:
+    type: string
+    format: date-time
+

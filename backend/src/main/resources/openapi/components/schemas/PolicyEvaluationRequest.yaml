@@ -1,0 +1,25 @@
+type: object
+required:
+  - grossAmount
+properties:
+  grossAmount:
+    type: number
+    format: double
+    minimum: 0.00
+    description: Total invoice gross amount to evaluate
+    example: 450.00
+  confidenceScore:
+    type: integer
+    minimum: 0
+    maximum: 100
+    default: 95
+    description: AI OCR confidence extraction percentage
+    example: 95
+  costType:
+    type: string
+    enum:
+      - VARIABLE
+      - FIXED_MONTHLY
+    default: VARIABLE
+    description: Cost type classification of the invoice
+    example: VARIABLE

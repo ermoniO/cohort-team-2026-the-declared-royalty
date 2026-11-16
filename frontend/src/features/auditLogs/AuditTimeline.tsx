@@ -1,10 +1,17 @@
 import { useState } from "react";
 import { FiSearch } from "react-icons/fi";
-import { useAuditLogStore } from "@/stores";
 import { plural } from "@/features/invoices/invoiceFormat";
+import { SelectDropdown } from "@/components/ui/SelectDropdown";
+import { DatePicker } from "@/components/ui/DatePicker";
 import type { AuditActionType } from "@/types/auditlogs";
 import AuditEventItem from "./AuditEventItem";
-import { ACTION_TYPES, actionTypeLabel, formatDayHeading, groupByDay, timeZoneLabel } from "./auditLogDisplay";
+import {
+  ACTION_TYPES,
+  actionTypeLabel,
+  formatDayHeading,
+  groupByDay,
+  timeZoneLabel,
+} from "./auditLogDisplay";
 import { useAuditHistory } from "./useAuditHistory";
 
 const controlClass =
@@ -12,20 +19,43 @@ const controlClass =
 
 function Message({ children, alert = false }: { children: string; alert?: boolean }) {
   return (
-    <p className="font-inter-regular px-5 py-16 text-center text-sm text-[#68766f]" role={alert ? "alert" : "status"}>
+    <p
+      className="font-inter-regular px-5 py-16 text-center text-sm text-[#68766f]"
+      role={alert ? "alert" : "status"}
+    >
       {children}
     </p>
   );
 }
 
-export default function AuditTimeline({ showInvoice }: { showInvoice: boolean }) {
-  const isLoading = useAuditLogStore((s) => s.isLoading);
-  const error = useAuditLogStore((s) => s.error);
-  const setView = useAuditLogStore((s) => s.setView);
-  const resetView = useAuditLogStore((s) => s.resetView);
-  const { logs, filtered, view, actorFor, invoiceLabel, actorOptions } = useAuditHistory();
+type AuditTimelineProps = {
+  targetInvoiceUuid?: string;
+  showInvoice?: boolean;
+  onSelectInvoice?: (invoiceUuid: string) => void;
+  auditHistory?: ReturnType<typeof useAuditHistory>;
+};
 
-  // Expanded rows are per-visit UI state, so they stay local instead of in the store
+export default function AuditTimeline({
+  targetInvoiceUuid,
+  showInvoice = false,
+  onSelectInvoice,
+  auditHistory,
+}: AuditTimelineProps) {
+  const internalHistory = useAuditHistory(targetInvoiceUuid, !auditHistory);
+  const {
+    logs,
+    filtered,
+    view,
+    setView,
+    resetView,
+    isLoading,
+    error,
+    actorFor,
+    invoiceLabel,
+    actorOptions,
+  } = auditHistory ?? internalHistory;
+
+  // Expanded rows are per-visit UI state, so they stay local
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const toggle = (id: string) =>
     setExpanded((current) => {
@@ -35,7 +65,8 @@ export default function AuditTimeline({ showInvoice }: { showInvoice: boolean })
       return next;
     });
 
-  const filtering = view.query.trim() !== "" || view.actionType !== "" || view.actorUuid !== "" || view.day !== "";
+  const filtering =
+    view.query.trim() !== "" || view.actionType !== "" || view.actorUuid !== "" || view.day !== "";
   const groups = groupByDay(filtered);
 
   let body;
@@ -53,11 +84,14 @@ export default function AuditTimeline({ showInvoice }: { showInvoice: boolean })
             key={group.day}
           >
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-              <h3 className="font-inter-semibold text-[13px] text-[#25362f]">{formatDayHeading(group.day)}</h3>
-              {/* Per day: the offset changes with daylight saving time */}
-              <span className="font-inter-regular text-xs text-[#98a29c]">
-                {timeZoneLabel(new Date(group.events[0].createdAt))}
-              </span>
+              <h3 className="font-inter-semibold text-[13px] text-[#25362f]">
+                {formatDayHeading(group.day)}
+              </h3>
+              {group.events[0] && (
+                <span className="font-inter-regular text-xs text-[#98a29c]">
+                  {timeZoneLabel(new Date(group.events[0].createdAt))}
+                </span>
+              )}
             </div>
             <ol>
               {group.events.map((log, i) => (
@@ -68,6 +102,7 @@ export default function AuditTimeline({ showInvoice }: { showInvoice: boolean })
                   key={log.auditLogId}
                   last={i === group.events.length - 1}
                   log={log}
+                  onSelectInvoice={onSelectInvoice}
                   onToggle={() => toggle(log.auditLogId)}
                 />
               ))}
@@ -79,14 +114,19 @@ export default function AuditTimeline({ showInvoice }: { showInvoice: boolean })
   }
 
   return (
-    <section aria-labelledby="event-history-title" className="flex min-h-[320px] flex-1 flex-col rounded-xl border border-[#e6ebe8] bg-white">
+    <section
+      aria-labelledby="event-history-title"
+      className="flex min-h-[320px] flex-1 flex-col rounded-xl border border-[#e6ebe8] bg-white shadow-xs"
+    >
       <div className="flex flex-col gap-3 border-b border-[#e6ebe8] px-5 py-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-baseline gap-2">
             <h2 className="font-inter-semibold text-base text-[#14532d]" id="event-history-title">
               Event history
             </h2>
-            <span className="font-inter-regular text-xs text-[#98a29c]">{plural(logs.length, "event")}</span>
+            <span className="font-inter-regular text-xs text-[#98a29c]">
+              {plural(logs.length, "event")}
+            </span>
           </div>
           <button
             aria-label={`Sorted ${view.sort} first. Switch to ${view.sort === "oldest" ? "newest" : "oldest"} first`}
@@ -112,41 +152,49 @@ export default function AuditTimeline({ showInvoice }: { showInvoice: boolean })
         </label>
 
         <div className="flex flex-wrap items-center gap-2">
-          <select
-            aria-label="Action type"
-            className={controlClass}
-            onChange={(event) => setView({ actionType: event.target.value as AuditActionType | "" })}
+          <SelectDropdown
+            ariaLabel="Action type"
             value={view.actionType}
-          >
-            <option value="">All action types</option>
-            {ACTION_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {actionTypeLabel(type)}
-              </option>
-            ))}
-          </select>
-          <select
-            aria-label="Actor"
-            className={controlClass}
-            onChange={(event) => setView({ actorUuid: event.target.value })}
+            onChange={(val) => setView({ actionType: val as AuditActionType | "" })}
+            className="min-w-[165px]"
+            buttonClassName="h-9 rounded-[7px]"
+            options={[
+              { value: "", label: "All action types" },
+              ...ACTION_TYPES.map((type) => ({
+                value: type,
+                label: actionTypeLabel(type),
+              })),
+            ]}
+          />
+          <SelectDropdown
+            ariaLabel="Actor"
             value={view.actorUuid}
-          >
-            <option value="">All actors</option>
-            {actorOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <input
-            aria-label="Day"
-            className={controlClass}
-            onChange={(event) => setView({ day: event.target.value })}
-            type="date"
+            onChange={(val) => setView({ actorUuid: val })}
+            className="min-w-[155px]"
+            buttonClassName="h-9 rounded-[7px]"
+            options={[
+              { value: "", label: "All actors" },
+              ...actorOptions.map((option) => ({
+                value: option.value,
+                label: option.label,
+              })),
+            ]}
+          />
+          <DatePicker
+            ariaLabel="Day"
             value={view.day}
+            onChange={(val) => setView({ day: val })}
+            placeholder="All dates"
+            allowClear
+            className="min-w-[160px]"
+            buttonClassName="h-9 rounded-[7px]"
           />
           {filtering && (
-            <button className="font-inter-medium px-1 text-xs text-[#16834a] hover:underline" onClick={resetView} type="button">
+            <button
+              className="font-inter-medium px-1 text-xs text-[#16834a] hover:underline"
+              onClick={resetView}
+              type="button"
+            >
               Clear filters
             </button>
           )}
@@ -168,3 +216,4 @@ export default function AuditTimeline({ showInvoice }: { showInvoice: boolean })
     </section>
   );
 }
+

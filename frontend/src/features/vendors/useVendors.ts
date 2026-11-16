@@ -1,6 +1,6 @@
 import { type ResourceListState, useResourceList } from "@/app/hooks/useResourceList";
 import type { VendorResponse } from "@/types/vendor";
-import { getVendors } from "./vendorService.ts";
+import { getVendors } from "@/app/services/vendorService";
 
 export type VendorsState = ResourceListState<VendorResponse>;
 

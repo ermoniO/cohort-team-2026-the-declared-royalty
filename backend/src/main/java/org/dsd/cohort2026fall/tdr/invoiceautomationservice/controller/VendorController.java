@@ -1,9 +1,7 @@
 package org.dsd.cohort2026fall.tdr.invoiceautomationservice.controller;
 
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.api.VendorsApi;
-import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.VendorCreateRequest;
-import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.VendorResponse;
-import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.VendorUpdateRequest;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.*;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.service.VendorService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
@@ -38,5 +36,15 @@ public class VendorController implements VendorsApi {
     @Override
     public ResponseEntity<VendorResponse> updateVendor(UUID vendorUuid, VendorUpdateRequest request) {
         return vendorService.updateVendor(vendorUuid, request);
+    }
+
+    @Override
+    public ResponseEntity<List<VendorCategoryResponse>> getVendorCategories() {
+        return ResponseEntity.ok(vendorService.getAllVendorCategories());
+    }
+
+    @Override
+    public ResponseEntity<List<PaymentMethodResponse>> getVendorPaymentMethods() {
+        return ResponseEntity.ok(vendorService.getAllPaymentMethods());
     }
 }

@@ -37,6 +37,11 @@ properties:
       # 6. PAID
       - SYSTEM_PAID
       - USER_PAID
+      # 7. FAILED / VOIDED
+      - SYSTEM_FAILED
+      - USER_FAILED
+      - SYSTEM_VOIDED
+      - USER_VOIDED
     example: "SYSTEM_MATCHED"
   actionTaken:
     type: string

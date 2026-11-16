@@ -28,7 +28,13 @@ public class VendorEntity {
     @Column(name = "vendor_name", nullable = false)
     private String name;
 
-    @Column(name = "billing_phone_number")
+    @Column(name = "category")
+    private String category;
+
+    @Column(name = "tax_id")
+    private String taxId;
+
+    @Column(name = "billing_phone_number", nullable = false)
     private String phoneNumber;
 
     @Builder.Default
@@ -53,6 +59,8 @@ public class VendorEntity {
         VendorResponse response = new VendorResponse();
         response.setVendorUuid(getVendorId());
         response.setName(getName());
+        response.setCategory(getCategory());
+        response.setTaxId(getTaxId());
         response.setPhoneNumber(getPhoneNumber());
         response.setStatus(VendorStatus.fromValue(getStatus()));
         response.setPaymentUrl(getPaymentUrl());

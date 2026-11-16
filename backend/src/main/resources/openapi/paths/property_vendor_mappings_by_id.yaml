@@ -1,0 +1,38 @@
+patch:
+  summary: Update a property-vendor mapping
+  operationId: updatePropertyVendorMapping
+  tags:
+    - PropertyVendorMappings
+  parameters:
+    - name: mappingUuid
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../components/schemas/PropertyVendorMappingUpdateRequest.yaml'
+  responses:
+    '200':
+      description: Property-vendor mapping updated
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/PropertyVendorMappingResponse.yaml'
+    '400':
+      description: Invalid request body
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'
+    '404':
+      description: Mapping not found
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'
+

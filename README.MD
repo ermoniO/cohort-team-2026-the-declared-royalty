@@ -59,35 +59,39 @@ Ensure you have the following installed on your local machine:
 
 ### 2. Choose What Runs in Docker (Compose Profiles)
 
-PostgreSQL, MinIO, and pgAdmin always start. The backend and frontend containers are opt-in through **Compose profiles**, set with `COMPOSE_PROFILES` (comma-separated) in your root `.env`:
+Local infrastructure (**PostgreSQL**, **MinIO**, and **pgAdmin**) is unprofiled, so it always starts when you run `docker compose up -d`. Application containers are opt-in through **Compose profiles**, set either via `COMPOSE_PROFILES` in `.env` or `--profile` flags on the CLI:
 
 ```env
-# Frontend: dev (hot reload) or prod (nginx build). Add "backend" to run it in Docker.
-COMPOSE_PROFILES=dev,backend
+# Leave empty for infra-only, or set to: app | backend | frontend | prod
+COMPOSE_PROFILES=
 ```
 
-| Profile | Service | Description |
+| Profile | Service(s) | Description |
 | --- | --- | --- |
-| `backend` | `backend` | Spring Boot API on `localhost:8080`. Leave it out to run the backend locally instead (see [Running the Backend](#running-the-backend)). |
-| `dev` | `frontend-dev` | Vite dev server with hot reload on `localhost:5173`. `./frontend` is bind-mounted into the container. |
-| `prod` | `frontend` | Production build served by nginx on `localhost:5173`. |
+| *(none)* | `postgres`, `minio`, `pgadmin` | Default local infrastructure (always starts on `docker compose up -d`). |
+| `app` | `backend`, `frontend-dev` | Full dev stack in Docker (API + Vite hot-reload frontend + infra). |
+| `backend` | `backend` | Spring Boot API in Docker on `localhost:8080` (talks to `postgres` and `minio` containers). |
+| `frontend` | `frontend-dev` | Vite dev server with hot reload on `localhost:5173`. `./frontend` is bind-mounted into the container. |
+| `prod` | `backend-prod`, `frontend` | Production containers (nginx frontend + backend reading `.env.prod` for Supabase DB & S3). |
 
-Common setups:
-
-| `COMPOSE_PROFILES` | What runs in Docker |
-| --- | --- |
-| `dev,backend` | Everything, frontend with hot reload |
-| `dev` | Infrastructure + frontend; backend runs from your IDE / `mvnw` |
-| `prod,backend` | Full production-style stack |
-| *(empty)* | Infrastructure only |
-
-> `dev` and `prod` both use port `5173` (the backend's default CORS origin), so enable only one at a time.
-
-To override `.env` for a single run, pass `--profile` flags (these replace the `.env` value, not add to it):
+Common commands from the repository root:
 
 ```bash
-docker compose --profile prod --profile backend up -d --build
+# 1. Infra only (run backend & frontend locally in your IDE / terminal)
+docker compose up -d
+
+# 2. Full dev stack in Docker (infra + backend + frontend-dev)
+docker compose --profile app up -d --build
+
+# 3. Backend only in Docker (+ infra), frontend running locally
+docker compose --profile backend up -d --build
+
+# 4. Production stack (uses .env.prod for Supabase Postgres & S3)
+cp .env.prod.example .env.prod   # fill in production credentials
+docker compose --env-file .env.prod --profile prod up -d --build
 ```
+
+> Environment variables use vendor-neutral `DB_*` and `BLOB_*` names (see [.env.example](.env.example) for local Postgres/MinIO defaults and [.env.prod.example](.env.prod.example) for Supabase). `dev` (`frontend-dev`) and `prod` (`frontend`) both use port `5173` by default, so run only one at a time.
 
 ### 3. Start the Containers
 
@@ -173,8 +177,8 @@ Expand Servers ➔ Invoice DB Local ➔ Databases ➔ invoice_automation_postgre
 `seed_data/` holds five fictional vendor bills (PDFs) for 125 Industrial Way, plus `bills.json` with the values printed on each one. `bills.json` is also the expected output when testing invoice extraction. With postgres, minio and the backend running, from the repo root:
 
 ```bash
-node scripts/seed.mjs              # vendors + property mappings, and the PDFs uploaded as INGESTED invoices
-node scripts/seed.mjs --processed  # also fills amount, dates and vendor match, as PENDING_APPROVAL
+node scripts/seed.mjs              # uploads PDFs and fills amount, dates & vendor match from seed_data/bills.json
+node scripts/seed.mjs --raw        # uploads PDFs as raw INGESTED invoices without filling details
 ```
 
 - The PDFs go through `POST /api/v1/invoices/upload`, so they're stored in MinIO, hashed and audit-logged like a real upload. The property, vendors and mappings are written with SQL, since there's no mapping endpoint yet.
@@ -257,7 +261,7 @@ From the `backend/` directory:
 
 ```
 
-> When running the backend locally, leave `backend` out of `COMPOSE_PROFILES` so the container doesn't also bind port `8080`. The local process doesn't receive the environment compose sets, so provide `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `MINIO_ENDPOINT=localhost:9000`, `MINIO_USER`, and `MINIO_PASSWORD` (values from `.env`) in your IDE run configuration or shell.
+> When running the backend locally, leave `COMPOSE_PROFILES` empty (`docker compose up -d`) so the container doesn't also bind port `8080`. Ensure `DB_URL`, `DB_USER`, `DB_PASSWORD`, `BLOB_ENDPOINT`, `BLOB_ACCESS_KEY`, and `BLOB_SECRET_KEY` (from `.env`) are loaded in your shell or IDE run configuration.
 
 ### Stripe test mode
 
@@ -290,23 +294,22 @@ npm install
 npm run dev
 ```
 
-**In Docker:** set `dev` (hot reload) or `prod` (nginx build) in `COMPOSE_PROFILES`, then from the root directory:
-```bash
-docker compose up -d --build
-```
+**In Docker:** run `docker compose --profile frontend up -d --build` (hot reload) or `docker compose --env-file .env.prod --profile prod up -d --build` (nginx build).
 
 Either way the app is served at `http://localhost:5173`. The frontend calls the API at `http://localhost:8080` from your browser, so it works with the backend running either in Docker or locally.
 
-> The `dev` container enables file-watch polling (`VITE_USE_POLLING=true`) because file change events don't propagate through Docker bind mounts on Windows/macOS. Plain `npm run dev` is unaffected.
+> The `frontend-dev` container enables file-watch polling (`VITE_USE_POLLING=true`) because file change events don't propagate through Docker bind mounts on Windows/macOS. Plain `npm run dev` is unaffected.
 
 ---
 
 ## Running the Full Application Stack
 
-Set `COMPOSE_PROFILES=dev,backend` (or `prod,backend`) in `.env`, then from the root directory:
-
 ```bash
-docker compose up -d --build
+# Dev stack (infra + backend + frontend-dev)
+docker compose --profile app up -d --build
+
+# Production stack (backend-prod + frontend with .env.prod)
+docker compose --env-file .env.prod --profile prod up -d --build
 ```
 
 

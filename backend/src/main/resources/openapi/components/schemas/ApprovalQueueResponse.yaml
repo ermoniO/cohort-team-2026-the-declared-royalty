@@ -1,0 +1,23 @@
+type: object
+required:
+  - propertyUuid
+  - grossAmount
+  - costType
+  - hasVacantStep
+  - steps
+properties:
+  propertyUuid:
+    type: string
+    format: uuid
+  grossAmount:
+    type: number
+    format: double
+  costType:
+    type: string
+  hasVacantStep:
+    type: boolean
+  steps:
+    type: array
+    items:
+      $ref: './ApprovalQueueStepResponse.yaml'
+

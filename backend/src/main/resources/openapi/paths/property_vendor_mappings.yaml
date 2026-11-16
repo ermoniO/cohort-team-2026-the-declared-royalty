@@ -1,0 +1,70 @@
+get:
+  summary: List property-vendor mappings
+  operationId: getPropertyVendorMappings
+  tags:
+    - PropertyVendorMappings
+  parameters:
+    - name: propertyId
+      in: query
+      required: false
+      schema:
+        type: string
+        format: uuid
+    - name: vendorId
+      in: query
+      required: false
+      schema:
+        type: string
+        format: uuid
+    - name: status
+      in: query
+      required: false
+      schema:
+        type: string
+  responses:
+    '200':
+      description: A list of property-vendor mappings
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: '../components/schemas/PropertyVendorMappingResponse.yaml'
+
+post:
+  summary: Create a property-vendor mapping
+  operationId: createPropertyVendorMapping
+  tags:
+    - PropertyVendorMappings
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../components/schemas/PropertyVendorMappingCreateRequest.yaml'
+  responses:
+    '201':
+      description: Property-vendor mapping created
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/PropertyVendorMappingResponse.yaml'
+    '400':
+      description: Invalid request body
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'
+    '404':
+      description: Property or vendor not found
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'
+    '409':
+      description: Mapping conflict
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'
+

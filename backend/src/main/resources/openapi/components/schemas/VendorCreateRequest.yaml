@@ -6,6 +6,14 @@ properties:
     type: string
     maxLength: 255
     example: "Acme Plumbing Co."
+  category:
+    type: string
+    maxLength: 100
+    example: "UTILITIES_ENERGY"
+  taxId:
+    type: string
+    maxLength: 50
+    example: "12-3456789"
   phoneNumber:
     type: string
     maxLength: 255

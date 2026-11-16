@@ -1,23 +1,20 @@
 type: object
 required:
   - name
-  - streetAddress
-  - city
-  - state
-  - zipCode
+  - category
+  - address
 properties:
   name:
     type: string
-    example: "Industrial Business Park"
-  streetAddress:
+    example: "Grandview Office Tower"
+  category:
     type: string
-    example: "125 Industrial Way"
-  city:
+    example: "COMMERCIAL_OFFICE"
+  ownerEntity:
     type: string
-    example: "Springfield"
-  state:
-    type: string
-    example: "IL"
-  zipCode:
-    type: string
-    example: "62701"
+    example: "Apex Holdings LLC"
+  sqft:
+    type: integer
+    example: 720000
+  address:
+    $ref: './Address.yaml'

@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 // Seeds the local dev stack with the demo bills in seed_data/.
 //
-//   node scripts/seed.mjs              vendors + property mappings, PDFs uploaded as INGESTED invoices
-//   node scripts/seed.mjs --processed  also fills each invoice from seed_data/bills.json and moves it
-//                                      to PENDING_APPROVAL, as if extraction and matching had run
+//   node scripts/seed.mjs              PDFs uploaded and populated from seed_data/bills.json
+//   node scripts/seed.mjs --raw        upload PDFs as INGESTED invoices without filling details
 //
 // Needs the Docker stack running (postgres, minio, backend). Safe to re-run: existing rows are left
 // alone and PDFs that were already uploaded are skipped (the backend rejects duplicate files).
@@ -25,7 +24,7 @@ if (args.includes("--help") || args.includes("-h")) {
   process.exit(0);
 }
 
-const processed = args.includes("--processed");
+const processed = !args.includes("--raw");
 const apiUrl = (argValue("--api-url") ?? process.env.SEED_API_URL ?? `http://localhost:${process.env.BACKEND_PORT ?? 8080}`).replace(/\/$/, "");
 const { property, bills } = JSON.parse(readFileSync(join(SEED_DIR, "bills.json"), "utf8"));
 
@@ -53,36 +52,17 @@ function psql(statements) {
   return result.stdout.trim();
 }
 
-// The vendor a bill belongs to: the seeded one, or an existing vendor with the same name
-const vendorRef = (bill) =>
-  `(SELECT vendor_uuid FROM vendors WHERE vendor_uuid = ${sql(bill.vendor.vendorUuid)} OR lower(vendor_name) = lower(${sql(bill.vendor.name)})
-     ORDER BY (vendor_uuid = ${sql(bill.vendor.vendorUuid)}) DESC LIMIT 1)`;
+// Look up existing DB-generated mapping_uuid by property name and vendor name (from R__seed_test_data.sql)
+const mappingRef = (bill) => `
+  (SELECT m.mapping_uuid
+   FROM property_vendor_mapping m
+   JOIN properties p ON m.property_uuid = p.property_uuid
+   JOIN vendors v ON m.vendor_uuid = v.vendor_uuid
+   WHERE lower(p.name) = lower(${sql(property.name)})
+     AND lower(v.vendor_name) = lower(${sql(bill.vendor.name)})
+   LIMIT 1)`;
 
-const mappingRef = (bill) =>
-  `(SELECT mapping_uuid FROM property_vendor_mapping WHERE vendor_uuid = ${vendorRef(bill)} AND property_uuid = ${sql(property.propertyUuid)})`;
-
-// 1. Property, vendors and property-vendor mappings (there's no API for mappings yet, so this is SQL)
-console.log("Seeding property, vendors and mappings...");
-psql(`
-INSERT INTO properties (property_uuid, name, street_address, city, state, zip_code)
-VALUES (${sql(property.propertyUuid)}, ${sql(property.name)}, ${sql(property.streetAddress)}, ${sql(property.city)}, ${sql(property.state)}, ${sql(property.zipCode)})
-ON CONFLICT (property_uuid) DO NOTHING;
-${bills
-  .map(
-    (bill) => `
-INSERT INTO vendors (vendor_uuid, vendor_name, payment_url, payment_method)
-SELECT ${sql(bill.vendor.vendorUuid)}, ${sql(bill.vendor.name)}, ${sql(bill.vendor.paymentUrl)}, ${sql(bill.vendor.paymentMethod)}
-WHERE NOT EXISTS (SELECT 1 FROM vendors WHERE vendor_uuid = ${sql(bill.vendor.vendorUuid)} OR lower(vendor_name) = lower(${sql(bill.vendor.name)}));
-
-INSERT INTO property_vendor_mapping (mapping_uuid, vendor_uuid, property_uuid, vendor_account_number)
-VALUES (${sql(bill.mappingUuid)}, ${vendorRef(bill)}, ${sql(property.propertyUuid)}, ${sql(bill.accountNumber)})
-ON CONFLICT DO NOTHING;`,
-  )
-  .join("\n")}
-`);
-console.log(`  ${property.name} + ${bills.length} vendors mapped to it`);
-
-// 2. Upload the PDFs through the real endpoint, so they land in MinIO with a hash and an audit entry
+// 1. Upload the PDFs through the real endpoint, so they land in MinIO with a hash and an audit entry
 console.log(`Uploading bills to ${apiUrl}...`);
 const results = [];
 for (const bill of bills) {
@@ -105,9 +85,9 @@ for (const bill of bills) {
 }
 for (const [file, outcome] of results) console.log(`  ${file}: ${outcome}`);
 
-// 3. Optionally fill in what extraction and matching would have found
+// 3. Fill in what extraction and matching would have found (unless --raw is passed)
 if (processed) {
-  console.log("Filling invoice details (--processed)...");
+  console.log("Filling invoice details...");
   const updated = psql(
     bills
       .map(
@@ -118,9 +98,10 @@ SET mapping_uuid = ${mappingRef(bill)},
     invoice_creation_date = ${sql(bill.invoiceDate)},
     due_date = ${sql(bill.dueDate)},
     amount = ${bill.amount},
-    invoice_status = 'PENDING_APPROVAL',
+    invoice_status = CASE WHEN (${mappingRef(bill)}) IS NOT NULL THEN 'PENDING_APPROVAL' ELSE 'PENDING_MAPPING' END,
     updated_at = CURRENT_TIMESTAMP
-WHERE blob_file_sha256 = ${sql(bill.sha256)} AND mapping_uuid IS NULL
+WHERE blob_file_sha256 = ${sql(bill.sha256)}
+  AND (mapping_uuid IS NULL OR amount IS NULL OR amount = 0)
 RETURNING original_filename;`,
       )
       .join("\n"),

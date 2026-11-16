@@ -1,0 +1,67 @@
+get:
+  tags:
+    - Properties
+  summary: Get property approval matrix
+  description: Returns the sequential approval matrix ladder (steps 0-5) for a property.
+  operationId: getPropertyApprovalMatrix
+  parameters:
+    - name: propertyId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    '200':
+      description: Ordered property approval matrix steps
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: '../components/schemas/AccountsPayableApprovalMatrixResponse.yaml'
+    '404':
+      description: Property not found
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'
+post:
+  tags:
+    - Properties
+  summary: Add or replace matrix step
+  description: Adds or replaces a sequence step in the property's approval matrix.
+  operationId: addPropertyApprovalMatrixStep
+  parameters:
+    - name: propertyId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../components/schemas/AccountsPayableApprovalMatrixStepRequest.yaml'
+  responses:
+    '201':
+      description: Matrix step successfully created
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/AccountsPayableApprovalMatrixResponse.yaml'
+    '400':
+      description: Invalid sequence, duplicate step, or violation of safety net rules
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'
+    '404':
+      description: Property, seat, or preset not found
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'
+

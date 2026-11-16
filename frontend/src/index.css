@@ -1,1 +1,75 @@
 @import "tailwindcss";
+
+@layer base {
+    :root {
+        color-scheme: light;
+    }
+
+    body {
+        font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background-color: #f8faf9;
+        color: #25362f;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    input[type="date"] {
+        color-scheme: light;
+        border-radius: 0.5rem;
+        font-family: inherit;
+    }
+
+    input[type="date"]::-webkit-calendar-picker-indicator {
+        cursor: pointer;
+        border-radius: 0.375rem;
+        padding: 2px;
+        opacity: 0.7;
+        transition: opacity 0.15s ease, background-color 0.15s ease;
+    }
+
+    input[type="date"]::-webkit-calendar-picker-indicator:hover {
+        opacity: 1;
+        background-color: #e8f7ed;
+    }
+
+    select {
+        color-scheme: light;
+    }
+
+    code,
+    kbd,
+    samp,
+    pre {
+        font-family: 'JetBrains Mono', monospace;
+    }
+}
+
+.font-inter-regular {
+    font-weight: 400;
+}
+
+.font-inter-medium {
+    font-weight: 500;
+}
+
+.font-inter-semibold {
+    font-weight: 600;
+}
+
+/* Custom scrollbars for high-density tables and viewers */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #d7ebdd;
+    border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #98a29c;
+}

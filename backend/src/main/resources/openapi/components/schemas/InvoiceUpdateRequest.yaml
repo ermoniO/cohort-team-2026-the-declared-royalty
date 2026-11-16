@@ -7,6 +7,10 @@
       example: "f9e8d7c6-b5a4-3210-fedc-ba9876543210"
     invoiceStatus:
       $ref: './InvoiceStatus.yaml'
+    actedBy:
+      type: string
+      format: uuid
+      description: User performing the change, recorded in the audit log. Omitted means the system user. Required for a transition to APPROVED. Stand-in until OAuth.
     billingPeriodStart:
       type: string
       format: date

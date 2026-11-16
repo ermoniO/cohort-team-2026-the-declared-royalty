@@ -1,0 +1,8 @@
+type: object
+required:
+  - userUuid
+properties:
+  userUuid:
+    type: string
+    format: uuid
+

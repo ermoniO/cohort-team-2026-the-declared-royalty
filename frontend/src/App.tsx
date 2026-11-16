@@ -1,102 +1,54 @@
-import { useEffect, useState } from "react";
-import AppShell from "./layout/AppShell";
-import type { AppRoute } from "./types/route";
-import WorkspacePage from "./pages/WorkspacePage";
-import BillsPage from "./pages/BillsPage";
-import PropertiesPage from "./pages/PropertiesPage";
-import VendorsPage from "./pages/VendorsPage";
-import AuditLogsPage from "./pages/AuditLogsPage";
-import { navigateTo } from "./app/navigation";
-import {
-  TbAlertTriangle,
-  TbBlocks,
-  TbBuilding,
-  TbBuildingStore,
-  TbCircleCheck,
-  TbCreditCard,
-  TbFileInvoice,
-  TbHistory,
-} from "react-icons/tb";
+import React from 'react';
+import { InvoiceProvider, useInvoiceStore } from './context/InvoiceContext';
+import { TopBar } from './components/TopBar';
+import { Sidebar } from './components/Sidebar';
+import { Dashboard } from './components/Dashboard';
+import { InvoicesView } from './components/InvoicesView';
+import { ActionRequiredPage } from './components/ActionRequiredPage';
+import { PaymentHub } from './components/PaymentHub';
+import { MasterDataHubPage } from './components/MasterDataHubPage';
+import { PayerPolicyRules } from './components/PayerPolicyRules';
+import { AuditHistoryLog } from './components/AuditHistoryLog';
+import { NewBillModal } from './components/NewBillModal';
 
-const routes: AppRoute[] = [
-  { label: "Dashboard", path: "/", section: "WORKSPACE", icon: TbBlocks },
-  { label: "Bills", path: "/bills", section: "OPERATIONS", icon: TbFileInvoice },
-  {
-    label: "Properties",
-    path: "/properties",
-    section: "OPERATIONS",
-    icon: TbBuilding,
-  },
-  {
-    label: "Vendors",
-    path: "/vendors",
-    section: "OPERATIONS",
-    icon: TbBuildingStore,
-  },
-  {
-    label: "Approvals",
-    path: "/approvals",
-    section: "OPERATIONS",
-    icon: TbCircleCheck,
-  },
-  {
-    label: "Payments",
-    path: "/payments",
-    section: "OPERATIONS",
-    icon: TbCreditCard,
-  },
-  {
-    label: "Exceptions",
-    path: "/exceptions",
-    section: "OPERATIONS",
-    icon: TbAlertTriangle,
-  },
-  {
-    label: "Activity & Audit Logs",
-    path: "/activity",
-    section: "OVERSIGHT",
-    icon: TbHistory,
-  },
-];
+const AppContent: React.FC = () => {
+  const { activeTab, isNewBillOpen, setIsNewBillOpen } = useInvoiceStore();
 
-const normalizePath = (path: string) =>
-  path === "/" ? path : path.replace(/\/$/, "");
-
-const readLocation = () => ({
-  path: normalizePath(window.location.pathname),
-  search: window.location.search,
-});
-
-export default function App() {
-  const [location, setLocation] = useState(readLocation);
-
-  useEffect(() => {
-    const handlePopState = () => setLocation(readLocation());
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, []);
-
-  const currentRoute =
-    routes.find((route) => route.path === location.path) ?? routes[0];
-
-  // TODO(auth): add a sign-in page (e.g. /login, outside AppShell) and guard the
-  // routes below: while the session is loading show a loader, and when there's no
-  // session send the user to /login, then back to the page they asked for.
   return (
- <AppShell currentRoute={currentRoute} onNavigate={navigateTo} routes={routes}>
-        {currentRoute.path === "/bills" ? (
-        <BillsPage />
-      ) : currentRoute.path === "/properties" ? (
-        <PropertiesPage />
-      ) : currentRoute.path === "/vendors" ? (
-        <VendorsPage />
-      ) : currentRoute.path === "/activity" ? (
-        <AuditLogsPage
-          invoiceUuid={new URLSearchParams(location.search).get("invoice")}
-        />
-      ) : (
-        <WorkspacePage title={currentRoute.label} />
-      )}
-    </AppShell>
+    <div className="min-h-screen bg-[#f8faf9] flex flex-col text-[#25362f] font-sans selection:bg-[#16834a] selection:text-white antialiased">
+      {/* Top Header */}
+      <TopBar />
+
+      {/* Main Workspace: Option A Inline Collapsible Sidebar + Viewport */}
+      <div className="flex-1 flex overflow-hidden">
+        <Sidebar />
+
+        <main className="flex-1 overflow-y-auto bg-[#f8faf9] min-h-[calc(100vh-4rem)]">
+          {activeTab === 'overview' && <Dashboard />}
+          {activeTab === 'invoices' && <InvoicesView />}
+          {activeTab === 'action_required' && <ActionRequiredPage />}
+          {activeTab === 'disbursements' && <PaymentHub />}
+          {activeTab === 'master_data' && <MasterDataHubPage />}
+          {activeTab === 'policies' && <PayerPolicyRules />}
+          {activeTab === 'audit_ledger' && <AuditHistoryLog />}
+        </main>
+      </div>
+
+      {/* Standardized New Bill Upload Modal */}
+      <NewBillModal
+        isOpen={isNewBillOpen}
+        onClose={() => setIsNewBillOpen(false)}
+      />
+    </div>
+  );
+};
+
+export function App() {
+  return (
+    <InvoiceProvider>
+      <AppContent />
+    </InvoiceProvider>
   );
 }
+
+export default App;

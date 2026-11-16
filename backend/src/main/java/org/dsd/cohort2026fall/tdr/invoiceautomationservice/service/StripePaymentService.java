@@ -35,18 +35,21 @@ public class StripePaymentService {
     private final StripeProperties stripeProperties;
     private final ObjectProvider<StripeClient> stripeClientProvider;
     private final StripeWebhookEventRepository webhookEventRepository;
+    private final InvoiceTransitionService transitionService;
 
     public StripePaymentService(
             InvoiceRepository invoiceRepository,
             PaymentAttemptRepository paymentAttemptRepository,
             StripeProperties stripeProperties,
             ObjectProvider<StripeClient> stripeClientProvider,
-            StripeWebhookEventRepository webhookEventRepository) {
+            StripeWebhookEventRepository webhookEventRepository,
+            InvoiceTransitionService transitionService) {
         this.invoiceRepository = invoiceRepository;
         this.paymentAttemptRepository = paymentAttemptRepository;
         this.stripeProperties = stripeProperties;
         this.stripeClientProvider = stripeClientProvider;
         this.webhookEventRepository = webhookEventRepository;
+        this.transitionService = transitionService;
     }
 
     @Transactional
@@ -154,16 +157,17 @@ public class StripePaymentService {
         }
     }
 
-    private void applyIntent(PaymentAttemptEntity attempt, PaymentIntent intent) {
+    void applyIntent(PaymentAttemptEntity attempt, PaymentIntent intent) {
         attempt.setStripePaymentIntentId(intent.getId());
         String status = intent.getStatus() == null ? "UNKNOWN" : intent.getStatus().toUpperCase();
         attempt.setStatus(status);
+        UUID invoiceId = attempt.getInvoice().getInvoiceId();
         if ("SUCCEEDED".equals(status)) {
-            attempt.getInvoice().setInvoiceStatus(InvoiceStatus.PAID.getValue());
+            transitionService.tryTransition(invoiceId, InvoiceStatus.PAID, null, null);
         } else if ("PROCESSING".equals(status) || "REQUIRES_ACTION".equals(status)) {
-            attempt.getInvoice().setInvoiceStatus(InvoiceStatus.PROCESSING_PAYMENT.getValue());
+            transitionService.tryTransition(invoiceId, InvoiceStatus.PROCESSING_PAYMENT, null, null);
         } else if ("REQUIRES_PAYMENT_METHOD".equals(status)) {
-            attempt.getInvoice().setInvoiceStatus(InvoiceStatus.FAILED.getValue());
+            transitionService.tryTransition(invoiceId, InvoiceStatus.FAILED, null, "Stripe payment failed: requires_payment_method");
         }
     }
 

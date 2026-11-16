@@ -1,0 +1,16 @@
+get:
+  tags:
+    - CorporateDesignations
+  summary: List corporate designations
+  description: Returns all HR corporate designations.
+  operationId: getCorporateDesignations
+  responses:
+    '200':
+      description: A list of corporate designations
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: '../components/schemas/CorporateDesignationResponse.yaml'
+

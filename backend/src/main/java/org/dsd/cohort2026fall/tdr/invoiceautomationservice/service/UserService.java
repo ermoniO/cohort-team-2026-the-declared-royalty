@@ -27,7 +27,9 @@ public class UserService {
         entity.setUserId(UUID.randomUUID());
         entity.setUserName(request.getUsername());
         entity.setEmail(request.getEmail());
-        entity.setRole(request.getRole() != null ? request.getRole() : "ADMIN");
+        entity.setAvatarUrl(request.getAvatarUrl());
+        entity.setDelegateUserUuid(request.getDelegateUserUuid());
+        entity.setDelegateExpiresAt(request.getDelegateExpiresAt());
         entity.setStatus(request.getStatus() != null ? request.getStatus() : "ACTIVE");
         entity.setCreatedAt(OffsetDateTime.now());
         entity.setUpdatedAt(OffsetDateTime.now());
@@ -58,8 +60,14 @@ public class UserService {
         if (request.getEmail() != null) {
             entity.setEmail(request.getEmail());
         }
-        if (request.getRole() != null) {
-            entity.setRole(request.getRole());
+        if (request.getAvatarUrl() != null) {
+            entity.setAvatarUrl(request.getAvatarUrl());
+        }
+        if (request.getDelegateUserUuid() != null) {
+            entity.setDelegateUserUuid(request.getDelegateUserUuid());
+        }
+        if (request.getDelegateExpiresAt() != null) {
+            entity.setDelegateExpiresAt(request.getDelegateExpiresAt());
         }
         if (request.getStatus() != null) {
             entity.setStatus(request.getStatus());
@@ -84,7 +92,9 @@ public class UserService {
         response.setUserId(entity.getUserId());
         response.setUsername(entity.getUserName());
         response.setEmail(entity.getEmail());
-        response.setRole(entity.getRole());
+        response.setAvatarUrl(entity.getAvatarUrl());
+        response.setDelegateUserUuid(entity.getDelegateUserUuid());
+        response.setDelegateExpiresAt(entity.getDelegateExpiresAt());
         response.setStatus(entity.getStatus());
         response.setCreatedAt(entity.getCreatedAt());
         response.setUpdatedAt(entity.getUpdatedAt());

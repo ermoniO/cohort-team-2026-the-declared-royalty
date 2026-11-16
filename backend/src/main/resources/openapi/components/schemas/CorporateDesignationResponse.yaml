@@ -1,0 +1,16 @@
+type: object
+required:
+  - designationSlug
+  - displayName
+  - status
+properties:
+  designationSlug:
+    type: string
+    example: "PROPERTY_MANAGER"
+  displayName:
+    type: string
+    example: "Property Manager"
+  status:
+    type: string
+    example: "ACTIVE"
+

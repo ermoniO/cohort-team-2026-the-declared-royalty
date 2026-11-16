@@ -5,7 +5,7 @@ import { describeDeleteError } from "@/app/services/describeDeleteError";
 import { SelectField, TextField } from "@/components/ui/Field";
 import FormModal, { FormAlert } from "@/components/ui/FormModal";
 import type { PaymentMethod, VendorResponse, VendorStatus } from "@/types/vendor";
-import { createVendor, deleteVendor, updateVendor } from "./vendorService.ts";
+import { createVendor, deleteVendor, updateVendor } from "@/app/services/vendorService";
 import { describeVendorSaveError } from "./vendorSaveErrors";
 import {
   buildCreateRequest,

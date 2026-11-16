@@ -52,9 +52,25 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.CONFLICT, ex.getMessage(), request);
     }
 
+    @ExceptionHandler(InvalidStatusTransitionException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidStatusTransition(InvalidStatusTransitionException ex, HttpServletRequest request) {
+        return build(HttpStatus.CONFLICT, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(InvoiceLockedException.class)
+    public ResponseEntity<ErrorResponse> handleInvoiceLocked(InvoiceLockedException ex, HttpServletRequest request) {
+        return build(HttpStatus.CONFLICT, ex.getMessage(), request);
+    }
+
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ErrorResponse> handleTooLarge(MaxUploadSizeExceededException ex, HttpServletRequest request) {
         return build(HttpStatus.valueOf(413), "File too large: maximum size is 5MB", request);
+    }
+
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException ex, HttpServletRequest request) {
+        log.warn("Database integrity violation on {}: {}", request.getRequestURI(), ex.getMessage());
+        return build(HttpStatus.BAD_REQUEST, "Database constraint violation: duplicate entry or invalid reference", request);
     }
 
     @ExceptionHandler(StorageException.class)
@@ -64,18 +80,18 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(IllegalStateException.class)
-    public ResponseEntity<ErrorResponse> handleIllegalState(IllegalStateException ex, HttpServletRequest request){
+    public ResponseEntity<ErrorResponse> handleIllegalState(IllegalStateException ex, HttpServletRequest request) {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
     }
 
     @ExceptionHandler(InvoiceAnalysisFailureException.class)
-    public ResponseEntity<ErrorResponse> handleInvoiceAnalysisFailure(InvoiceAnalysisFailureException ex, HttpServletRequest request){
+    public ResponseEntity<ErrorResponse> handleInvoiceAnalysisFailure(InvoiceAnalysisFailureException ex, HttpServletRequest request) {
         log.error("Invoice extraction failed: ", ex);
         return build(HttpStatus.BAD_GATEWAY, ex.getMessage(), request);
     }
 
     @ExceptionHandler(InvoiceNoDataException.class)
-    public ResponseEntity<ErrorResponse> handleInvoiceNoData(InvoiceNoDataException ex, HttpServletRequest request){
+    public ResponseEntity<ErrorResponse> handleInvoiceNoData(InvoiceNoDataException ex, HttpServletRequest request) {
         log.error(ex.getMessage());
         return build(HttpStatus.UNPROCESSABLE_CONTENT, ex.getMessage(), request);
     }

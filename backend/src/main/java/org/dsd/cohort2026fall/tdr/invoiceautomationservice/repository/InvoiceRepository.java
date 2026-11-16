@@ -1,10 +1,12 @@
 package org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository;
 
+import jakarta.persistence.LockModeType;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.InvoiceEntity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -33,6 +35,11 @@ public interface InvoiceRepository extends JpaRepository<InvoiceEntity, UUID>, J
             UUID mappingUuid, String vendorInvoiceId, LocalDate billingPeriodEnd, UUID currentInvoiceUuid);
 
     Optional<InvoiceEntity> findByBlobFileSha256(String blobFileSha256);
+
+    // Row lock so concurrent status changes on one invoice are serialized
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select i from InvoiceEntity i where i.invoiceId = :id")
+    Optional<InvoiceEntity> findByIdForUpdate(@Param("id") UUID id);
 
     boolean existsByBlobFileSha256(String blobFileSha256);
 

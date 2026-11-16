@@ -1,5 +1,4 @@
-import type {Property } from "@/types/property.ts";
-import type { Vendor } from "@/types/vendor.ts";
+import type { Property, Vendor } from "@/types";
 
 export type PropertyVendorMapping = {
     mappingId: string,
@@ -10,4 +9,4 @@ export type PropertyVendorMapping = {
     autoApprovalEnabled: boolean,
     createdAt: string,
     updatedAt: string,
-}
+};

@@ -1,0 +1,33 @@
+type: object
+required:
+  - propertyUuid
+  - vendorUuid
+  - vendorAccountNumber
+  - costType
+properties:
+  propertyUuid:
+    type: string
+    format: uuid
+  vendorUuid:
+    type: string
+    format: uuid
+  vendorAccountNumber:
+    type: string
+    minLength: 1
+    maxLength: 100
+  costType:
+    type: string
+    enum: [FIXED_MONTHLY, VARIABLE]
+    default: VARIABLE
+  defaultGlCode:
+    type: string
+    maxLength: 50
+    nullable: true
+  autoApprovalEnabled:
+    type: boolean
+    default: false
+  status:
+    type: string
+    enum: [ACTIVE, INACTIVE]
+    default: ACTIVE
+

@@ -1,0 +1,19 @@
+type: object
+properties:
+  vendorAccountNumber:
+    type: string
+    minLength: 1
+    maxLength: 100
+  costType:
+    type: string
+    enum: [FIXED_MONTHLY, VARIABLE]
+  defaultGlCode:
+    type: string
+    maxLength: 50
+    nullable: true
+  autoApprovalEnabled:
+    type: boolean
+  status:
+    type: string
+    enum: [ACTIVE, INACTIVE]
+

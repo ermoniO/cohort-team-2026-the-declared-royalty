@@ -1,0 +1,22 @@
+type: object
+required:
+  - assignmentUuid
+  - accountsPayableSeatSlug
+  - userUuid
+  - status
+properties:
+  assignmentUuid:
+    type: string
+    format: uuid
+  accountsPayableSeatSlug:
+    type: string
+  userUuid:
+    type: string
+    format: uuid
+  userName:
+    type: string
+  userEmail:
+    type: string
+  status:
+    type: string
+

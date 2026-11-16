@@ -1,0 +1,38 @@
+post:
+  tags:
+    - Properties
+  summary: Evaluate invoice policy and routing
+  description: Deterministically evaluates gross amount, cost type, and OCR confidence against the property's AP approval matrix Step 0 to determine auto-approval, auto-pay eligibility, and human escalation queue.
+  operationId: evaluatePropertyPolicy
+  parameters:
+    - name: propertyId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../components/schemas/PolicyEvaluationRequest.yaml'
+  responses:
+    '200':
+      description: Policy evaluation decision and explainable rationale
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/PolicyEvaluationResponse.yaml'
+    '400':
+      description: Invalid request payload
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'
+    '404':
+      description: Property not found
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'

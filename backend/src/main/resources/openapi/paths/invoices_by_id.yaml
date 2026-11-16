@@ -56,7 +56,7 @@
             schema:
               $ref: '../components/schemas/ErrorResponse.yaml'
       '409':
-        description: The updated invoice would duplicate another invoice for this mapping
+        description: The updated invoice would duplicate another invoice for this mapping, the status transition not allowed from the current status, or the invoice is locked from amount/mapping edits after approval
         content:
           application/json:
             schema:
@@ -79,14 +79,20 @@
           application/json:
             schema:
               $ref: '../components/schemas/ErrorResponse.yaml'
-      '500':
-        description: Internal server error during invoice analysis
+      '409':
+        description: Invoice is locked and cannot be re-analyzed
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/ErrorResponse.yaml'
+      '422':
+        description: Unprocessable invoice data
         content:
           application/json:
             schema:
               $ref: '../components/schemas/ErrorResponse.yaml'
       '502':
-        description: Invoice analysis failed
+        description: Invoice analysis LLM failure
         content:
           application/json:
             schema:

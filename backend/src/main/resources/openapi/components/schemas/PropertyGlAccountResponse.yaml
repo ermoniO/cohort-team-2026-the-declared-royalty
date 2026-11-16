@@ -1,0 +1,27 @@
+type: object
+required:
+  - propertyGlAccountUuid
+  - glCode
+  - propertyUuid
+  - glAccountName
+  - status
+properties:
+  propertyGlAccountUuid:
+    type: string
+    format: uuid
+  glCode:
+    type: string
+    example: "5120"
+  propertyUuid:
+    type: string
+    format: uuid
+  glAccountName:
+    type: string
+    example: "Grounds Maintenance"
+  description:
+    type: string
+    example: "Exterior landscaping and snow removal"
+  status:
+    type: string
+    example: "ACTIVE"
+

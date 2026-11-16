@@ -1,32 +1,93 @@
-import { TbUser } from "react-icons/tb";
-import Icon from "@/components/ui/Icon";
-import type { UserResponse } from "@/types/user";
-import { getDisplayName, getInitials } from "./userDisplay";
+import React, { useEffect, useState } from 'react';
+import { Bot } from 'lucide-react';
+import {
+  buildDeterministicFaceSvgDataUrl,
+  getInitials,
+  isSystemUser,
+} from './userDisplay';
 
-type UserAvatarProps = {
-  user: UserResponse | null;
-  // Tailwind size class, e.g. "size-8"
-  sizeClassName: string;
-};
+export interface UserAvatarProps {
+  userId?: string | null;
+  name?: string | null;
+  role?: string | null;
+  avatarUrl?: string | null;
+  isSystem?: boolean;
+  sizeClassName?: string;
+  className?: string;
+  title?: string;
+  highlightRing?: boolean;
+  forceInitialsFallback?: boolean;
+}
 
-// Initials in a green circle, or a generic person icon when there's no user
-export default function UserAvatar({ user, sizeClassName }: UserAvatarProps) {
-  if (!user) {
+export const UserAvatar: React.FC<UserAvatarProps> = ({
+  userId,
+  name,
+  role,
+  avatarUrl,
+  isSystem,
+  sizeClassName = 'size-8',
+  className = '',
+  title,
+  highlightRing = false,
+  forceInitialsFallback = false,
+}) => {
+  const [imgFailed, setImgFailed] = useState(false);
+
+  const displayName = (name ?? '').trim() || 'Team Member';
+  const initials = getInitials(displayName);
+  const systemActor = isSystemUser({ userId, name: displayName, isSystem });
+  const accessibleTitle = title || (role ? `${displayName} · ${role}` : displayName);
+
+  const resolvedSrc = systemActor
+    ? ''
+    : avatarUrl && avatarUrl.trim().length > 0
+      ? avatarUrl.trim()
+      : buildDeterministicFaceSvgDataUrl(userId || displayName, displayName);
+
+  useEffect(() => {
+    setImgFailed(false);
+  }, [resolvedSrc]);
+
+  const ringClass = highlightRing
+    ? 'ring-2 ring-[#16834a] ring-offset-1 ring-offset-white'
+    : '';
+
+  if (systemActor) {
     return (
       <span
-        className={`flex shrink-0 items-center justify-center rounded-full bg-[#f1f4f2] text-[#68766f] ${sizeClassName}`}
+        data-testid="system-actor-avatar"
+        data-initials="AI"
+        title={accessibleTitle}
+        aria-label={displayName}
+        className={`inline-flex shrink-0 items-center justify-center rounded-full bg-[#14532d] text-[#e8f7ed] ${ringClass} ${sizeClassName} ${className}`}
       >
-        <Icon icon={TbUser} size={17} />
+        <Bot className="w-[58%] h-[58%]" aria-hidden="true" />
       </span>
     );
   }
 
+  const showImage = !forceInitialsFallback && !imgFailed && Boolean(resolvedSrc);
+
   return (
     <span
-      aria-hidden="true"
-      className={`font-inter-semibold flex shrink-0 items-center justify-center rounded-full bg-[#e8f7ed] text-xs text-[#16834a] ${sizeClassName}`}
+      data-initials={initials}
+      title={accessibleTitle}
+      className={`relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#e8f7ed] text-[#16834a] font-semibold select-none ${ringClass} ${sizeClassName} ${className}`}
     >
-      {getInitials(getDisplayName(user))}
+      {showImage ? (
+        <img
+          key={resolvedSrc}
+          src={resolvedSrc}
+          alt={displayName}
+          onError={() => setImgFailed(true)}
+          className="h-full w-full rounded-full object-cover"
+        />
+      ) : (
+        <span className="text-[11px] leading-none font-bold">{initials}</span>
+      )}
     </span>
   );
-}
+};
+
+export default UserAvatar;
+
