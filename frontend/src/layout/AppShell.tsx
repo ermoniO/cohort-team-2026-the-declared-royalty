@@ -1,4 +1,5 @@
 import { type ReactNode, useState } from "react";
+import { CurrentUserContext } from "@/features/users/currentUserContext";
 import { useCurrentUser } from "@/features/users/useCurrentUser";
 import type { AppRoute } from "@/types/route";
 import ActivityDrawer from "./activity/ActivityDrawer";
@@ -23,7 +24,7 @@ export default function AppShell({
   // Each drawer's state lives here because the button that opens it is elsewhere
   const [navOpen, setNavOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
-  // Fetched once here and shared by the sidebar profile and the top bar avatar
+  // Fetched once here and shared by the sidebar profile, the top bar avatar and the pages
   const currentUser = useCurrentUser();
 
   return (
@@ -52,7 +53,7 @@ export default function AppShell({
           aria-label={`${currentRoute.label} page content`}
           className="min-h-0 flex-1 overflow-y-auto px-5 pb-8 sm:px-8"
         >
-          {children}
+          <CurrentUserContext value={currentUser}>{children}</CurrentUserContext>
         </section>
       </main>
 

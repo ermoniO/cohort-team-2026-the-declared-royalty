@@ -33,6 +33,11 @@ function VendorCell({ invoice }: { invoice: InvoiceResponse }) {
     return (
       <>
         <span className="font-inter-semibold block text-[#25362f]">{invoice.vendorName}</span>
+        {invoice.description && (
+          <span className="font-inter-regular block max-w-[260px] truncate text-xs text-[#4f5d56]" title={invoice.description}>
+            {invoice.description}
+          </span>
+        )}
         <span className="font-inter-regular block text-xs text-[#68766f]">
           {invoice.vendorAccountNumber ? `Acct ${invoice.vendorAccountNumber}` : "No account number"}
         </span>

@@ -1,5 +1,11 @@
 import { API_BASE_URL, apiClient } from "@/app/services/apiClient";
-import type { InvoicePageResponse, InvoiceResponse, InvoiceStatus, InvoiceSummaryResponse } from "@/types/invoice"
+import type {
+  InvoicePageResponse,
+  InvoiceResponse,
+  InvoiceStatus,
+  InvoiceSummaryResponse,
+  InvoiceUpdateRequest,
+} from "@/types/invoice";
 
 export type InvoiceListQuery = {
   page?: number;
@@ -25,6 +31,11 @@ export function getInvoices(query: InvoiceListQuery): Promise<InvoicePageRespons
 // One invoice; rejects with a 404 HttpError when it doesn't exist
 export function getInvoiceByUuid(invoiceUuid: string): Promise<InvoiceResponse> {
   return apiClient.get<InvoiceResponse>(`/api/v1/invoices/${invoiceUuid}`, undefined, false);
+}
+
+// Partial update: only the fields in `changes` are changed
+export function updateInvoice(invoiceUuid: string, changes: InvoiceUpdateRequest): Promise<InvoiceResponse> {
+  return apiClient.patch<InvoiceResponse, InvoiceUpdateRequest>(`/api/v1/invoices/${invoiceUuid}`, changes, undefined, false);
 }
 
 // receivedSince is the start of the user's "today", so "received today" follows their time zone

@@ -88,9 +88,11 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 type UploadInvoicesModalProps = {
   onClose: () => void;
   onUploaded?: () => void;
+  // The user doing the upload, recorded as the bill's submitter; omitted means the System user
+  uploadedBy?: string;
 };
 
-export default function UploadInvoicesModal({ onClose, onUploaded }: UploadInvoicesModalProps) {
+export default function UploadInvoicesModal({ onClose, onUploaded, uploadedBy }: UploadInvoicesModalProps) {
   const [files, setFiles] = useState<SelectedFile[]>([]);
   const [existingHashes, setExistingHashes] = useState<Set<string>>(new Set());
   const [checkWarning, setCheckWarning] = useState<string | null>(null);
@@ -205,7 +207,7 @@ export default function UploadInvoicesModal({ onClose, onUploaded }: UploadInvoi
     for (const entry of queue) {
       updateFile(entry.id, { phase: "uploading" });
       try {
-        await uploadInvoice(entry.file);
+        await uploadInvoice(entry.file, uploadedBy);
         updateFile(entry.id, { phase: "uploaded", message: undefined });
         const hash = entry.hash;
         if (hash) setExistingHashes((prev) => new Set(prev).add(hash));

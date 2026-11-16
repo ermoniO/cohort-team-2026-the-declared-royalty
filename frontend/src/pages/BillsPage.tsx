@@ -5,11 +5,13 @@ import InvoiceTable from "@/features/invoices/InvoiceTable";
 import { type InvoiceTabId, statusesForTab } from "@/features/invoices/invoiceStatus";
 import UploadInvoicesModal from "@/features/invoices/UploadInvoicesModal";
 import { useInvoicePage, useInvoiceSummary } from "@/features/invoices/useInvoices";
+import { useCurrentUserContext } from "@/features/users/currentUserContext";
 
 const PAGE_SIZE = 20;
 const SEARCH_DELAY_MS = 300;
 
 export default function BillsPage() {
+  const { user } = useCurrentUserContext();
   const [uploadOpen, setUploadOpen] = useState(false);
   const [tab, setTab] = useState<InvoiceTabId>("all");
   const [page, setPage] = useState(0);
@@ -60,6 +62,7 @@ export default function BillsPage() {
         <UploadInvoicesModal
           onClose={() => setUploadOpen(false)}
           onUploaded={() => setReloadKey((key) => key + 1)}
+          uploadedBy={user?.userId}
         />
       )}
     </div>

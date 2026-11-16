@@ -1,0 +1,37 @@
+{
+  "_comment": "Workflow states for the PDF bills in this folder, used by `node scripts/seed.mjs --processed`. Days are relative to the day the seed runs (negative = in the past), so due dates stay realistic. Everything else (vendor, amount, invoice number, description) comes from bills.json, which stays the extraction answer key.",
+  "pdfBills": {
+    "alder-creek-bill.pdf": {
+      "outcome": "awaiting",
+      "receivedDaysAgo": 3,
+      "dueInDays": 2
+    },
+    "brightwater-bill.pdf": {
+      "outcome": "awaiting",
+      "receivedDaysAgo": 10,
+      "dueInDays": -3
+    },
+    "copper-ridge-bill.pdf": {
+      "outcome": "approved",
+      "receivedDaysAgo": 4,
+      "dueInDays": 6,
+      "decisionDaysAgo": 1,
+      "note": "Matches the four scheduled pickups."
+    },
+    "cedar-valley-bill.pdf": {
+      "outcome": "infoRequested",
+      "receivedDaysAgo": 6,
+      "dueInDays": 12,
+      "decisionDaysAgo": 2,
+      "note": "Please confirm whether the quarterly inspection covers the loading dock."
+    },
+    "harborlight-bill.pdf": {
+      "outcome": "rejected",
+      "receivedDaysAgo": 7,
+      "dueInDays": 1,
+      "decisionDaysAgo": 4,
+      "reason": "Incorrect billing",
+      "note": "Billed for two alarm panels; the site has one."
+    }
+  }
+}

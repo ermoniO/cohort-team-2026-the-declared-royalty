@@ -1,16 +1,20 @@
 {
   "_comment": "Values read off the PDFs in this folder. Used by scripts/seed.mjs, and doubles as the expected output when testing invoice extraction. All bills are fictional demo documents.",
-  "property": {
-    "propertyUuid": "11111111-1111-1111-1111-111111111101",
-    "name": "Industrial Business Park",
+  "_serviceAddress": "The service address printed on every bill. Each bill's property is the business it names (customerName) at this address: the seed links the bill to the property in the database with that name and address, creating it only if none exists. A bill can override the address with its own serviceAddress, or name a property outright with propertyUuid.",
+  "serviceAddress": {
     "streetAddress": "125 Industrial Way",
     "city": "Springfield",
     "state": "IL",
     "zipCode": "62701"
   },
+  "uploaders": [
+    { "userUuid": "44444444-0000-0000-0000-000000000001", "userName": "Jordan Rivera", "email": "jordan.rivera@example.com" },
+    { "userUuid": "44444444-0000-0000-0000-000000000002", "userName": "Priya Shah", "email": "priya.shah@example.com" }
+  ],
   "bills": [
     {
       "file": "alder-creek-bill.pdf",
+      "uploadedBy": "44444444-0000-0000-0000-000000000001",
       "vendor": {
         "vendorUuid": "22222222-0000-0000-0000-000000000001",
         "name": "Alder Creek Landscaping",
@@ -28,6 +32,7 @@
     },
     {
       "file": "brightwater-bill.pdf",
+      "uploadedBy": "44444444-0000-0000-0000-000000000002",
       "vendor": {
         "vendorUuid": "22222222-0000-0000-0000-000000000002",
         "name": "Brightwater Water & Sewer",
@@ -45,6 +50,7 @@
     },
     {
       "file": "copper-ridge-bill.pdf",
+      "uploadedBy": "44444444-0000-0000-0000-000000000001",
       "vendor": {
         "vendorUuid": "22222222-0000-0000-0000-000000000003",
         "name": "Copper Ridge Waste Services",
@@ -62,6 +68,7 @@
     },
     {
       "file": "cedar-valley-bill.pdf",
+      "uploadedBy": "44444444-0000-0000-0000-000000000002",
       "vendor": {
         "vendorUuid": "22222222-0000-0000-0000-000000000004",
         "name": "Cedar Valley Pest Control",
@@ -79,6 +86,7 @@
     },
     {
       "file": "harborlight-bill.pdf",
+      "uploadedBy": "44444444-0000-0000-0000-000000000001",
       "vendor": {
         "vendorUuid": "22222222-0000-0000-0000-000000000005",
         "name": "Harborlight Security",

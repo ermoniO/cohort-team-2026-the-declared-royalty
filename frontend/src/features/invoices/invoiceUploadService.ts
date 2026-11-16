@@ -37,9 +37,11 @@ async function readErrorMessage(response: Response): Promise<string> {
  * automatically. Add the Authorization header here (export getAuthHeader from
  * apiClient), and handle 401 the same way apiClient does.
  */
-export async function uploadInvoice(file: File): Promise<InvoiceUploadResponse> {
+export async function uploadInvoice(file: File, uploadedBy?: string): Promise<InvoiceUploadResponse> {
   const body = new FormData();
   body.append("file", file);
+  // TODO(auth): the backend should take the uploader from the token instead
+  if (uploadedBy) body.append("uploadedBy", uploadedBy);
 
   let response: Response;
   try {
