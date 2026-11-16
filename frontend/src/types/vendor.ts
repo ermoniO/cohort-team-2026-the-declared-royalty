@@ -4,9 +4,7 @@ export type PaymentMethod =
   | "ACH"
   | "CHECK"
   | "CREDIT_CARD"
-  | "DEBIT_CARD"
-  | "WIRE_TRANSFER"
-  | "OTHER";
+
 
 export type Vendor = {
   vendorId?: string;
