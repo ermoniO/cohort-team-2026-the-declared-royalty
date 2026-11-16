@@ -110,7 +110,7 @@ export const NewBillModal: React.FC<NewBillModalProps> = ({ isOpen, onClose }) =
               issueDate,
               dueDate,
               intakeMethod,
-              status: 'uploaded',
+              status: 'intake',
               backendStatus: 'INGESTED',
               notes: `Uploaded live PDF: ${file.name}`,
             });
@@ -141,7 +141,7 @@ export const NewBillModal: React.FC<NewBillModalProps> = ({ isOpen, onClose }) =
       issueDate,
       dueDate,
       intakeMethod,
-      status: 'uploaded',
+      status: 'intake',
       backendStatus: 'INGESTED',
       notes,
     });

@@ -762,7 +762,7 @@ export function useInvoices({
       subtotal: amount,
       tax: 0,
       amount,
-      status: data.status || 'uploaded',
+      status: data.status || 'intake',
       backendStatus: data.backendStatus || 'INGESTED',
       confidenceScore: 0,
       approvalTier: 'property_manager',

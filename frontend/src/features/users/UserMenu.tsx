@@ -132,11 +132,6 @@ export default function UserMenu({ currentUser }: UserMenuProps) {
                 </p>
               )}
             </div>
-            {user?.role && (
-              <span className="font-inter-semibold shrink-0 rounded bg-[#e8f7ed] px-1.5 py-0.5 text-[10px] text-[#16834a]">
-                {user.role}
-              </span>
-            )}
           </div>
 
           {/* TODO(auth): remove Switch user (or keep it as admin-only impersonation,
@@ -186,9 +181,6 @@ export default function UserMenu({ currentUser }: UserMenuProps) {
                         <span className="min-w-0 flex-1">
                           <span className="font-inter-medium block truncate">
                             {getDisplayName(option)}
-                          </span>
-                          <span className="font-inter-regular block truncate text-[11px] text-[#98a29c]">
-                            {option.role}
                           </span>
                         </span>
                         {checked && (

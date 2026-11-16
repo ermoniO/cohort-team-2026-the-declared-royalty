@@ -47,7 +47,7 @@ function UserList() {
               <h2 className="font-medium">{user.username || "Unnamed user"}</h2>
               <p>{user.email || "No email"}</p>
               <p>
-                {user.role || "No role"} · {user.status || "No status"}
+                {user.status || "No status"}
               </p>
             </li>
           ))}

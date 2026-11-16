@@ -16,7 +16,6 @@ const makeUser = (overrides: Partial<UserResponse>): UserResponse => ({
   userId: "6aabd049-1200-4b71-b72f-1e24907045d7",
   username: "Jordan Lee",
   email: "jordan@example.com",
-  role: "ADMIN",
   status: "ACTIVE",
   createdAt: "2026-11-07T00:00:00Z",
   updatedAt: "2026-11-07T00:00:00Z",

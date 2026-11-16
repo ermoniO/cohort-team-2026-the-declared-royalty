@@ -78,7 +78,7 @@ export function useAuditHistory(targetInvoiceUuid?: string, enabled: boolean = t
       if (!user) return { name: `User ${userUuid.slice(0, 8)}`, role: null, avatarUrl: null };
       return {
         name: getDisplayName(user),
-        role: user.role ? titleCase(user.role) : null,
+        role: null,
         avatarUrl: user.avatarUrl ?? null,
       };
     },

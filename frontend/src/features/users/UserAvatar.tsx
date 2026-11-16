@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { Bot } from 'lucide-react';
+import type { UserResponse } from '@/types/user';
 import {
   buildDeterministicFaceSvgDataUrl,
+  getDisplayName,
   getInitials,
   isSystemUser,
 } from './userDisplay';
 
 export interface UserAvatarProps {
+  user?: UserResponse | null;
   userId?: string | null;
   name?: string | null;
   role?: string | null;
@@ -20,6 +23,7 @@ export interface UserAvatarProps {
 }
 
 export const UserAvatar: React.FC<UserAvatarProps> = ({
+  user,
   userId,
   name,
   role,
@@ -33,16 +37,20 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
 }) => {
   const [imgFailed, setImgFailed] = useState(false);
 
-  const displayName = (name ?? '').trim() || 'Team Member';
+  const effectiveUserId = userId ?? user?.userId ?? null;
+  const effectiveName = name ?? (user ? getDisplayName(user) : null);
+  const effectiveAvatarUrl = avatarUrl ?? user?.avatarUrl ?? null;
+
+  const displayName = (effectiveName ?? '').trim() || 'Team Member';
   const initials = getInitials(displayName);
-  const systemActor = isSystemUser({ userId, name: displayName, isSystem });
+  const systemActor = isSystemUser({ userId: effectiveUserId, name: displayName, isSystem });
   const accessibleTitle = title || (role ? `${displayName} · ${role}` : displayName);
 
   const resolvedSrc = systemActor
     ? ''
-    : avatarUrl && avatarUrl.trim().length > 0
-      ? avatarUrl.trim()
-      : buildDeterministicFaceSvgDataUrl(userId || displayName, displayName);
+    : effectiveAvatarUrl && effectiveAvatarUrl.trim().length > 0
+      ? effectiveAvatarUrl.trim()
+      : buildDeterministicFaceSvgDataUrl(effectiveUserId || displayName, displayName);
 
   useEffect(() => {
     setImgFailed(false);

@@ -4,8 +4,8 @@ import { HttpError } from "@/app/services/apiClient";
 import { describeDeleteError } from "@/app/services/describeDeleteError";
 import { TextField } from "@/components/ui/Field";
 import FormModal, { FormAlert } from "@/components/ui/FormModal";
-import type { PropertyCreateRequest, PropertyResponse } from "@/types/property";
-import { createProperty, deleteProperty, updateProperty } from "@/app/services/propertyService";
+import type { PropertyCreateRequest, PropertyResponse } from "@/types/api";
+import { createProperty, deleteProperty, updateProperty } from "./propertyService.ts";
 import { describeSaveError } from "./propertySaveErrors";
 import {
   addressChanged,

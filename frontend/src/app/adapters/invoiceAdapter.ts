@@ -40,7 +40,7 @@ export function mapInvoiceResponseToUI(dto: InvoiceResponse): Invoice | null {
       ? 0
       : dto.mappingUuid != null && dto.vendorName != null && dto.amount != null
         ? 96
-        : dto.invoiceStatus !== 'INGESTED' && dto.amount != null && dto.mappingUuid == null
+        : dto.amount != null && dto.mappingUuid == null
           ? 72
           : 0;
 

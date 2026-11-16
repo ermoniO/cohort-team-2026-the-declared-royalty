@@ -1,6 +1,6 @@
 import { type ResourceListState, useResourceList } from "@/app/hooks/useResourceList";
-import type { PropertyResponse } from "@/types/property";
-import { getProperties } from "@/app/services/propertyService";
+import type { PropertyResponse } from "@/types/api";
+import { getProperties } from "./propertyService.ts";
 
 export type PropertiesState = ResourceListState<PropertyResponse>;
 

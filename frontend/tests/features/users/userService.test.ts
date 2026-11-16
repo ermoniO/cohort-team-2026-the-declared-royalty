@@ -16,7 +16,6 @@ const user: UserResponse = {
   userId: USER_ID,
   username: "fetch-test",
   email: "fetch-test@example.com",
-  role: "ADMIN",
   status: "ACTIVE",
   createdAt: "2026-11-06T00:16:27.190079Z",
   updatedAt: "2026-11-06T00:16:27.190087Z",
@@ -107,23 +106,23 @@ describe("createUser", () => {
 
 describe("updateUserByUserId", () => {
   it("PUTs only the fields provided and returns the updated user", async () => {
-    const updated = { ...user, role: "SUPER_ADMIN" };
+    const updated = { ...user, status: "INACTIVE" };
     respondWith(200, updated);
 
     await expect(
-      updateUserByUserId(USER_ID, { role: "SUPER_ADMIN" }),
+      updateUserByUserId(USER_ID, { status: "INACTIVE" }),
     ).resolves.toEqual(updated);
 
     const { url, init } = lastRequest();
     expect(url).toBe(`${BASE_URL}/${USER_ID}`);
     expect(init?.method).toBe("PUT");
-    expect(init?.body).toBe(JSON.stringify({ role: "SUPER_ADMIN" }));
+    expect(init?.body).toBe(JSON.stringify({ status: "INACTIVE" }));
   });
 
   it("rejects when the user is not found", async () => {
     respondWith(404);
 
-    await expect(updateUserByUserId(USER_ID, { role: "ADMIN" })).rejects.toThrow(
+    await expect(updateUserByUserId(USER_ID, { status: "INACTIVE" })).rejects.toThrow(
       "404",
     );
   });
