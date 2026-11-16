@@ -10,6 +10,8 @@ servers:
 paths:
   /api/v1/properties:
     $ref: './paths/properties.yaml'
+  /api/v1/properties/match:
+    $ref: './paths/properties_match.yaml'
   /api/v1/properties/{propertyId}:
     $ref: './paths/properties_by_id.yaml'
   /api/v1/users:

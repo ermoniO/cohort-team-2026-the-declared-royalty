@@ -15,6 +15,12 @@ post:
             file:
               type: string
               format: binary
+            uploadedBy:
+              type: string
+              format: uuid
+              description: >
+                The user uploading the file. Defaults to the System user when omitted.
+                TODO(auth): take this from the signed-in user instead of the request.
   responses:
     '201':
       description: File stored and invoice created in INGESTED status

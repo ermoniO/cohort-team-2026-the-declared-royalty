@@ -22,6 +22,7 @@ import java.util.UUID;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -51,7 +52,7 @@ class InvoiceUploadControllerTest {
     @Test
     void upload_success_returns201WithInvoiceDetails() throws Exception {
         UUID id = UUID.randomUUID();
-        when(invoiceUploadService.upload(any())).thenReturn(InvoiceEntity.builder()
+        when(invoiceUploadService.upload(any(), any())).thenReturn(InvoiceEntity.builder()
                 .invoiceId(id)
                 .invoiceStatus("INGESTED")
                 .originalFilename("brightwater.pdf")
@@ -67,8 +68,33 @@ class InvoiceUploadControllerTest {
     }
 
     @Test
+    void upload_passesTheUploaderThrough() throws Exception {
+        UUID uploader = UUID.randomUUID();
+        when(invoiceUploadService.upload(any(), eq(uploader))).thenReturn(InvoiceEntity.builder()
+                .invoiceId(UUID.randomUUID())
+                .invoiceStatus("INGESTED")
+                .createdAt(CREATED_AT)
+                .build());
+
+        mockMvc.perform(multipart(UPLOAD_URL).file(pdf()).param("uploadedBy", uploader.toString()))
+                .andExpect(status().isCreated());
+
+        verify(invoiceUploadService).upload(any(), eq(uploader));
+    }
+
+    @Test
+    void upload_unknownUploader_returns400() throws Exception {
+        when(invoiceUploadService.upload(any(), any()))
+                .thenThrow(new BadRequestException("Unknown uploader: x"));
+
+        mockMvc.perform(multipart(UPLOAD_URL).file(pdf()).param("uploadedBy", UUID.randomUUID().toString()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Unknown uploader: x"));
+    }
+
+    @Test
     void upload_invalidFile_returns400ErrorResponse() throws Exception {
-        when(invoiceUploadService.upload(any()))
+        when(invoiceUploadService.upload(any(), any()))
                 .thenThrow(new InvalidFileException("File type invalid: only PDF, PNG and JPEG are accepted"));
 
         mockMvc.perform(multipart(UPLOAD_URL).file(pdf()))
@@ -82,7 +108,7 @@ class InvoiceUploadControllerTest {
 
     @Test
     void upload_duplicate_returns409ErrorResponse() throws Exception {
-        when(invoiceUploadService.upload(any()))
+        when(invoiceUploadService.upload(any(), any()))
                 .thenThrow(new DuplicateFileException("Duplicate file: this file has already been uploaded"));
 
         mockMvc.perform(multipart(UPLOAD_URL).file(pdf()))
@@ -93,7 +119,7 @@ class InvoiceUploadControllerTest {
 
     @Test
     void upload_storageDown_returns503WithoutLeakingInternals() throws Exception {
-        when(invoiceUploadService.upload(any()))
+        when(invoiceUploadService.upload(any(), any()))
                 .thenThrow(new StorageException("Failed to store file in MinIO",
                         new RuntimeException("InvalidAccessKeyId")));
 
@@ -107,7 +133,7 @@ class InvoiceUploadControllerTest {
     void upload_tooLarge_returns413ErrorResponse() throws Exception {
         // In production the multipart resolver throws this before the controller runs;
         // here it's thrown from the service just to prove the handler maps it to 413
-        when(invoiceUploadService.upload(any()))
+        when(invoiceUploadService.upload(any(), any()))
                 .thenThrow(new MaxUploadSizeExceededException(5L * 1024 * 1024));
 
         mockMvc.perform(multipart(UPLOAD_URL).file(pdf()))

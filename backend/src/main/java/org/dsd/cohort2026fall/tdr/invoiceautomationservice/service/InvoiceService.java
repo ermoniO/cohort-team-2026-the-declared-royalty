@@ -46,15 +46,18 @@ public class InvoiceService {
     private final InvoiceRepository invoiceRepository;
     private final PropertyVendorMappingRepository mappingRepository;
     private final InvoiceAnalysisService invoiceAnalysisService;
+    private final PropertyAddressMatcher propertyAddressMatcher;
 
     public InvoiceService(
             InvoiceRepository invoiceRepository,
             PropertyVendorMappingRepository mappingRepository,
-            InvoiceAnalysisService invoiceAnalysisService
+            InvoiceAnalysisService invoiceAnalysisService,
+            PropertyAddressMatcher propertyAddressMatcher
     ) {
         this.invoiceRepository = invoiceRepository;
         this.mappingRepository = mappingRepository;
         this.invoiceAnalysisService = invoiceAnalysisService;
+        this.propertyAddressMatcher = propertyAddressMatcher;
     }
 
     @Transactional(readOnly = true)
@@ -126,9 +129,15 @@ public class InvoiceService {
 
     public InvoiceResponse updateInvoice(UUID invoiceUuid, InvoiceUpdateRequest request) {
         InvoiceEntity invoice = findInvoice(invoiceUuid);
-        PropertyVendorMappingEntity mapping = request.getMappingUuid() == null
-                ? invoice.getMapping()
-                : findMapping(request.getMappingUuid());
+        // An explicit mapping wins; otherwise the address on the bill picks the property
+        PropertyVendorMappingEntity mapping;
+        if (request.getMappingUuid() != null) {
+            mapping = findMapping(request.getMappingUuid());
+        } else if (request.getPropertyAddress() != null && !request.getPropertyAddress().isBlank()) {
+            mapping = mappingForAddress(invoice, request.getVendorUuid(), request.getPropertyAddress(), request.getPropertyName());
+        } else {
+            mapping = invoice.getMapping();
+        }
 
         var billingPeriodStart = request.getBillingPeriodStart() == null
                 ? invoice.getBillingPeriodStart()
@@ -138,7 +147,9 @@ public class InvoiceService {
                 : request.getBillingPeriodEnd();
         validateBillingPeriod(billingPeriodStart, billingPeriodEnd);
         validateAmount(request.getAmount());
-        ensureNotDuplicate(mapping.getMappingId(), invoice.getVendorSuppliedInvoiceId(), billingPeriodEnd, invoiceUuid);
+        if (mapping != null) {
+            ensureNotDuplicate(mapping.getMappingId(), invoice.getVendorSuppliedInvoiceId(), billingPeriodEnd, invoiceUuid);
+        }
 
         invoice.setMapping(mapping);
         if (request.getBillingPeriodStart() != null) {
@@ -207,6 +218,44 @@ public class InvoiceService {
     private PropertyVendorMappingEntity findMapping(UUID mappingUuid) {
         return mappingRepository.findById(mappingUuid)
                 .orElseThrow(() -> new ResourceNotFoundException("Property-vendor mapping not found: " + mappingUuid));
+    }
+
+    // The vendor's mapping to the one property at this address. Never guesses: no match, several
+    // matching properties or several mappings all leave the invoice unchanged and say why.
+    private PropertyVendorMappingEntity mappingForAddress(InvoiceEntity invoice, UUID vendorUuid, String address, String name) {
+        UUID vendorId = vendorUuid;
+        if (vendorId == null && invoice.getMapping() != null && invoice.getMapping().getVendor() != null) {
+            vendorId = invoice.getMapping().getVendor().getVendorId();
+        }
+        if (vendorId == null) {
+            throw new BadRequestException("vendorUuid is required to match by address: this invoice has no vendor yet");
+        }
+
+        List<PropertyEntity> properties = propertyAddressMatcher.findMatches(address, name);
+        String described = (name == null || name.isBlank() ? "" : "'" + name + "' at ") + "the address '" + address + "'";
+        if (properties.isEmpty()) {
+            throw new PropertyMatchException("No property matches " + described);
+        }
+        if (properties.size() > 1) {
+            throw new PropertyMatchException("The address '" + address + "'"
+                    + (name == null || name.isBlank() ? "" : " and name '" + name + "'")
+                    + " match " + properties.size() + " properties ("
+                    + properties.stream().map(p -> p.getPropertyId().toString()).collect(java.util.stream.Collectors.joining(", "))
+                    + "): give mappingUuid to choose one");
+        }
+
+        PropertyEntity property = properties.getFirst();
+        List<PropertyVendorMappingEntity> mappings =
+                mappingRepository.findByVendor_VendorIdAndProperty_PropertyId(vendorId, property.getPropertyId());
+        if (mappings.isEmpty()) {
+            throw new PropertyMatchException("Vendor " + vendorId + " isn't linked to " + property.getName()
+                    + " (" + property.getPropertyId() + "): add a property-vendor mapping first");
+        }
+        if (mappings.size() > 1) {
+            throw new PropertyMatchException("Vendor " + vendorId + " has " + mappings.size() + " mappings for "
+                    + property.getName() + ": give mappingUuid to choose one");
+        }
+        return mappings.getFirst();
     }
 
     private void ensureNotDuplicate(UUID mappingUuid, String vendorInvoiceId, java.time.LocalDate billingPeriodEnd, UUID currentInvoiceUuid) {
@@ -296,6 +345,10 @@ public class InvoiceService {
            }
         }
         response.setOriginalFilename(entity.getOriginalFilename());
+        if (entity.getUploadedBy() != null) {
+            response.setUploadedByUuid(entity.getUploadedBy().getUserId());
+            response.setUploadedByName(entity.getUploadedBy().getUserName());
+        }
         response.setVendorSuppliedInvoiceId(entity.getVendorSuppliedInvoiceId());
         response.setDescription(entity.getDescription());
         response.setBillingPeriodStart(entity.getBillingPeriodStart());

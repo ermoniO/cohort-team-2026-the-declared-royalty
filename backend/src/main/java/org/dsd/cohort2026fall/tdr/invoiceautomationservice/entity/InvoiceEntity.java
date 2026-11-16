@@ -63,6 +63,11 @@ public class InvoiceEntity {
     @Column(name = "original_filename")
     private String originalFilename;
 
+    // Who uploaded the file; null for manually entered invoices
+    @ManyToOne
+    @JoinColumn(name = "uploaded_by")
+    private UserEntity uploadedBy;
+
     @Builder.Default
     @Column(name = "created_at", updatable = false, nullable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();

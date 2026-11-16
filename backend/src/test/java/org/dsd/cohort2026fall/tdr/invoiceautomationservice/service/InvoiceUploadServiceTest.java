@@ -2,6 +2,7 @@ package org.dsd.cohort2026fall.tdr.invoiceautomationservice.service;
 
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.InvoiceEntity;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.UserEntity;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.BadRequestException;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.DuplicateFileException;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.InvalidFileException;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.ResourceNotFoundException;
@@ -36,6 +37,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.AuditLogCreateRequest.ActionTypeEnum.SYSTEM_INGESTED;
+import static org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.AuditLogCreateRequest.ActionTypeEnum.USER_INGESTED;
 
 @ExtendWith(MockitoExtension.class)
 class InvoiceUploadServiceTest {
@@ -103,6 +105,51 @@ class InvoiceUploadServiceTest {
         assertThat(result.getBlobFileUrl()).isEqualTo("invoices/test-key.png");
     }
 
+    @Test
+    void upload_withoutUploader_isRecordedAsTheSystemUser() {
+        stubSystemUser();
+        when(storageService.store(any(), eq("pdf"))).thenReturn(STORAGE_KEY);
+        when(invoiceRepository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        InvoiceEntity result = service.upload(pdf("bill.pdf"), null);
+
+        assertThat(result.getUploadedBy().getUserId()).isEqualTo(InvoiceUploadService.SYSTEM_USER_ID);
+    }
+
+    @Test
+    void upload_byAUser_storesThemAsUploader_andAuditsAsThem() {
+        UUID userId = UUID.randomUUID();
+        UserEntity user = UserEntity.builder().userId(userId).userName("Jordan Rivera").build();
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(storageService.store(any(), eq("pdf"))).thenReturn(STORAGE_KEY);
+        when(invoiceRepository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        InvoiceEntity result = service.upload(pdf("bill.pdf"), userId);
+
+        assertThat(result.getUploadedBy()).isSameAs(user);
+        verify(auditLogService).record(
+                eq(result.getInvoiceId()),
+                eq(userId),
+                eq(USER_INGESTED),
+                eq("File uploaded and stored"),
+                eq("NONE"),
+                eq(InvoiceUploadService.STATUS_INGESTED),
+                anyString());
+    }
+
+    @Test
+    void upload_byAnUnknownUser_isRejected_andNothingStored() {
+        UUID unknown = UUID.randomUUID();
+        when(userRepository.findById(unknown)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.upload(pdf("bill.pdf"), unknown))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining(unknown.toString());
+
+        verifyNoInteractions(storageService);
+        verify(invoiceRepository, never()).saveAndFlush(any());
+    }
+
     // ---------- validation ----------
 
     @Test
@@ -159,6 +206,7 @@ class InvoiceUploadServiceTest {
 
     @Test
     void simultaneousDuplicate_caughtByUniqueIndex_deletesStoredFile() {
+        stubSystemUser();
         when(storageService.store(any(), eq("pdf"))).thenReturn(STORAGE_KEY);
         when(invoiceRepository.saveAndFlush(any()))
                 .thenThrow(new DataIntegrityViolationException("unique violation"));
@@ -206,6 +254,7 @@ class InvoiceUploadServiceTest {
 
     @Test
     void databaseFailure_deletesStoredFile() {
+        stubSystemUser();
         when(storageService.store(any(), eq("pdf"))).thenReturn(STORAGE_KEY);
         when(invoiceRepository.saveAndFlush(any())).thenThrow(new RuntimeException("db down"));
 
@@ -217,16 +266,14 @@ class InvoiceUploadServiceTest {
     }
 
     @Test
-    void missingSystemUser_failsClearly_andDeletesStoredFile() {
-        when(storageService.store(any(), eq("pdf"))).thenReturn(STORAGE_KEY);
-        when(invoiceRepository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
+    void missingSystemUser_failsClearly_beforeStoringAnything() {
         when(userRepository.findById(InvoiceUploadService.SYSTEM_USER_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.upload(pdf("bill.pdf")))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("V4");
 
-        verify(storageService).delete(STORAGE_KEY);
+        verifyNoInteractions(storageService);
     }
 
     // ---------- filename handling ----------

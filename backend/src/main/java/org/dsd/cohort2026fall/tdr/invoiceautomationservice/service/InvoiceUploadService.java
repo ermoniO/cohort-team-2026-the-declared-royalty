@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.InvoiceEntity;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.UserEntity;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.BadRequestException;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.DuplicateFileException;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.InvalidFileException;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.ResourceNotFoundException;
@@ -56,6 +57,14 @@ public class InvoiceUploadService {
     private final TransactionTemplate transactionTemplate;
 
     public InvoiceEntity upload(MultipartFile file) {
+        return upload(file, null);
+    }
+
+    /**
+     * Stores the file and creates its invoice. {@code uploadedBy} is the uploading user;
+     * null means the System user. TODO(auth): take it from the signed-in user instead.
+     */
+    public InvoiceEntity upload(MultipartFile file, UUID uploadedBy) {
         if (file == null || file.isEmpty()) {
             throw new InvalidFileException("File is empty");
         }
@@ -75,10 +84,11 @@ public class InvoiceUploadService {
 
         String hash = sha256(bytes);
         String filename = cleanFilename(file.getOriginalFilename());
+        UserEntity uploader = resolveUploader(uploadedBy);
 
         Optional<InvoiceEntity> existing = invoiceRepository.findByBlobFileSha256(hash);
         if (existing.isPresent()) {
-            recordDuplicateAttempt(existing.get(), filename);
+            recordDuplicateAttempt(existing.get(), filename, uploader);
             throw new DuplicateFileException(DUPLICATE_MESSAGE);
         }
 
@@ -93,12 +103,13 @@ public class InvoiceUploadService {
                         .blobFileUrl(key)
                         .blobFileSha256(hash)
                         .originalFilename(filename)
+                        .uploadedBy(uploader)
                         .build());
 
                 auditLogService.record(
                         saved.getInvoiceId(),
-                        systemUser().getUserId(),
-                        AuditLogCreateRequest.ActionTypeEnum.SYSTEM_INGESTED,
+                        uploader.getUserId(),
+                        ingestedBy(uploader),
                         "File uploaded and stored",
                         "NONE",
                         STATUS_INGESTED,
@@ -140,12 +151,12 @@ public class InvoiceUploadService {
         return new InvoiceFile(storageService.load(key), contentType, filename);
     }
 
-    private void recordDuplicateAttempt(InvoiceEntity original, String filename) {
+    private void recordDuplicateAttempt(InvoiceEntity original, String filename, UserEntity uploader) {
         try {
             auditLogService.record(
                     original.getInvoiceId(),
-                    systemUser().getUserId(),
-                    AuditLogCreateRequest.ActionTypeEnum.SYSTEM_INGESTED,
+                    uploader.getUserId(),
+                    ingestedBy(uploader),
                     "Duplicate upload rejected",
                     original.getInvoiceStatus(),
                     original.getInvoiceStatus(),
@@ -153,6 +164,18 @@ public class InvoiceUploadService {
         } catch (RuntimeException e) {
             log.warn("Could not record duplicate upload attempt for invoice {}", original.getInvoiceId(), e);
         }
+    }
+
+    private UserEntity resolveUploader(UUID uploadedBy) {
+        if (uploadedBy == null) return systemUser();
+        return userRepository.findById(uploadedBy)
+                .orElseThrow(() -> new BadRequestException("Unknown uploader: " + uploadedBy));
+    }
+
+    private static AuditLogCreateRequest.ActionTypeEnum ingestedBy(UserEntity uploader) {
+        return SYSTEM_USER_ID.equals(uploader.getUserId())
+                ? AuditLogCreateRequest.ActionTypeEnum.SYSTEM_INGESTED
+                : AuditLogCreateRequest.ActionTypeEnum.USER_INGESTED;
     }
 
     private UserEntity systemUser() {
