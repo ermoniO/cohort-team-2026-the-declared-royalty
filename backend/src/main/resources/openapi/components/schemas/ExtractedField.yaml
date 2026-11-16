@@ -1,0 +1,27 @@
+type: object
+required:
+  - level
+  - confidence
+properties:
+  value:
+    type: string
+    nullable: true
+    description: Value as read from the bill (dates as YYYY-MM-DD, amounts as plain numbers). Null when not found.
+  confidence:
+    type: number
+    format: double
+    minimum: 0
+    maximum: 1
+    description: The AI's score for how clearly the value was printed (readability), not whether it's correct
+  level:
+    type: string
+    enum:
+      - HIGH
+      - MEDIUM
+      - LOW
+      - NOT_FOUND
+    description: Set by checks against vendors, properties, account numbers and past bills
+  reason:
+    type: string
+    nullable: true
+    description: Why the level was given, e.g. "The account number belongs to City Water"

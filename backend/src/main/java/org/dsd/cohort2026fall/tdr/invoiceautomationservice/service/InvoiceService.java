@@ -184,8 +184,8 @@ public class InvoiceService {
         for(int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++){
             try {
                 InvoiceAnalysisResponse response = invoiceAnalysisService.analyzeInvoice(invoiceUuid);
-                if(response.getError().contains("No values could be extracted")) throw new InvoiceNoDataException("File " + invoiceUuid + " contains no valid data, likely not an invoice");
-                return response;
+                // error is null when the model had no problem (see llm_prompt.txt)
+                if(response.getError() != null && response.getError().contains("No values could be extracted")) throw new InvoiceNoDataException("File " + invoiceUuid + " contains no valid data, likely not an invoice");                return response;
             } catch(JsonProcessingException e){
                 log.error("Attempt " + attempt + " failed. Model returned malformed Json object:  " + e.getMessage());
                 if(attempt== MAX_ATTEMPTS) throw new InvoiceAnalysisFailureException("Invoice extraction failed after " + attempt +" attempts. Model returned malformed Json object.");

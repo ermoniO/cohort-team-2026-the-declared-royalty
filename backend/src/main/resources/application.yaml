@@ -1,12 +1,12 @@
 server:
-  port: ${PORT:8080}
+  port: ${BACKEND_PORT:${SERVER_PORT:${PORT:8080}}}
 
 spring:
   application:
     name: invoice-automation-service
 
   datasource:
-    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB}
+    url: ${POSTGRES_URL}
     username: ${POSTGRES_USER}
     password: ${POSTGRES_PASSWORD}
     driver-class-name: org.postgresql.Driver
@@ -34,17 +34,18 @@ management:
       show-details: always
 
 frontend:
-  url: ${FRONTEND_URL:http://localhost:5173}
+  url: ${FRONTEND_URL:http://localhost:${FRONTEND_PORT:5173}}
 
 llm:
   api-key: ${LLM_API_KEY:-test-api-key}
   max-attempts: ${MAX_QUERY_ATTEMPTS_PER_CALL:-3}
 
-minio:
-  endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
-  access-key: ${MINIO_USER:minio_user}
-  secret-key: ${MINIO_PASSWORD:minio_password}
-  bucket: ${MINIO_BUCKET:invoices}
+blob-storage:
+  endpoint: ${BLOB_ENDPOINT:http://localhost:${MINIO_PORT:9000}}
+  access-key: ${BLOB_USER:minio_user}
+  secret-key: ${BLOB_PASSWORD:minio_password}
+  bucket: ${BLOB_BUCKET:invoices}
+  region: ${BLOB_REGION:us-east-1}
 
 stripe:
   enabled: ${STRIPE_ENABLED:false}
