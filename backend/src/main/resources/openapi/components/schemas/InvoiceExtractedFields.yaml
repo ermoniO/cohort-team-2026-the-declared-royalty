@@ -1,0 +1,33 @@
+type: object
+required:
+  - vendorName
+  - propertyAddress
+  - propertyName
+  - vendorSuppliedInvoiceId
+  - vendorAccountNumber
+  - amount
+  - dueDate
+  - billingPeriodStart
+  - billingPeriodEnd
+  - invoiceCreationDate
+properties:
+  vendorName:
+    $ref: './ExtractedField.yaml'
+  propertyAddress:
+    $ref: './ExtractedField.yaml'
+  propertyName:
+    $ref: './ExtractedField.yaml'
+  vendorSuppliedInvoiceId:
+    $ref: './ExtractedField.yaml'
+  vendorAccountNumber:
+    $ref: './ExtractedField.yaml'
+  amount:
+    $ref: './ExtractedField.yaml'
+  dueDate:
+    $ref: './ExtractedField.yaml'
+  billingPeriodStart:
+    $ref: './ExtractedField.yaml'
+  billingPeriodEnd:
+    $ref: './ExtractedField.yaml'
+  invoiceCreationDate:
+    $ref: './ExtractedField.yaml'

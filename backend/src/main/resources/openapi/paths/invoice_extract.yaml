@@ -1,0 +1,53 @@
+parameters:
+  - name: invoiceUuid
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+post:
+  tags:
+    - Invoice Extraction
+  summary: Run AI extraction on an uploaded invoice
+  description: >
+    Reads the invoice's file with the AI model and returns the values with confidence scores and a
+    suggested vendor/property. The values are not saved to the invoice until a user verifies them;
+    the invoice moves to PENDING_MAPPING.
+  operationId: extractInvoice
+  responses:
+    '200':
+      description: Extracted values
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/InvoiceExtractionResponse.yaml'
+    '404':
+      description: Invoice not found
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'
+    '409':
+      description: Invoice is past review, or has no uploaded file
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'
+    '422':
+      description: The file has no readable invoice data (likely not an invoice)
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'
+    '502':
+      description: The AI model failed or returned an unreadable response
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'
+    '503':
+      description: File storage unavailable
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'
