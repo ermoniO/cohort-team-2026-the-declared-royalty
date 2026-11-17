@@ -3,6 +3,7 @@ package org.dsd.cohort2026fall.tdr.invoiceautomationservice.service;
 import com.stripe.StripeClient;
 import com.stripe.exception.StripeException;
 import com.stripe.model.PaymentIntent;
+import com.stripe.model.terminal.Configuration;
 import com.stripe.net.RequestOptions;
 import com.stripe.param.PaymentIntentCreateParams;
 import lombok.extern.slf4j.Slf4j;
@@ -12,6 +13,7 @@ import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.PaymentAttempt
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.StripeWebhookEventEntity;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.BadRequestException;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.ResourceNotFoundException;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.AuditLogCreateRequest.ActionTypeEnum;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.InvoiceStatus;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.StripePaymentRequest;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.StripePaymentResponse;
@@ -22,6 +24,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.UUID;
 import java.util.List;
@@ -35,21 +38,26 @@ public class StripePaymentService {
     private final StripeProperties stripeProperties;
     private final ObjectProvider<StripeClient> stripeClientProvider;
     private final StripeWebhookEventRepository webhookEventRepository;
+    private final AuditLogService auditLogService;
 
     public StripePaymentService(
             InvoiceRepository invoiceRepository,
             PaymentAttemptRepository paymentAttemptRepository,
             StripeProperties stripeProperties,
             ObjectProvider<StripeClient> stripeClientProvider,
-            StripeWebhookEventRepository webhookEventRepository) {
+            StripeWebhookEventRepository webhookEventRepository,
+            AuditLogService auditLogService) {
         this.invoiceRepository = invoiceRepository;
         this.paymentAttemptRepository = paymentAttemptRepository;
         this.stripeProperties = stripeProperties;
         this.stripeClientProvider = stripeClientProvider;
         this.webhookEventRepository = webhookEventRepository;
+        this.auditLogService = auditLogService;
     }
 
-    @Transactional
+    // noRollbackFor: when Stripe rejects a payment, the FAILED payment attempt is still saved
+    // (before this, the BadRequestException rolled it back)
+    @Transactional(noRollbackFor = BadRequestException.class)
     public StripePaymentResponse createPayment(UUID invoiceId, StripePaymentRequest request) {
         if (!stripeProperties.enabled()) {
             throw new BadRequestException("Stripe integration is disabled");
@@ -65,18 +73,20 @@ public class StripePaymentService {
         InvoiceEntity invoice = invoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice not found: " + invoiceId));
         if (!InvoiceStatus.APPROVED.getValue().equals(invoice.getInvoiceStatus())) {
-            throw new BadRequestException("Invoice must be APPROVED before a Stripe payment is requested");
+            throw rejected(invoice, "Invoice must be APPROVED before a Stripe payment is requested", null);
         }
         if (!Boolean.TRUE.equals(request.getHumanApprovalConfirmed())) {
-            throw new BadRequestException("Human approval is required before finalizing a Stripe payment request");
+            throw rejected(invoice, "Human approval is required before finalizing a Stripe payment request", null);
         }
         if (invoice.getAmount() == null || request.getApprovedAmount().compareTo(invoice.getAmount()) != 0) {
-            throw new BadRequestException("approvedAmount must exactly match the persisted invoice amount");
+            throw rejected(invoice, "approvedAmount must exactly match the persisted invoice amount",
+                    "Requested " + plain(request.getApprovedAmount()) + ", invoice amount is " + plain(invoice.getAmount()));
         }
         String currency = request.getCurrency().trim().toLowerCase();
         if (!stripeProperties.currency().equalsIgnoreCase(currency)) {
-            throw new BadRequestException("Unsupported Stripe currency: " + currency);
+            throw rejected(invoice, "Unsupported Stripe currency: " + currency, null);
         }
+        String fromStatus = invoice.getInvoiceStatus();
 
         UUID attemptId = UUID.randomUUID();
         String idempotencyKey = "invoice-payment-" + invoiceId + "-" + attemptId;
@@ -104,25 +114,38 @@ public class StripePaymentService {
                 .putMetadata("payment_attempt_id", attemptId.toString())
                 .build();
 
+        PaymentIntent intent;
         try {
             RequestOptions options = RequestOptions.builder()
                     .setIdempotencyKey(idempotencyKey)
                     .build();
-            PaymentIntent intent = stripeClientProvider.getObject().v1().paymentIntents().create(params, options);
-            applyIntent(attempt, intent);
-            paymentAttemptRepository.save(attempt);
-            return toResponse(attempt);
+            intent = stripeClientProvider.getObject().v1().paymentIntents().create(params, options);
         } catch (StripeException ex) {
             attempt.setStatus("FAILED");
             attempt.setFailureReason(safeMessage(ex));
             paymentAttemptRepository.save(attempt);
+            recordPaymentFailure(invoice, "Stripe rejected payment request", attemptId, safeMessage(ex));
             throw new BadRequestException("Stripe rejected the payment request");
         } catch (RuntimeException ex) {
             attempt.setStatus("FAILED");
             attempt.setFailureReason(safeMessage(ex));
             paymentAttemptRepository.save(attempt);
+            recordPaymentFailure(invoice, "Payment request failed", attemptId, safeMessage(ex));
             throw ex;
         }
+
+        // Outside the try on purpose: Stripe has accepted the request by now,
+        // so a failure below must not mark the attempt FAILED
+        applyIntent(attempt, intent);
+        paymentAttemptRepository.save(attempt);
+        // TODO(auth): record the person who confirmed the payment instead of the system user
+        auditLogService.record(invoiceId, InvoiceUploadService.SYSTEM_USER_ID, ActionTypeEnum.USER_PAID,
+                "Payment requested via Stripe", fromStatus, invoice.getInvoiceStatus(),
+                "Amount: " + plain(attempt.getAmount()) + " " + currency.toUpperCase()
+                        + " | Stripe status: " + attempt.getStatus()
+                        + " | payment intent: " + attempt.getStripePaymentIntentId()
+                        + " | payment attempt: " + attemptId);
+        return toResponse(attempt);
     }
 
     @Transactional
@@ -145,8 +168,15 @@ public class StripePaymentService {
             if (object instanceof PaymentIntent intent) {
                 paymentAttemptRepository.findByStripePaymentIntentId(intent.getId())
                         .ifPresent(attempt -> {
+                            String fromStatus = attempt.getInvoice().getInvoiceStatus();
                             applyIntent(attempt, intent);
                             paymentAttemptRepository.save(attempt);
+                            auditLogService.record(attempt.getInvoice().getInvoiceId(),
+                                    InvoiceUploadService.SYSTEM_USER_ID, ActionTypeEnum.SYSTEM_PAID,
+                                    "Stripe reported payment " + attempt.getStatus().toLowerCase(),
+                                    fromStatus, attempt.getInvoice().getInvoiceStatus(),
+                                    "Stripe event: " + event.getId() + " (" + event.getType() + ")"
+                                            + " | payment intent: " + intent.getId());
                         });
             }
         } catch (Exception ex) {
@@ -165,6 +195,25 @@ public class StripePaymentService {
         } else if ("REQUIRES_PAYMENT_METHOD".equals(status)) {
             attempt.getInvoice().setInvoiceStatus(InvoiceStatus.FAILED.getValue());
         }
+    }
+
+    // Logs a payment request our own checks turned down, and returns the error for the caller to throw
+    private BadRequestException rejected(InvoiceEntity invoice, String message, String detail) {
+        // TODO(auth): record the person who requested the payment instead of the system user
+        auditLogService.recordFailure(invoice.getInvoiceId(), InvoiceUploadService.SYSTEM_USER_ID,
+                ActionTypeEnum.USER_PAID, "Payment request rejected", invoice.getInvoiceStatus(),
+                detail == null ? message : message + ". " + detail);
+        return new BadRequestException(message);
+    }
+
+    private void recordPaymentFailure(InvoiceEntity invoice, String actionTaken, UUID attemptId, String reason) {
+        auditLogService.recordFailure(invoice.getInvoiceId(), InvoiceUploadService.SYSTEM_USER_ID,
+                ActionTypeEnum.USER_PAID, actionTaken, invoice.getInvoiceStatus(),
+                "Payment attempt " + attemptId + ": " + reason);
+    }
+
+    private static String plain(BigDecimal value) {
+        return value == null ? "(empty)" : value.toPlainString();
     }
 
     private StripePaymentResponse toResponse(PaymentAttemptEntity attempt) {

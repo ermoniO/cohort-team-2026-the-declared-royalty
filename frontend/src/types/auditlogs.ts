@@ -7,7 +7,8 @@ export type AuditActionType =
     | "SYSTEM_MATCHED" | "USER_MATCHED"
     | "SYSTEM_VALIDATED" | "USER_VALIDATED"
     | "SYSTEM_APPROVED" | "USER_APPROVED"
-    | "SYSTEM_PAID" | "USER_PAID";
+    | "SYSTEM_PAID" | "USER_PAID"
+    | "USER_UPDATED";
 
 export type AuditLogs = {
     auditUuid: string,
