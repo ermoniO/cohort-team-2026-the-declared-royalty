@@ -58,14 +58,6 @@ public class AuditLogService {
                 request.getNotes());
     }
 
-    /** Returns a managed user reference for services recording an authenticated action. */
-    public UserEntity getUserReference(UUID userId) {
-        if (userId == null || !userRepository.existsById(userId)) {
-            throw new ResourceNotFoundException("User not found: " + userId);
-        }
-        return userRepository.getReferenceById(userId);
-    }
-
     /**
      * Internal entry point for other services (e.g. InvoiceUploadService).
      * Joins the caller's transaction, so the log and the business change commit together.

@@ -45,19 +45,6 @@ public class PaymentAttemptEntity {
     @Column(name = "human_approved", nullable = false)
     private boolean humanApproved;
 
-    @Column(name = "exception_resolution_status", length = 30)
-    private String exceptionResolutionStatus;
-
-    @Column(name = "resolution_note", length = 3000)
-    private String resolutionNote;
-
-    @Column(name = "resolved_at")
-    private OffsetDateTime resolvedAt;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "resolved_by_user_uuid")
-    private UserEntity resolvedByUser;
-
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 

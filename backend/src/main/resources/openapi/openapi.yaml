@@ -48,10 +48,10 @@ paths:
     $ref: './paths/payments.yaml'
   /api/v1/payments/summary:
     $ref: './paths/payments_summary.yaml'
+  /api/v1/payments/auto-pay:
+    $ref: './paths/payments_auto_pay.yaml'
   /api/v1/payments/{paymentId}:
     $ref: './paths/payments_by_id.yaml'
-  /api/v1/payments/{paymentId}/exception-resolution:
-    $ref: './paths/payment_exception_resolution.yaml'
   /api/v1/stripe/webhook:
     $ref: './paths/stripe_webhook.yaml'
 
@@ -121,5 +121,7 @@ components:
       $ref: './components/schemas/PaymentSummaryResponse.yaml'
     PaymentStatus:
       $ref: './components/schemas/PaymentStatus.yaml'
-    PaymentExceptionResolutionRequest:
-      $ref: './components/schemas/PaymentExceptionResolutionRequest.yaml'
+    AutoPaySettingsRequest:
+      $ref: './components/schemas/AutoPaySettingsRequest.yaml'
+    AutoPaySettingsResponse:
+      $ref: './components/schemas/AutoPaySettingsResponse.yaml'

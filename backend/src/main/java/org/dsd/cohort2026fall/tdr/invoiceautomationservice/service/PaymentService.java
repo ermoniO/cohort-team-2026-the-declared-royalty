@@ -7,13 +7,16 @@ import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.InvoiceEntity;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.PaymentAttemptEntity;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.ResourceNotFoundException;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.BadRequestException;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.AutoPaySettingEntity;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.AutoPaySettingsRequest;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.AutoPaySettingsResponse;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.PaymentPageResponse;
-import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.PaymentExceptionResolutionRequest;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.PaymentResponse;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.PaymentStatus;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.PaymentSummaryResponse;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository.InvoiceRepository;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository.PaymentAttemptRepository;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository.AutoPaySettingRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -23,10 +26,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -40,14 +41,14 @@ public class PaymentService {
 
     private final InvoiceRepository invoiceRepository;
     private final PaymentAttemptRepository paymentAttemptRepository;
-    private final AuditLogService auditLogService;
+    private final AutoPaySettingRepository autoPaySettingRepository;
 
     public PaymentService(InvoiceRepository invoiceRepository,
                           PaymentAttemptRepository paymentAttemptRepository,
-                          AuditLogService auditLogService) {
+                          AutoPaySettingRepository autoPaySettingRepository) {
         this.invoiceRepository = invoiceRepository;
         this.paymentAttemptRepository = paymentAttemptRepository;
-        this.auditLogService = auditLogService;
+        this.autoPaySettingRepository = autoPaySettingRepository;
     }
 
     public PaymentPageResponse getPayments(Integer page, Integer size, List<PaymentStatus> statuses, String search) {
@@ -85,56 +86,22 @@ public class PaymentService {
         return response;
     }
 
+    public AutoPaySettingsResponse getAutoPaySettings() {
+        AutoPaySettingEntity setting = autoPaySettingRepository.findById(AutoPaySettingEntity.SINGLETON_ID)
+                .orElseGet(() -> new AutoPaySettingEntity(AutoPaySettingEntity.SINGLETON_ID, false));
+        return new AutoPaySettingsResponse(setting.isEnabled());
+    }
+
     @Transactional
-    public PaymentResponse resolveException(UUID paymentId, PaymentExceptionResolutionRequest request) {
-        InvoiceEntity invoice = invoiceRepository.findById(paymentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Payment not found: " + paymentId));
-        if (!"FAILED".equals(invoice.getInvoiceStatus())) {
-            throw new BadRequestException("Only failed payments can be manually resolved");
+    public AutoPaySettingsResponse updateAutoPaySettings(AutoPaySettingsRequest request) {
+        if (request == null || request.getEnabled() == null) {
+            throw new BadRequestException("enabled is required");
         }
-        if (request == null || request.getAction() == null || request.getUser() == null
-                || request.getNote() == null || request.getNote().isBlank()) {
-            throw new BadRequestException("Action, user, and resolution note are required");
-        }
-
-        PaymentAttemptEntity attempt = paymentAttemptRepository
-                .findFirstByInvoice_InvoiceIdOrderByCreatedAtDesc(invoice.getInvoiceId())
-                .orElse(null);
-
-        String action = request.getAction().getValue();
-        String targetState;
-        String actionTaken;
-        if ("RETRY".equals(action)) {
-            invoice.setInvoiceStatus("APPROVED");
-            invoice.setFailureReason(null);
-            targetState = "APPROVED";
-            actionTaken = "Manually approved exception for retry";
-        } else if ("VOID".equals(action)) {
-            invoice.setInvoiceStatus("VOID");
-            targetState = "VOID";
-            actionTaken = "Manually voided payment exception";
-        } else {
-            throw new BadRequestException("Unsupported exception action: " + action);
-        }
-
-        invoice.setUpdatedAt(OffsetDateTime.now());
-        invoice.setExceptionResolutionStatus(action);
-        invoice.setExceptionResolutionNote(request.getNote().trim());
-        invoice.setExceptionResolvedAt(OffsetDateTime.now());
-        invoice.setExceptionResolvedByUser(auditLogService.getUserReference(request.getUser()));
-        if (attempt != null) {
-            attempt.setExceptionResolutionStatus(action);
-            attempt.setResolutionNote(request.getNote().trim());
-            attempt.setResolvedAt(OffsetDateTime.now());
-            attempt.setResolvedByUser(auditLogService.getUserReference(request.getUser()));
-            attempt.setStatus("RESOLVED_" + action);
-            paymentAttemptRepository.save(attempt);
-        }
-        invoiceRepository.save(invoice);
-        auditLogService.record(invoice.getInvoiceId(), request.getUser(),
-                org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.AuditLogCreateRequest.ActionTypeEnum.USER_EXCEPTION,
-                actionTaken, "FAILED", targetState, request.getNote().trim());
-        return toResponse(invoice);
+        AutoPaySettingEntity setting = autoPaySettingRepository.findById(AutoPaySettingEntity.SINGLETON_ID)
+                .orElseGet(() -> new AutoPaySettingEntity(AutoPaySettingEntity.SINGLETON_ID, false));
+        setting.setEnabled(request.getEnabled());
+        autoPaySettingRepository.save(setting);
+        return new AutoPaySettingsResponse(setting.isEnabled());
     }
 
     private BigDecimal sumFor(String status) {

@@ -8,11 +8,11 @@ import {
 } from "@/features/invoices/invoiceFormat";
 import { invoiceFileUrl } from "@/features/invoices/invoiceService";
 import {
+  getAutoPaySettings,
   getPaymentSummary,
   getPayments,
-  resolvePaymentException,
+  updateAutoPaySettings,
 } from "@/features/payments/paymentService";
-import type { PaymentExceptionAction } from "@/features/payments/paymentService";
 import type {
   PaymentResponse,
   PaymentStatus as ApiPaymentStatus,
@@ -278,20 +278,21 @@ export default function PaymentsPage() {
   const [summary, setSummary] = useState<PaymentSummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [actionLoading, setActionLoading] = useState(false);
+  const [autoPayEnabled, setAutoPayEnabled] = useState(false);
+  const [autoPayLoading, setAutoPayLoading] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [reloadKey, setReloadKey] = useState(0);
   const [filter, setFilter] = useState<PaymentStatus | "All">("All");
   const [search, setSearch] = useState("");
 
   useEffect(() => {
     let active = true;
-    Promise.all([getPayments({ page: 0, size: 100 }), getPaymentSummary()])
-      .then(([response, summaryResponse]) => {
+    Promise.all([getPayments({ page: 0, size: 100 }), getPaymentSummary(), getAutoPaySettings()])
+      .then(([response, summaryResponse, autoPayResponse]) => {
         if (!active) return;
         const loadedPayments = response.items.map(toPayment);
         setPayments(loadedPayments);
         setSummary(summaryResponse);
+        setAutoPayEnabled(autoPayResponse.enabled);
         setSelectedId((current) => current ?? loadedPayments[0]?.id ?? null);
       })
       .catch((reason: unknown) => {
@@ -308,26 +309,19 @@ export default function PaymentsPage() {
     return () => {
       active = false;
     };
-  }, [reloadKey]);
+  }, []);
 
-  const resolveSelectedException = async (action: PaymentExceptionAction) => {
-    if (!selected || selected.status !== "Exception") return;
-    const note = window.prompt(action === "RETRY" ? "Why is this payment safe to retry?" : "Why is this payment being voided?");
-    if (!note?.trim()) return;
-    setActionLoading(true);
+  const toggleAutoPay = async () => {
+    const nextValue = !autoPayEnabled;
+    setAutoPayLoading(true);
     setError(null);
     try {
-      await resolvePaymentException(
-        selected.id,
-        action,
-        "00000000-0000-0000-0000-000000000001",
-        note.trim(),
-      );
-      setReloadKey((key) => key + 1);
+      const response = await updateAutoPaySettings(nextValue);
+      setAutoPayEnabled(response.enabled);
     } catch (reason: unknown) {
-      setError(reason instanceof Error ? reason.message : "Unable to resolve payment exception.");
+      setError(reason instanceof Error ? reason.message : "Unable to update auto-pay.");
     } finally {
-      setActionLoading(false);
+      setAutoPayLoading(false);
     }
   };
 
@@ -354,13 +348,14 @@ export default function PaymentsPage() {
           Track approved invoices from authorization to settlement.
         </p>
         <button
-          className="font-inter-semibold flex h-9 cursor-not-allowed items-center gap-2 rounded-[7px] bg-[#16834a] px-4 text-sm text-white opacity-60"
-          disabled
-          title="Payment scheduling will be enabled when the payment write endpoint is connected"
+          aria-pressed={autoPayEnabled}
+          className={`font-inter-semibold flex h-9 items-center gap-2 rounded-[7px] px-4 text-sm ${autoPayEnabled ? "bg-[#14532d] text-white" : "border border-[#b9c8be] bg-white text-[#14532d]"}`}
+          disabled={autoPayLoading}
+          onClick={() => void toggleAutoPay()}
           type="button"
         >
           <TbCreditCard size={16} />
-          Schedule payment
+          {autoPayLoading ? "Saving…" : autoPayEnabled ? "Auto-pay on" : "Enable auto-pay"}
         </button>
       </div>
 
@@ -593,26 +588,6 @@ export default function PaymentsPage() {
               >
                 View full activity
               </button>
-              {selected.status === "Exception" && (
-                <>
-                  <button
-                    className="font-inter-medium inline-flex h-8 items-center rounded-[7px] border border-[#d7ebdd] bg-[#f6fbf8] px-3 text-[13px] text-[#16834a] hover:bg-[#e8f7ed] disabled:cursor-not-allowed disabled:opacity-50"
-                    disabled={actionLoading || !selected.retryable}
-                    onClick={() => void resolveSelectedException("RETRY")}
-                    type="button"
-                  >
-                    {actionLoading ? "Saving…" : "Resolve & retry"}
-                  </button>
-                  <button
-                    className="font-inter-medium inline-flex h-8 items-center rounded-[7px] border border-[#f2c9c6] bg-[#fff7f6] px-3 text-[13px] text-[#b4322c] hover:bg-[#fdeeee] disabled:cursor-not-allowed disabled:opacity-50"
-                    disabled={actionLoading}
-                    onClick={() => void resolveSelectedException("VOID")}
-                    type="button"
-                  >
-                    Void payment
-                  </button>
-                </>
-              )}
             </div>
           </div>
         ) : (

@@ -42,3 +42,7 @@ export type PaymentSummaryResponse = {
   paidTotal: number;
   exceptionCount: number;
 };
+
+export type AutoPaySettings = {
+  enabled: boolean;
+};

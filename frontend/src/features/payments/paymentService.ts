@@ -1,5 +1,5 @@
 import { apiClient } from "@/app/services/apiClient";
-import type { PaymentPageResponse, PaymentResponse, PaymentStatus, PaymentSummaryResponse } from "@/types/payment";
+import type { AutoPaySettings, PaymentPageResponse, PaymentResponse, PaymentStatus, PaymentSummaryResponse } from "@/types/payment";
 
 export type PaymentListQuery = {
   page?: number;
@@ -7,8 +7,6 @@ export type PaymentListQuery = {
   statuses?: PaymentStatus[];
   search?: string;
 };
-
-export type PaymentExceptionAction = "RETRY" | "VOID";
 
 function paymentListUrl({ page = 0, size = 20, statuses = [], search = "" }: PaymentListQuery): string {
   const params = new URLSearchParams({ page: String(page), size: String(size) });
@@ -29,15 +27,10 @@ export function getPayment(paymentId: string): Promise<PaymentResponse> {
   return apiClient.get<PaymentResponse>(`/api/v1/payments/${paymentId}`, undefined, false);
 }
 
-export function resolvePaymentException(
-  paymentId: string,
-  action: PaymentExceptionAction,
-  user: string,
-  note: string,
-): Promise<PaymentResponse> {
-  return apiClient.post<PaymentResponse>(`/api/v1/payments/${paymentId}/exception-resolution`, {
-    action,
-    user,
-    note,
-  }, undefined, false);
+export function getAutoPaySettings(): Promise<AutoPaySettings> {
+  return apiClient.get<AutoPaySettings>("/api/v1/payments/auto-pay", undefined, false);
+}
+
+export function updateAutoPaySettings(enabled: boolean): Promise<AutoPaySettings> {
+  return apiClient.put<AutoPaySettings>("/api/v1/payments/auto-pay", { enabled }, undefined, false);
 }
