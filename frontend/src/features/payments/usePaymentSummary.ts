@@ -69,23 +69,26 @@ export function summarizePayments(items: InvoiceResponse[]): PaymentSummaryData 
 }
 
 export function usePaymentSummary(reloadKey = 0): PaymentSummaryState {
-  const [state, setState] = useState<PaymentSummaryState>({ status: "loading" });
+  const [result, setResult] = useState<{
+    key: number;
+    data?: PaymentSummaryData;
+    error?: string;
+  } | null>(null);
 
   useEffect(() => {
     let active = true;
-    setState({ status: "loading" });
 
     getInvoices({ page: 0, size: 100, statuses: PAYMENT_INVOICE_STATUSES })
       .then((response) => {
         if (active) {
-          setState({ status: "loaded", data: summarizePayments(response.items) });
+          setResult({ key: reloadKey, data: summarizePayments(response.items) });
         }
       })
       .catch((error: unknown) => {
         if (active) {
-          setState({
-            status: "error",
-            message: error instanceof Error ? error.message : "Unable to load payments.",
+          setResult({
+            key: reloadKey,
+            error: error instanceof Error ? error.message : "Unable to load payments.",
           });
         }
       });
@@ -95,6 +98,8 @@ export function usePaymentSummary(reloadKey = 0): PaymentSummaryState {
     };
   }, [reloadKey]);
 
-  return state;
+  if (result?.key !== reloadKey) return { status: "loading" };
+  if (result.error !== undefined) return { status: "error", message: result.error };
+  return { status: "loaded", data: result.data as PaymentSummaryData };
 }
 
