@@ -5,13 +5,19 @@ import { navigateTo } from "@/app/navigation";
 import { auditHistoryPath } from "@/features/auditLogs/auditLogDisplay";
 import {
   formatCurrency,
-  formatReceived,
 } from "@/features/invoices/invoiceFormat";
+import { invoiceFileUrl } from "@/features/invoices/invoiceService";
 import {
-  getInvoices,
-  invoiceFileUrl,
-} from "@/features/invoices/invoiceService";
-import type { InvoiceResponse, InvoiceStatus } from "@/types/invoice";
+  getPaymentSummary,
+  getPayments,
+  resolvePaymentException,
+} from "@/features/payments/paymentService";
+import type { PaymentExceptionAction } from "@/features/payments/paymentService";
+import type {
+  PaymentResponse,
+  PaymentStatus as ApiPaymentStatus,
+  PaymentSummaryResponse,
+} from "@/types/payment";
 
 type PaymentStatus =
   | "Needs approval"
@@ -30,16 +36,9 @@ type Payment = {
   paymentDate?: string;
   status: PaymentStatus;
   failureReason: string | null;
+  retryable: boolean;
   hasInvoiceFile: boolean;
 };
-
-const PAYMENT_INVOICE_STATUSES: InvoiceStatus[] = [
-  "PENDING_APPROVAL",
-  "APPROVED",
-  "PROCESSING_PAYMENT",
-  "PAID",
-  "FAILED",
-];
 
 const statusStyles: Record<PaymentStatus, string> = {
   "Needs approval": "bg-[#f1edfb] text-[#5b45a8]",
@@ -49,39 +48,30 @@ const statusStyles: Record<PaymentStatus, string> = {
   Exception: "bg-[#fdeeee] text-[#b4322c]",
 };
 
-function paymentStatus(invoiceStatus: InvoiceStatus): PaymentStatus {
-  switch (invoiceStatus) {
-    case "PENDING_APPROVAL":
-      return "Needs approval";
-    case "APPROVED":
-      return "Scheduled";
-    case "PROCESSING_PAYMENT":
-      return "Processing";
-    case "PAID":
-      return "Paid";
-    case "FAILED":
-      return "Exception";
-    default:
-      return "Exception";
-  }
+function displayStatus(status: ApiPaymentStatus): PaymentStatus {
+  const labels: Record<ApiPaymentStatus, PaymentStatus> = {
+    NEEDS_APPROVAL: "Needs approval",
+    SCHEDULED: "Scheduled",
+    PROCESSING: "Processing",
+    PAID: "Paid",
+    EXCEPTION: "Exception",
+  };
+  return labels[status];
 }
 
-function toPayment(invoice: InvoiceResponse): Payment {
-  const status = paymentStatus(invoice.invoiceStatus);
+function toPayment(payment: PaymentResponse): Payment {
   return {
-    id: invoice.invoiceUuid,
-    vendor:
-      invoice.vendorName ?? invoice.originalFilename ?? "Unmatched invoice",
-    invoice:
-      invoice.vendorSuppliedInvoiceId ?? invoice.originalFilename ?? "Invoice",
-    property: invoice.propertyName ?? "Unassigned property",
-    amount: invoice.amount,
-    dueDate: invoice.dueDate,
-    paymentDate:
-      status === "Paid" ? formatReceived(invoice.updatedAt) : undefined,
-    status,
-    failureReason: invoice.failureReason,
-    hasInvoiceFile: Boolean(invoice.blobFileUrl),
+    id: payment.paymentId,
+    vendor: payment.vendorName ?? payment.originalFilename ?? "Unmatched invoice",
+    invoice: payment.vendorSuppliedInvoiceId ?? payment.originalFilename ?? "Invoice",
+    property: payment.propertyName ?? "Unassigned property",
+    amount: payment.amount,
+    dueDate: payment.dueDate,
+    paymentDate: payment.paymentDate ?? undefined,
+    status: displayStatus(payment.paymentStatus),
+    failureReason: payment.failureReason,
+    retryable: payment.retryable,
+    hasInvoiceFile: Boolean(payment.blobFileUrl),
   };
 }
 
@@ -212,7 +202,10 @@ function PaymentProgress({ payment }: { payment: Payment }) {
             </p>
             <p className="font-inter-regular mt-1 text-xs text-[#68766f]">
               {payment.failureReason ??
-                "The invoice is marked as failed. Review the exception before trying again."}
+                "The invoice is marked as failed. Review the exception before trying again."}{" "}
+              {payment.retryable
+                ? "A retry may be available after confirming the payment details."
+                : "This payment requires review before it can be retried."}
             </p>
           </div>
         </div>
@@ -282,19 +275,23 @@ function Message({
 
 export default function PaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [summary, setSummary] = useState<PaymentSummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [filter, setFilter] = useState<PaymentStatus | "All">("All");
   const [search, setSearch] = useState("");
 
   useEffect(() => {
     let active = true;
-    getInvoices({ page: 0, size: 100, statuses: PAYMENT_INVOICE_STATUSES })
-      .then((response) => {
+    Promise.all([getPayments({ page: 0, size: 100 }), getPaymentSummary()])
+      .then(([response, summaryResponse]) => {
         if (!active) return;
         const loadedPayments = response.items.map(toPayment);
         setPayments(loadedPayments);
+        setSummary(summaryResponse);
         setSelectedId((current) => current ?? loadedPayments[0]?.id ?? null);
       })
       .catch((reason: unknown) => {
@@ -311,7 +308,28 @@ export default function PaymentsPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [reloadKey]);
+
+  const resolveSelectedException = async (action: PaymentExceptionAction) => {
+    if (!selected || selected.status !== "Exception") return;
+    const note = window.prompt(action === "RETRY" ? "Why is this payment safe to retry?" : "Why is this payment being voided?");
+    if (!note?.trim()) return;
+    setActionLoading(true);
+    setError(null);
+    try {
+      await resolvePaymentException(
+        selected.id,
+        action,
+        "00000000-0000-0000-0000-000000000001",
+        note.trim(),
+      );
+      setReloadKey((key) => key + 1);
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : "Unable to resolve payment exception.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   const visiblePayments = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -327,20 +345,7 @@ export default function PaymentsPage() {
     visiblePayments.find((payment) => payment.id === selectedId) ??
     visiblePayments[0] ??
     payments[0];
-  const needsApproval = payments.filter(
-    (payment) => payment.status === "Needs approval",
-  ).length;
-  const scheduled = payments.filter(
-    (payment) => payment.status === "Scheduled",
-  ).length;
-  const processingPayments = payments.filter(
-    (payment) => payment.status === "Processing",
-  );
-  const paidTotal = payments.reduce(
-    (total, payment) =>
-      payment.status === "Paid" ? total + (payment.amount ?? 0) : total,
-    0,
-  );
+  const processingPayments = payments.filter((payment) => payment.status === "Processing");
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -360,34 +365,24 @@ export default function PaymentsPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <SummaryCard detail="From live payment records" dot="bg-[#5b45a8]" label="Needs approval" value={String(summary?.needsApprovalCount ?? 0)} />
         <SummaryCard
-          detail="From live invoice records"
-          dot="bg-[#5b45a8]"
-          label="Needs approval"
-          value={String(needsApproval)}
-        />
-        <SummaryCard
-          detail="Approved invoices"
+          detail={summary?.nextScheduledDate ? `Next due ${formatDate(summary.nextScheduledDate)}` : "Approved invoices"}
           dot="bg-[#16834a]"
           label="Scheduled"
-          value={String(scheduled)}
+          value={String(summary?.scheduledCount ?? 0)}
         />
         <SummaryCard
-          detail={`${processingPayments.length} invoice${processingPayments.length === 1 ? "" : "s"} in progress`}
+          detail={`${summary?.processingCount ?? processingPayments.length} invoice${(summary?.processingCount ?? processingPayments.length) === 1 ? "" : "s"} in progress`}
           dot="bg-[#2f5ea8]"
           label="Processing"
-          value={formatCurrency(
-            processingPayments.reduce(
-              (total, payment) => total + (payment.amount ?? 0),
-              0,
-            ),
-          )}
+          value={formatCurrency(summary?.processingTotal ?? 0)}
         />
         <SummaryCard
           detail="From loaded paid invoices"
           dot="bg-[#16834a]"
           label="Paid total"
-          value={formatCurrency(paidTotal)}
+          value={formatCurrency(summary?.paidTotal ?? 0)}
         />
       </div>
 
@@ -598,6 +593,26 @@ export default function PaymentsPage() {
               >
                 View full activity
               </button>
+              {selected.status === "Exception" && (
+                <>
+                  <button
+                    className="font-inter-medium inline-flex h-8 items-center rounded-[7px] border border-[#d7ebdd] bg-[#f6fbf8] px-3 text-[13px] text-[#16834a] hover:bg-[#e8f7ed] disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={actionLoading || !selected.retryable}
+                    onClick={() => void resolveSelectedException("RETRY")}
+                    type="button"
+                  >
+                    {actionLoading ? "Saving…" : "Resolve & retry"}
+                  </button>
+                  <button
+                    className="font-inter-medium inline-flex h-8 items-center rounded-[7px] border border-[#f2c9c6] bg-[#fff7f6] px-3 text-[13px] text-[#b4322c] hover:bg-[#fdeeee] disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={actionLoading}
+                    onClick={() => void resolveSelectedException("VOID")}
+                    type="button"
+                  >
+                    Void payment
+                  </button>
+                </>
+              )}
             </div>
           </div>
         ) : (

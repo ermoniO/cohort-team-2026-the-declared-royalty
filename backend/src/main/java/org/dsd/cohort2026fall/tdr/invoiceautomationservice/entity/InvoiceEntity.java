@@ -50,6 +50,19 @@ public class InvoiceEntity {
     @Column(name = "failure_reason")
     private String failureReason;
 
+    @Column(name = "exception_resolution_status", length = 30)
+    private String exceptionResolutionStatus;
+
+    @Column(name = "exception_resolution_note", length = 3000)
+    private String exceptionResolutionNote;
+
+    @Column(name = "exception_resolved_at")
+    private OffsetDateTime exceptionResolvedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "exception_resolved_by_user_uuid")
+    private UserEntity exceptionResolvedByUser;
+
     @Column(name = "blob_file_url")
     private String blobFileUrl;
 

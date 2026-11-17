@@ -39,6 +39,9 @@ properties:
       - USER_PAID
       # Manual edits that aren't a pipeline stage (field corrections, VOID, etc.)
       - USER_UPDATED
+      # 7. EXCEPTION RESOLUTION
+      - SYSTEM_EXCEPTION
+      - USER_EXCEPTION
     example: "SYSTEM_MATCHED"
   actionTaken:
     type: string

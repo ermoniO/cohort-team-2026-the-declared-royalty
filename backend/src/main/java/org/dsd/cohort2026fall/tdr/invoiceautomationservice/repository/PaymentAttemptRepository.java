@@ -12,4 +12,6 @@ public interface PaymentAttemptRepository extends JpaRepository<PaymentAttemptEn
 
     Optional<PaymentAttemptEntity> findFirstByInvoice_InvoiceIdAndStatusInOrderByCreatedAtDesc(
             UUID invoiceId, List<String> statuses);
+
+    Optional<PaymentAttemptEntity> findFirstByInvoice_InvoiceIdOrderByCreatedAtDesc(UUID invoiceId);
 }

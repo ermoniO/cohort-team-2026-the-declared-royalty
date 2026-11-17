@@ -1,0 +1,67 @@
+type: object
+required:
+  - paymentId
+  - invoiceUuid
+  - paymentStatus
+  - invoiceStatus
+  - createdAt
+  - updatedAt
+properties:
+  paymentId:
+    type: string
+    format: uuid
+  paymentAttemptId:
+    type: string
+    format: uuid
+    nullable: true
+  invoiceUuid:
+    type: string
+    format: uuid
+  vendorName:
+    type: string
+    nullable: true
+  propertyName:
+    type: string
+    nullable: true
+  vendorSuppliedInvoiceId:
+    type: string
+    nullable: true
+  originalFilename:
+    type: string
+    nullable: true
+  amount:
+    type: number
+    multipleOf: 0.01
+    nullable: true
+  currency:
+    type: string
+    nullable: true
+  dueDate:
+    type: string
+    format: date
+    nullable: true
+  paymentStatus:
+    $ref: './PaymentStatus.yaml'
+  invoiceStatus:
+    $ref: './InvoiceStatus.yaml'
+  providerStatus:
+    type: string
+    nullable: true
+  failureReason:
+    type: string
+    nullable: true
+  retryable:
+    type: boolean
+  paymentDate:
+    type: string
+    format: date-time
+    nullable: true
+  blobFileUrl:
+    type: string
+    nullable: true
+  createdAt:
+    type: string
+    format: date-time
+  updatedAt:
+    type: string
+    format: date-time

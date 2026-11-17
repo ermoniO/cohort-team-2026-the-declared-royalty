@@ -1,0 +1,38 @@
+post:
+  tags:
+    - Payments
+  summary: Resolve a payment exception
+  description: Retry returns the invoice to APPROVED; VOID closes the invoice without payment. Both actions require an audit note.
+  operationId: resolvePaymentException
+  parameters:
+    - name: paymentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../components/schemas/PaymentExceptionResolutionRequest.yaml'
+  responses:
+    '200':
+      description: Exception resolved
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/PaymentResponse.yaml'
+    '400':
+      description: Invalid action or payment is not an exception
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'
+    '404':
+      description: Payment not found
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'

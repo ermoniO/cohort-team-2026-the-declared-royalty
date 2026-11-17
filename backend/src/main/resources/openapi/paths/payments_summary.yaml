@@ -1,0 +1,12 @@
+get:
+  tags:
+    - Payments
+  summary: Get payment queue summary
+  operationId: getPaymentSummary
+  responses:
+    '200':
+      description: Payment summary
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/PaymentSummaryResponse.yaml'
