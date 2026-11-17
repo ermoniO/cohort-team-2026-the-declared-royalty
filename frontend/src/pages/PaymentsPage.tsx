@@ -1,6 +1,17 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FiCheck, FiChevronRight, FiClock, FiSearch } from "react-icons/fi";
 import { TbAlertTriangle, TbCreditCard, TbExternalLink } from "react-icons/tb";
+import { navigateTo } from "@/app/navigation";
+import { auditHistoryPath } from "@/features/auditLogs/auditLogDisplay";
+import {
+  formatCurrency,
+  formatReceived,
+} from "@/features/invoices/invoiceFormat";
+import {
+  getInvoices,
+  invoiceFileUrl,
+} from "@/features/invoices/invoiceService";
+import type { InvoiceResponse, InvoiceStatus } from "@/types/invoice";
 
 type PaymentStatus =
   | "Needs approval"
@@ -14,66 +25,20 @@ type Payment = {
   vendor: string;
   invoice: string;
   property: string;
-  amount: string;
-  dueDate: string;
+  amount: number | null;
+  dueDate: string | null;
   paymentDate?: string;
   status: PaymentStatus;
-  method: string;
+  failureReason: string | null;
+  hasInvoiceFile: boolean;
 };
 
-const payments: Payment[] = [
-  {
-    id: "acme-1042",
-    vendor: "Acme Power & Light",
-    invoice: "INV-1042",
-    property: "Oak Terrace",
-    amount: "$1,240.00",
-    dueDate: "Mar 20, 2026",
-    paymentDate: "Mar 18, 2026",
-    status: "Scheduled",
-    method: "ACH ···· 4821",
-  },
-  {
-    id: "green-8831",
-    vendor: "Greenway Landscaping",
-    invoice: "INV-8831",
-    property: "Maple Commons",
-    amount: "$875.00",
-    dueDate: "Mar 21, 2026",
-    status: "Needs approval",
-    method: "ACH ···· 4821",
-  },
-  {
-    id: "metro-7710",
-    vendor: "Metro Water District",
-    invoice: "INV-7710",
-    property: "Riverside Flats",
-    amount: "$2,418.50",
-    dueDate: "Mar 17, 2026",
-    status: "Processing",
-    method: "ACH ···· 4821",
-  },
-  {
-    id: "north-2190",
-    vendor: "Northstar HVAC",
-    invoice: "INV-2190",
-    property: "Oak Terrace",
-    amount: "$640.00",
-    dueDate: "Mar 14, 2026",
-    paymentDate: "Mar 14, 2026",
-    status: "Paid",
-    method: "ACH ···· 4821",
-  },
-  {
-    id: "city-3302",
-    vendor: "City Waste Services",
-    invoice: "INV-3302",
-    property: "Pine Court",
-    amount: "$310.00",
-    dueDate: "Mar 16, 2026",
-    status: "Exception",
-    method: "ACH ···· 4821",
-  },
+const PAYMENT_INVOICE_STATUSES: InvoiceStatus[] = [
+  "PENDING_APPROVAL",
+  "APPROVED",
+  "PROCESSING_PAYMENT",
+  "PAID",
+  "FAILED",
 ];
 
 const statusStyles: Record<PaymentStatus, string> = {
@@ -83,6 +48,53 @@ const statusStyles: Record<PaymentStatus, string> = {
   Paid: "bg-[#e8f7ed] text-[#16834a]",
   Exception: "bg-[#fdeeee] text-[#b4322c]",
 };
+
+function paymentStatus(invoiceStatus: InvoiceStatus): PaymentStatus {
+  switch (invoiceStatus) {
+    case "PENDING_APPROVAL":
+      return "Needs approval";
+    case "APPROVED":
+      return "Scheduled";
+    case "PROCESSING_PAYMENT":
+      return "Processing";
+    case "PAID":
+      return "Paid";
+    case "FAILED":
+      return "Exception";
+    default:
+      return "Exception";
+  }
+}
+
+function toPayment(invoice: InvoiceResponse): Payment {
+  const status = paymentStatus(invoice.invoiceStatus);
+  return {
+    id: invoice.invoiceUuid,
+    vendor:
+      invoice.vendorName ?? invoice.originalFilename ?? "Unmatched invoice",
+    invoice:
+      invoice.vendorSuppliedInvoiceId ?? invoice.originalFilename ?? "Invoice",
+    property: invoice.propertyName ?? "Unassigned property",
+    amount: invoice.amount,
+    dueDate: invoice.dueDate,
+    paymentDate:
+      status === "Paid" ? formatReceived(invoice.updatedAt) : undefined,
+    status,
+    failureReason: invoice.failureReason,
+    hasInvoiceFile: Boolean(invoice.blobFileUrl),
+  };
+}
+
+function formatDate(date: string | null): string {
+  if (!date) return "—";
+  const parsed = new Date(`${date}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return date;
+  return parsed.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
 
 function StatusPill({ status }: { status: PaymentStatus }) {
   const dot =
@@ -131,34 +143,38 @@ function SummaryCard({
 
 function PaymentProgress({ payment }: { payment: Payment }) {
   const failed = payment.status === "Exception";
+  const approved = payment.status !== "Needs approval";
+  const processing =
+    payment.status === "Processing" || payment.status === "Paid";
+  const paid = payment.status === "Paid";
   const steps = [
     {
       label: "Invoice approved",
-      detail: "Approved by Jordan Lee · Mar 14, 9:42 AM",
-      complete: true,
+      detail: approved ? "Approved invoice" : "Waiting for invoice approval",
+      complete: approved,
     },
     {
       label: "Payment scheduled",
-      detail: payment.paymentDate
-        ? `Scheduled for ${payment.paymentDate}`
+      detail: approved
+        ? "Ready for payment processing"
         : "Waiting for approval",
-      complete: payment.status !== "Needs approval",
+      complete: approved,
     },
     {
       label: "Payment processing",
-      detail:
-        payment.status === "Processing"
-          ? "Waiting for bank confirmation"
-          : "ACH transfer in progress",
-      complete: payment.status === "Paid",
+      detail: paid
+        ? "Payment completed"
+        : processing
+          ? "Waiting for payment confirmation"
+          : "Not started",
+      complete: paid,
     },
     {
       label: "Payment successful",
-      detail:
-        payment.status === "Paid"
-          ? "Bank confirmation received · Mar 14, 2:18 PM"
-          : "Confirmation will appear here",
-      complete: payment.status === "Paid",
+      detail: paid
+        ? `Payment confirmed · ${payment.paymentDate ?? "date unavailable"}`
+        : "Confirmation will appear here",
+      complete: paid,
     },
   ];
 
@@ -177,13 +193,12 @@ function PaymentProgress({ payment }: { payment: Payment }) {
               Payment progress
             </h2>
             <p className="font-inter-regular mt-1 text-[13px] text-[#68766f]">
-              Follow this payment from approval to settlement.
+              Progress based on the current invoice status in the database.
             </p>
           </div>
           <FiClock aria-hidden="true" className="text-[#98a29c]" size={18} />
         </div>
       </div>
-
       {failed && (
         <div className="mx-5 mt-4 flex gap-3 rounded-lg border border-[#f2c9c6] bg-[#fff7f6] p-3.5">
           <TbAlertTriangle
@@ -196,19 +211,18 @@ function PaymentProgress({ payment }: { payment: Payment }) {
               Payment needs attention
             </p>
             <p className="font-inter-regular mt-1 text-xs text-[#68766f]">
-              The bank could not process this payment. Review the exception and
-              try again.
+              {payment.failureReason ??
+                "The invoice is marked as failed. Review the exception before trying again."}
             </p>
           </div>
         </div>
       )}
-
       <ol className="px-5 py-5">
         {steps.map((step, index) => {
           const active =
             !step.complete &&
             !failed &&
-            (index === 1 || payment.status === "Processing");
+            (index === 0 || payment.status === "Processing");
           const last = index === steps.length - 1;
           return (
             <li
@@ -249,23 +263,84 @@ function PaymentProgress({ payment }: { payment: Payment }) {
   );
 }
 
+function Message({
+  children,
+  alert = false,
+}: {
+  children: string;
+  alert?: boolean;
+}) {
+  return (
+    <p
+      className="font-inter-regular px-5 py-16 text-center text-sm text-[#68766f]"
+      role={alert ? "alert" : "status"}
+    >
+      {children}
+    </p>
+  );
+}
+
 export default function PaymentsPage() {
-  const [selectedId, setSelectedId] = useState(payments[0].id);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<PaymentStatus | "All">("All");
   const [search, setSearch] = useState("");
-  const selected =
-    payments.find((payment) => payment.id === selectedId) ?? payments[0];
-  const visiblePayments = payments.filter((payment) => {
-    const matchesFilter = filter === "All" || payment.status === filter;
+
+  useEffect(() => {
+    let active = true;
+    getInvoices({ page: 0, size: 100, statuses: PAYMENT_INVOICE_STATUSES })
+      .then((response) => {
+        if (!active) return;
+        const loadedPayments = response.items.map(toPayment);
+        setPayments(loadedPayments);
+        setSelectedId((current) => current ?? loadedPayments[0]?.id ?? null);
+      })
+      .catch((reason: unknown) => {
+        if (active)
+          setError(
+            reason instanceof Error
+              ? reason.message
+              : "Unable to load payments.",
+          );
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const visiblePayments = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return (
-      matchesFilter &&
-      (!query ||
-        `${payment.vendor} ${payment.invoice} ${payment.property}`
-          .toLowerCase()
-          .includes(query))
-    );
-  });
+    return payments.filter((payment) => {
+      const matchesFilter = filter === "All" || payment.status === filter;
+      const searchable =
+        `${payment.vendor} ${payment.invoice} ${payment.property}`.toLowerCase();
+      return matchesFilter && (!query || searchable.includes(query));
+    });
+  }, [filter, payments, search]);
+
+  const selected =
+    visiblePayments.find((payment) => payment.id === selectedId) ??
+    visiblePayments[0] ??
+    payments[0];
+  const needsApproval = payments.filter(
+    (payment) => payment.status === "Needs approval",
+  ).length;
+  const scheduled = payments.filter(
+    (payment) => payment.status === "Scheduled",
+  ).length;
+  const processingPayments = payments.filter(
+    (payment) => payment.status === "Processing",
+  );
+  const paidTotal = payments.reduce(
+    (total, payment) =>
+      payment.status === "Paid" ? total + (payment.amount ?? 0) : total,
+    0,
+  );
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -274,7 +349,9 @@ export default function PaymentsPage() {
           Track approved invoices from authorization to settlement.
         </p>
         <button
-          className="font-inter-semibold flex h-9 items-center gap-2 rounded-[7px] bg-[#16834a] px-4 text-sm text-white hover:bg-[#13723f]"
+          className="font-inter-semibold flex h-9 cursor-not-allowed items-center gap-2 rounded-[7px] bg-[#16834a] px-4 text-sm text-white opacity-60"
+          disabled
+          title="Payment scheduling will be enabled when the payment write endpoint is connected"
           type="button"
         >
           <TbCreditCard size={16} />
@@ -284,35 +361,40 @@ export default function PaymentsPage() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <SummaryCard
-          detail="Across 4 properties"
+          detail="From live invoice records"
           dot="bg-[#5b45a8]"
           label="Needs approval"
-          value="3"
+          value={String(needsApproval)}
         />
         <SummaryCard
-          detail="Next payment Mar 18"
+          detail="Approved invoices"
           dot="bg-[#16834a]"
           label="Scheduled"
-          value="12"
+          value={String(scheduled)}
         />
         <SummaryCard
-          detail="2 payments in progress"
+          detail={`${processingPayments.length} invoice${processingPayments.length === 1 ? "" : "s"} in progress`}
           dot="bg-[#2f5ea8]"
           label="Processing"
-          value="$4,670"
+          value={formatCurrency(
+            processingPayments.reduce(
+              (total, payment) => total + (payment.amount ?? 0),
+              0,
+            ),
+          )}
         />
         <SummaryCard
-          detail="March total"
+          detail="From loaded paid invoices"
           dot="bg-[#16834a]"
-          label="Paid this month"
-          value="$42,800"
+          label="Paid total"
+          value={formatCurrency(paidTotal)}
         />
       </div>
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(360px,0.75fr)]">
         <section
           aria-labelledby="payment-queue-title"
-          className="flex min-h-[420px] min-w-0 flex-col rounded-xl border border-[#e6ebe8] bg-white"
+          className="flex min-h-105 min-w-0 flex-col rounded-xl border border-[#e6ebe8] bg-white"
         >
           <div className="flex flex-wrap items-start justify-between gap-3 px-5 pt-5">
             <div>
@@ -323,7 +405,9 @@ export default function PaymentsPage() {
                 Payment queue
               </h2>
               <p className="font-inter-regular mt-1 text-[13px] text-[#68766f]">
-                {visiblePayments.length} payments shown
+                {loading
+                  ? "Loading payments…"
+                  : `${visiblePayments.length} payments shown`}
               </p>
             </div>
             <label className="flex h-9 w-full items-center gap-2 rounded-[7px] border border-[#e6ebe8] bg-white px-3 sm:w-56">
@@ -342,7 +426,6 @@ export default function PaymentsPage() {
               />
             </label>
           </div>
-
           <div
             aria-label="Payment status"
             className="mt-4 flex gap-5 overflow-x-auto border-b border-[#e6ebe8] px-5"
@@ -370,9 +453,8 @@ export default function PaymentsPage() {
               </button>
             ))}
           </div>
-
           <div className="relative flex-1 overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left text-[13px]">
+            <table className="w-full min-w-190 text-left text-[13px]">
               <thead>
                 <tr className="font-inter-semibold border-b border-[#e6ebe8] bg-[#f8faf9] text-[11px] text-[#98a29c]">
                   <th className="px-5 py-2.5 font-normal">VENDOR</th>
@@ -385,93 +467,144 @@ export default function PaymentsPage() {
                 </tr>
               </thead>
               <tbody className="font-inter-regular text-[#25362f]">
-                {visiblePayments.map((payment) => (
-                  <tr
-                    className={`cursor-pointer border-b border-[#e6ebe8] last:border-b-0 hover:bg-[#f8faf9] ${selectedId === payment.id ? "bg-[#f6fbf8]" : ""}`}
-                    key={payment.id}
-                    onClick={() => setSelectedId(payment.id)}
-                  >
-                    <td className="px-5 py-3.5">
-                      <span className="font-inter-semibold block">
-                        {payment.vendor}
-                      </span>
-                      <span className="text-xs text-[#68766f]">
-                        {payment.invoice}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5">{payment.property}</td>
-                    <td className="font-inter-semibold whitespace-nowrap px-5 py-3.5 text-right tabular-nums">
-                      {payment.amount}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <StatusPill status={payment.status} />
-                    </td>
-                    <td className="px-5 py-3.5 text-right">
-                      <FiChevronRight
-                        aria-hidden="true"
-                        className="ml-auto text-[#98a29c]"
-                        size={16}
-                      />
+                {loading ? (
+                  <tr>
+                    <td colSpan={5}>
+                      <Message>Loading payments…</Message>
                     </td>
                   </tr>
-                ))}
+                ) : error ? (
+                  <tr>
+                    <td colSpan={5}>
+                      <Message
+                        alert
+                      >{`Couldn't load payments. ${error}`}</Message>
+                    </td>
+                  </tr>
+                ) : visiblePayments.length === 0 ? (
+                  <tr>
+                    <td colSpan={5}>
+                      <Message>
+                        {search.trim()
+                          ? "No payments match your search."
+                          : "No payment records found."}
+                      </Message>
+                    </td>
+                  </tr>
+                ) : (
+                  visiblePayments.map((payment) => (
+                    <tr
+                      className={`cursor-pointer border-b border-[#e6ebe8] last:border-b-0 hover:bg-[#f8faf9] ${selected?.id === payment.id ? "bg-[#f6fbf8]" : ""}`}
+                      key={payment.id}
+                      onClick={() => setSelectedId(payment.id)}
+                    >
+                      <td className="px-5 py-3.5">
+                        <span className="font-inter-semibold block">
+                          {payment.vendor}
+                        </span>
+                        <span className="text-xs text-[#68766f]">
+                          {payment.invoice}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5">{payment.property}</td>
+                      <td className="font-inter-semibold whitespace-nowrap px-5 py-3.5 text-right tabular-nums">
+                        {payment.amount === null
+                          ? "—"
+                          : formatCurrency(payment.amount)}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <StatusPill status={payment.status} />
+                      </td>
+                      <td className="px-5 py-3.5 text-right">
+                        <FiChevronRight
+                          aria-hidden="true"
+                          className="ml-auto text-[#98a29c]"
+                          size={16}
+                        />
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         </section>
 
-        <div className="flex min-h-0 flex-col gap-4">
-          <section
-            aria-label="Selected payment"
-            className="rounded-xl border border-[#e6ebe8] bg-white"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-4">
-              <div className="flex min-w-0 items-center gap-3">
-                <span
-                  aria-hidden="true"
-                  className="font-inter-semibold flex size-10 shrink-0 items-center justify-center rounded-lg bg-[#f1f4f2] text-[#25362f]"
-                >
-                  {selected.vendor.charAt(0)}
-                </span>
-                <div className="min-w-0">
-                  <h2 className="font-inter-semibold truncate text-base text-[#14532d]">
-                    {selected.vendor}
-                  </h2>
-                  <p className="font-inter-regular truncate text-[13px] text-[#68766f]">
-                    {selected.invoice} · {selected.property}
+        {selected ? (
+          <div className="flex min-h-0 flex-col gap-4">
+            <section
+              aria-label="Selected payment"
+              className="rounded-xl border border-[#e6ebe8] bg-white"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span
+                    aria-hidden="true"
+                    className="font-inter-semibold flex size-10 shrink-0 items-center justify-center rounded-lg bg-[#f1f4f2] text-[#25362f]"
+                  >
+                    {selected.vendor.charAt(0).toUpperCase()}
+                  </span>
+                  <div className="min-w-0">
+                    <h2 className="font-inter-semibold truncate text-base text-[#14532d]">
+                      {selected.vendor}
+                    </h2>
+                    <p className="font-inter-regular truncate text-[13px] text-[#68766f]">
+                      {selected.invoice} · {selected.property}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="font-inter-semibold text-2xl tabular-nums text-[#25362f]">
+                    {selected.amount === null
+                      ? "—"
+                      : formatCurrency(selected.amount)}
+                  </p>
+                  <p className="font-inter-regular text-xs text-[#98a29c]">
+                    USD
                   </p>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="font-inter-semibold text-2xl tabular-nums text-[#25362f]">
-                  {selected.amount}
-                </p>
-                <p className="font-inter-regular text-xs text-[#98a29c]">USD</p>
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#e6ebe8] px-5 py-3">
+                <StatusPill status={selected.status} />
+                <span className="font-inter-regular text-xs text-[#68766f]">
+                  Due {formatDate(selected.dueDate)}
+                </span>
               </div>
+            </section>
+            <PaymentProgress payment={selected} />
+            <div className="flex flex-wrap gap-2">
+              {selected.hasInvoiceFile ? (
+                <a
+                  className="font-inter-medium inline-flex h-8 items-center gap-1.5 rounded-[7px] border border-[#e6ebe8] bg-white px-3 text-[13px] text-[#25362f] hover:bg-[#f8faf9]"
+                  href={invoiceFileUrl(selected.id)}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  View invoice <TbExternalLink size={14} />
+                </a>
+              ) : (
+                <button
+                  className="font-inter-medium inline-flex h-8 cursor-not-allowed items-center gap-1.5 rounded-[7px] border border-[#e6ebe8] bg-white px-3 text-[13px] text-[#98a29c]"
+                  disabled
+                  type="button"
+                >
+                  No invoice file
+                </button>
+              )}
+              <button
+                className="font-inter-medium inline-flex h-8 items-center rounded-[7px] border border-[#e6ebe8] bg-white px-3 text-[13px] text-[#25362f] hover:bg-[#f8faf9]"
+                onClick={() => navigateTo(auditHistoryPath(selected.id))}
+                type="button"
+              >
+                View full activity
+              </button>
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#e6ebe8] px-5 py-3">
-              <StatusPill status={selected.status} />
-              <span className="font-inter-regular text-xs text-[#68766f]">
-                Due {selected.dueDate}
-              </span>
-            </div>
-          </section>
-          <PaymentProgress payment={selected} />
-          <div className="flex flex-wrap gap-2">
-            <button
-              className="font-inter-medium inline-flex h-8 items-center gap-1.5 rounded-[7px] border border-[#e6ebe8] bg-white px-3 text-[13px] text-[#25362f] hover:bg-[#f8faf9]"
-              type="button"
-            >
-              View invoice <TbExternalLink size={14} />
-            </button>
-            <button
-              className="font-inter-medium inline-flex h-8 items-center rounded-[7px] border border-[#e6ebe8] bg-white px-3 text-[13px] text-[#25362f] hover:bg-[#f8faf9]"
-              type="button"
-            >
-              View full activity
-            </button>
           </div>
-        </div>
+        ) : (
+          <div className="rounded-xl border border-[#e6ebe8] bg-white">
+            <Message>Select a payment to view its details.</Message>
+          </div>
+        )}
       </div>
     </div>
   );
