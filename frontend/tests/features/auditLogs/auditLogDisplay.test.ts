@@ -61,7 +61,7 @@ describe("describeActionType", () => {
   });
 
   it("lists every backend action type", () => {
-    expect(ACTION_TYPES).toHaveLength(12);
+    expect(ACTION_TYPES).toHaveLength(13);
   });
 });
 

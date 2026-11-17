@@ -9,11 +9,13 @@ const STAGE_LABELS: Record<string, string> = {
   VALIDATED: "Validation",
   APPROVED: "Approval",
   PAID: "Payment",
+  UPDATED: "Edit",
 };
 
-export const ACTION_TYPES: AuditActionType[] = STAGES.flatMap(
-  (stage) => [`SYSTEM_${stage}`, `USER_${stage}`] as AuditActionType[],
-);
+export const ACTION_TYPES: AuditActionType[] = [
+  ...STAGES.flatMap((stage) => [`SYSTEM_${stage}`, `USER_${stage}`] as AuditActionType[]),
+  "USER_UPDATED",
+];
 
 // The page URL for one bill's history, or for every bill's when no id is given
 export function auditHistoryPath(invoiceUuid?: string): string {

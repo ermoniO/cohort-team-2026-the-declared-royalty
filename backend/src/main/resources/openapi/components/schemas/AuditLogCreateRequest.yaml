@@ -37,6 +37,8 @@ properties:
       # 6. PAID
       - SYSTEM_PAID
       - USER_PAID
+      # Manual edits that aren't a pipeline stage (field corrections, VOID, etc.)
+      - USER_UPDATED
     example: "SYSTEM_MATCHED"
   actionTaken:
     type: string

@@ -73,10 +73,12 @@ public class InvoiceExtractionService {
             analysis = invoiceService.analyzeInvoice(invoiceUuid);
         } catch (InvoiceAnalysisFailureException | InvoiceNoDataException
                  | ResourceNotFoundException | StorageException e) {
+            recordExtractionFailure(invoice, AuditLogService.reasonOf(e));
             throw e;
         } catch (RuntimeException e) {
             // e.g. the AI service timed out or rejected the request
             log.warn("AI call failed for invoice {}", invoiceUuid, e);
+            recordExtractionFailure(invoice, "AI service call failed: " + AuditLogService.reasonOf(e));
             throw new InvoiceAnalysisFailureException(
                     "The AI service didn't respond. Try again, or enter the details by hand.");
         }
@@ -117,6 +119,15 @@ public class InvoiceExtractionService {
     }
 
     public InvoiceResponse verify(UUID invoiceUuid, InvoiceVerifyRequest request) {
+        try {
+            return verifyInTransaction(invoiceUuid, request);
+        } catch (RuntimeException e) {
+            recordReviewRejection(invoiceUuid, ActionTypeEnum.USER_VALIDATED, "Reviewer confirmation rejected", e);
+            throw e;
+        }
+    }
+
+    private InvoiceResponse verifyInTransaction(UUID invoiceUuid, InvoiceVerifyRequest request) {
         return transactionTemplate.execute(tx -> {
             InvoiceEntity invoice = findInvoice(invoiceUuid);
             requireReviewable(invoice);
@@ -144,6 +155,15 @@ public class InvoiceExtractionService {
 
     /** Saves the fields confirmed so far; the invoice stays in PENDING_MAPPING until it's verified. */
     public InvoiceResponse saveProgress(UUID invoiceUuid, InvoiceProgressRequest request) {
+        try {
+            return saveProgressInTransaction(invoiceUuid, request);
+        } catch (RuntimeException e) {
+            recordReviewRejection(invoiceUuid, ActionTypeEnum.USER_IDENTIFIED, "Review progress save rejected", e);
+            throw e;
+        }
+    }
+
+    private InvoiceResponse saveProgressInTransaction(UUID invoiceUuid, InvoiceProgressRequest request) {
         return transactionTemplate.execute(tx -> {
             InvoiceEntity invoice = findInvoice(invoiceUuid);
             requireReviewable(invoice);
@@ -339,5 +359,23 @@ public class InvoiceExtractionService {
 
     private static OffsetDateTime now() {
         return OffsetDateTime.now().truncatedTo(ChronoUnit.MICROS);
+    }
+
+    private void recordExtractionFailure(InvoiceEntity invoice, String reason) {
+        auditLogService.recordFailure(invoice.getInvoiceId(), InvoiceUploadService.SYSTEM_USER_ID,
+                ActionTypeEnum.SYSTEM_IDENTIFIED, "AI extraction failed", invoice.getInvoiceStatus(), reason);
+    }
+
+    // The review transaction has already rolled back, so this reads the status from before the attempt
+    private void recordReviewRejection(UUID invoiceUuid, ActionTypeEnum actionType, String actionTaken, RuntimeException e) {
+        String status;
+        try {
+            status = invoiceRepository.findById(invoiceUuid).map(InvoiceEntity::getInvoiceStatus).orElse(null);
+        } catch (RuntimeException lookupFailed) {
+            status = null;
+        }
+        // TODO(auth): record the signed-in reviewer instead of the system user
+        auditLogService.recordFailure(invoiceUuid, InvoiceUploadService.SYSTEM_USER_ID,
+                actionType, actionTaken, status, AuditLogService.reasonOf(e));
     }
 }
