@@ -11,6 +11,11 @@ import {
   getInvoices,
   invoiceFileUrl,
 } from "@/features/invoices/invoiceService";
+import PaymentsSummaryCards from "@/features/payments/PaymentsSummaryCards";
+import {
+  PAYMENT_INVOICE_STATUSES,
+  type PaymentSummaryState,
+} from "@/features/payments/usePaymentSummary";
 import type { InvoiceResponse, InvoiceStatus } from "@/types/invoice";
 
 type PaymentStatus =
@@ -32,14 +37,6 @@ type Payment = {
   failureReason: string | null;
   hasInvoiceFile: boolean;
 };
-
-const PAYMENT_INVOICE_STATUSES: InvoiceStatus[] = [
-  "PENDING_APPROVAL",
-  "APPROVED",
-  "PROCESSING_PAYMENT",
-  "PAID",
-  "FAILED",
-];
 
 const statusStyles: Record<PaymentStatus, string> = {
   "Needs approval": "bg-[#f1edfb] text-[#5b45a8]",
@@ -112,32 +109,6 @@ function StatusPill({ status }: { status: PaymentStatus }) {
       <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${dot}`} />
       {status}
     </span>
-  );
-}
-
-function SummaryCard({
-  label,
-  value,
-  detail,
-  dot,
-}: {
-  label: string;
-  value: string;
-  detail: string;
-  dot: string;
-}) {
-  return (
-    <div className="relative rounded-xl border border-[#e6ebe8] bg-white px-5 py-4">
-      <span
-        aria-hidden="true"
-        className={`absolute right-5 top-5 h-2 w-2 rounded-full ${dot}`}
-      />
-      <p className="font-inter-regular text-[13px] text-[#25362f]">{label}</p>
-      <p className="font-inter-semibold mt-2 text-[28px] leading-none text-[#14532d]">
-        {value}
-      </p>
-      <p className="font-inter-regular mt-2 text-xs text-[#68766f]">{detail}</p>
-    </div>
   );
 }
 
@@ -330,17 +301,33 @@ export default function PaymentsPage() {
   const needsApproval = payments.filter(
     (payment) => payment.status === "Needs approval",
   ).length;
-  const scheduled = payments.filter(
+  const scheduledPayments = payments.filter(
     (payment) => payment.status === "Scheduled",
-  ).length;
+  );
   const processingPayments = payments.filter(
     (payment) => payment.status === "Processing",
   );
-  const paidTotal = payments.reduce(
-    (total, payment) =>
-      payment.status === "Paid" ? total + (payment.amount ?? 0) : total,
-    0,
+  const paidPayments = payments.filter(
+    (payment) => payment.status === "Paid",
   );
+  const sumAmount = (list: Payment[]) =>
+    list.reduce((total, payment) => total + (payment.amount ?? 0), 0);
+  const summaryState: PaymentSummaryState = loading
+    ? { status: "loading" }
+    : error
+      ? { status: "error", message: error }
+      : {
+          status: "loaded",
+          data: {
+            needsApprovalCount: needsApproval,
+            scheduledCount: scheduledPayments.length,
+            scheduledTotal: sumAmount(scheduledPayments),
+            processingCount: processingPayments.length,
+            processingTotal: sumAmount(processingPayments),
+            paidCount: paidPayments.length,
+            paidTotal: sumAmount(paidPayments),
+          },
+        };
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -359,37 +346,7 @@ export default function PaymentsPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <SummaryCard
-          detail="From live invoice records"
-          dot="bg-[#5b45a8]"
-          label="Needs approval"
-          value={String(needsApproval)}
-        />
-        <SummaryCard
-          detail="Approved invoices"
-          dot="bg-[#16834a]"
-          label="Scheduled"
-          value={String(scheduled)}
-        />
-        <SummaryCard
-          detail={`${processingPayments.length} invoice${processingPayments.length === 1 ? "" : "s"} in progress`}
-          dot="bg-[#2f5ea8]"
-          label="Processing"
-          value={formatCurrency(
-            processingPayments.reduce(
-              (total, payment) => total + (payment.amount ?? 0),
-              0,
-            ),
-          )}
-        />
-        <SummaryCard
-          detail="From loaded paid invoices"
-          dot="bg-[#16834a]"
-          label="Paid total"
-          value={formatCurrency(paidTotal)}
-        />
-      </div>
+      <PaymentsSummaryCards state={summaryState} />
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(360px,0.75fr)]">
         <section
