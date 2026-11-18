@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import AppShell from "./layout/AppShell";
 import type { AppRoute } from "./types/route";
 import WorkspacePage from "./pages/WorkspacePage";
+import DashboardPage from "./pages/DashboardPage";
 import BillsPage from "./pages/BillsPage";
 import PropertiesPage from "./pages/PropertiesPage";
 import VendorsPage from "./pages/VendorsPage";
@@ -21,8 +22,18 @@ import {
 } from "react-icons/tb";
 
 const routes: AppRoute[] = [
-  { label: "Dashboard", path: "/", section: "WORKSPACE", icon: TbBlocks },
-  { label: "Bills", path: "/bills", section: "OPERATIONS", icon: TbFileInvoice },
+  {
+    label: "Dashboard",
+    path: "/",
+    section: "WORKSPACE",
+    icon: TbBlocks
+  },
+  {
+    label: "Bills",
+    path: "/bills",
+    section: "OPERATIONS",
+    icon: TbFileInvoice
+  },
   {
     label: "Properties",
     path: "/properties",
@@ -85,24 +96,26 @@ export default function App() {
   // routes below: while the session is loading show a loader, and when there's no
   // session send the user to /login, then back to the page they asked for.
   return (
- <AppShell currentRoute={currentRoute} onNavigate={navigateTo} routes={routes}>
-        {currentRoute.path === "/bills" ? (
-        <BillsPage />
-      ) : currentRoute.path === "/properties" ? (
-        <PropertiesPage />
-      ) : currentRoute.path === "/vendors" ? (
-        <VendorsPage />
-      ) : currentRoute.path === "/approvals" ? (
-        <ApprovalsPage />
-      ) : currentRoute.path === "/activity" ? (
-        <AuditLogsPage
-          invoiceUuid={new URLSearchParams(location.search).get("invoice")}
-        />
-      ) : currentRoute.path === "/payments" ? (
-        <PaymentsPage />
-      ) : (
-        <WorkspacePage title={currentRoute.label} />
-      )}
+    <AppShell currentRoute={currentRoute} onNavigate={navigateTo} routes={routes}>
+      {
+        currentRoute.path === "/" ? (
+          <DashboardPage />
+        ) : currentRoute.path === "/bills" ? (
+          <BillsPage />
+        ) : currentRoute.path === "/properties" ? (
+          <PropertiesPage />
+        ) : currentRoute.path === "/vendors" ? (
+          <VendorsPage />
+        ) : currentRoute.path === "/activity" ? (
+          <AuditLogsPage
+            invoiceUuid={new URLSearchParams(location.search).get("invoice")}
+          />
+        ) : currentRoute.path === "/payments" ? (
+          <PaymentsPage />
+        ) : (
+          <WorkspacePage title={currentRoute.label} />
+        )
+      }
     </AppShell>
   );
 }
