@@ -8,6 +8,8 @@ import {
   type ApprovalItem,
   dueDetail,
   DUE_FILTERS,
+  type PriorityLevel,
+  priorityOf,
   type QueueView,
   SORT_ORDERS,
   STATUS_FILTERS,
@@ -106,6 +108,25 @@ function ValidationCell({ item }: { item: ApprovalItem }) {
   );
 }
 
+const PRIORITY_STYLES: Record<PriorityLevel, { label: string; className: string }> = {
+  high: { label: "High", className: "bg-[#fdeeee] text-[#b4322c]" },
+  medium: { label: "Medium", className: "bg-[#fdf6e3] text-[#946200]" },
+  low: { label: "Low", className: "bg-[#f1f4f2] text-[#4f5d56]" },
+};
+
+// The level with the reason under it; decided bills don't need one
+function PriorityCell({ item, today }: { item: ApprovalItem; today: Date }) {
+  const priority = priorityOf(item, today);
+  if (!priority) return <span className="text-[#98a29c]">—</span>;
+  const style = PRIORITY_STYLES[priority.level];
+  return (
+    <>
+      <span className={`font-inter-medium inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-xs ${style.className}`}>{style.label}</span>
+      <span className="mt-1 block whitespace-nowrap text-xs text-[#68766f]">{priority.reason}</span>
+    </>
+  );
+}
+
 function EmptyRow({ children, alert = false }: { children: string; alert?: boolean }) {
   return (
     <tr>
@@ -157,7 +178,6 @@ export default function ApprovalQueueTable({
         <Select label="Status" onChange={(status) => onViewChange({ status })} options={STATUS_FILTERS} value={view.status} />
         <Select label="Due" onChange={(due) => onViewChange({ due })} options={DUE_FILTERS} value={view.due} />
         <Select
-          disabledOption="Priority: high first (not available yet)"
           label="Sort"
           onChange={(sort) => onViewChange({ sort })}
           options={SORT_ORDERS}
@@ -220,7 +240,7 @@ export default function ApprovalQueueTable({
                       <ValidationCell item={item} />
                     </td>
                     <td className="px-5 py-3.5">
-                      <NotAvailable label="Priority isn't available yet" />
+                      <PriorityCell item={item} today={today} />
                     </td>
                     <td className="px-5 py-3.5">
                       <ApprovalStatusPill status={item.status} />

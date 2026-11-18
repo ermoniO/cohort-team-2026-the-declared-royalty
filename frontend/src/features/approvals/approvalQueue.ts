@@ -154,15 +154,46 @@ export function dueDetail(item: ApprovalItem, today: Date): { text: string; past
   return { text: `In ${plural(days, "day")}`, pastDue: false };
 }
 
+// --- Priority ---
+
+export type PriorityLevel = "high" | "medium" | "low";
+export type Priority = { level: PriorityLevel; reason: string };
+
+// Days before the due date at which a bill becomes urgent, and "due soon"
+export const PRIORITY_DAYS = { urgent: 2, soon: 7 } as const;
+
+const dueText = (days: number) =>
+  days < 0 ? `Past due · ${plural(-days, "day")}` : days === 0 ? "Due today" : days === 1 ? "Due tomorrow" : `Due in ${plural(days, "day")}`;
+
+// How soon a bill awaiting approval needs a decision, with the reason shown next to it.
+// From the due date and the validation checks; decided bills have no priority.
+//   High:   past due or due within 2 days, or a validation issue and due within 7 days
+//   Medium: due within 7 days, or any validation issue
+//   Low:    everything else
+export function priorityOf(item: ApprovalItem, today: Date): Priority | null {
+  if (item.status !== "awaiting") return null;
+  const days = daysUntilDue(item.invoice, today);
+  const issues = item.validation ? validationIssues(item.validation).length : 0;
+  const issueText = plural(issues, "validation issue");
+
+  if (days !== null && days <= PRIORITY_DAYS.urgent) return { level: "high", reason: dueText(days) };
+  if (issues > 0 && days !== null && days <= PRIORITY_DAYS.soon) return { level: "high", reason: `${issueText} · ${dueText(days).toLowerCase()}` };
+  if (days !== null && days <= PRIORITY_DAYS.soon) return { level: "medium", reason: dueText(days) };
+  if (issues > 0) return { level: "medium", reason: issueText };
+  return { level: "low", reason: days === null ? "No due date" : dueText(days) };
+}
+
+const PRIORITY_RANK: Record<PriorityLevel, number> = { high: 0, medium: 1, low: 2 };
+
 // --- Filters and sorting ---
 
 export type StatusFilter = "all" | ApprovalStatus | "pastDue";
 export type DueFilter = "all" | "month" | "week" | "day" | "pastDue";
-export type SortOrder = "dueAsc" | "dueDesc" | "amountDesc";
+export type SortOrder = "priority" | "dueAsc" | "dueDesc" | "amountDesc";
 
 export type QueueView = { search: string; status: StatusFilter; due: DueFilter; sort: SortOrder };
 
-export const DEFAULT_QUEUE_VIEW: QueueView = { search: "", status: "all", due: "all", sort: "dueAsc" };
+export const DEFAULT_QUEUE_VIEW: QueueView = { search: "", status: "all", due: "all", sort: "priority" };
 
 export const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "all", label: "All statuses" },
@@ -184,6 +215,7 @@ export const DUE_FILTERS: { value: DueFilter; label: string }[] = [
 ];
 
 export const SORT_ORDERS: { value: SortOrder; label: string }[] = [
+  { value: "priority", label: "Priority: high first" },
   { value: "dueAsc", label: "Due date: earliest first" },
   { value: "dueDesc", label: "Due date: latest first" },
   { value: "amountDesc", label: "Amount: highest first" },
@@ -233,11 +265,19 @@ export function applyView(items: ApprovalItem[], view: QueueView, today: Date): 
   });
 
   const dueTime = (item: ApprovalItem) => parseLocalDate(item.invoice.dueDate)?.getTime() ?? null;
+  // Bills without a priority (already decided) sort after every level
+  const rank = (item: ApprovalItem) => {
+    const priority = priorityOf(item, today);
+    return priority ? PRIORITY_RANK[priority.level] : 3;
+  };
   return filtered.sort((a, b) => {
     const byOrder =
       view.sort === "amountDesc"
         ? compareNullable(a.invoice.amount, b.invoice.amount, -1)
-        : compareNullable(dueTime(a), dueTime(b), view.sort === "dueAsc" ? 1 : -1);
+        : view.sort === "priority"
+          ? // Then earliest due first within a level
+            rank(a) - rank(b) || compareNullable(dueTime(a), dueTime(b), 1)
+          : compareNullable(dueTime(a), dueTime(b), view.sort === "dueAsc" ? 1 : -1);
     // Stable tie-break so equal rows don't jump around between renders
     return byOrder || a.invoice.invoiceUuid.localeCompare(b.invoice.invoiceUuid);
   });

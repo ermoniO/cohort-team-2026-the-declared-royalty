@@ -6,6 +6,7 @@ import {
   DEFAULT_QUEUE_VIEW,
   dueDetail,
   isPastDue,
+  priorityOf,
   sentForApprovalEntry,
   summarize,
   validationIssues,
@@ -145,7 +146,7 @@ describe("applyView", () => {
   const names = (items: ApprovalItem[]) => items.map((i) => i.invoice.vendorName);
 
   it("sorts by due date, earliest first, with missing dates last", () => {
-    expect(names(applyView(all, DEFAULT_QUEUE_VIEW, TODAY))).toEqual(["Metro Energy", "Gasco", "Aqua Services", "City Waste"]);
+    expect(names(applyView(all, { ...DEFAULT_QUEUE_VIEW, sort: "dueAsc" }, TODAY))).toEqual(["Metro Energy", "Gasco", "Aqua Services", "City Waste"]);
     expect(names(applyView(all, { ...DEFAULT_QUEUE_VIEW, sort: "dueDesc" }, TODAY))).toEqual([
       "Aqua Services",
       "Gasco",
@@ -299,5 +300,56 @@ describe("queue extras", () => {
     ];
     expect(applyView(items, { ...DEFAULT_QUEUE_VIEW, search: "priya" }, TODAY)).toHaveLength(1);
     expect(applyView(items, { ...DEFAULT_QUEUE_VIEW, search: "jordan" }, TODAY)).toHaveLength(1);
+  });
+});
+
+describe("priorityOf", () => {
+  // TODAY is Nov 10, 2026
+  const names = (items: ApprovalItem[]) => items.map((i) => i.invoice.vendorName);
+  const withIssue: InvoiceValidationResponse = {
+    invoiceUuid: "x",
+    passed: false,
+    passedCount: 3,
+    totalCount: 4,
+    checks: [{ id: "PROPERTY", label: "active property", status: "FAILED", detail: "Oak Street Lofts is inactive." }],
+  };
+  const awaiting = (dueDate: string | null, validation: InvoiceValidationResponse | null = null): ApprovalItem => ({
+    ...item({ dueDate }),
+    validation,
+  });
+
+  it("is high when past due or due within 2 days", () => {
+    expect(priorityOf(awaiting("2026-11-08"), TODAY)).toEqual({ level: "high", reason: "Past due · 2 days" });
+    expect(priorityOf(awaiting("2026-11-10"), TODAY)).toEqual({ level: "high", reason: "Due today" });
+    expect(priorityOf(awaiting("2026-11-12"), TODAY)).toEqual({ level: "high", reason: "Due in 2 days" });
+  });
+
+  it("is high with a validation issue when due within 7 days", () => {
+    expect(priorityOf(awaiting("2026-11-15", withIssue), TODAY)).toEqual({ level: "high", reason: "1 validation issue · due in 5 days" });
+  });
+
+  it("is medium when due within 7 days, or with an issue due later", () => {
+    expect(priorityOf(awaiting("2026-11-17"), TODAY)).toEqual({ level: "medium", reason: "Due in 7 days" });
+    expect(priorityOf(awaiting("2026-12-20", withIssue), TODAY)).toEqual({ level: "medium", reason: "1 validation issue" });
+  });
+
+  it("is low otherwise", () => {
+    expect(priorityOf(awaiting("2026-11-18"), TODAY)).toEqual({ level: "low", reason: "Due in 8 days" });
+    expect(priorityOf(awaiting(null), TODAY)).toEqual({ level: "low", reason: "No due date" });
+  });
+
+  it("has no priority once the bill is decided", () => {
+    expect(priorityOf(item({ invoiceStatus: "APPROVED" }, "approved"), TODAY)).toBeNull();
+  });
+
+  it("sorts high first, earliest due within a level, decided bills last", () => {
+    const rows = [
+      { ...item({ vendorName: "Decided", dueDate: "2026-11-09" }, "approved") },
+      awaiting("2026-12-20"), // low
+      awaiting("2026-11-16"), // medium
+      awaiting("2026-11-11"), // high
+      awaiting("2026-11-09"), // high, earlier
+    ].map((row, i) => (row.invoice.vendorName === "Decided" ? row : { ...row, invoice: { ...row.invoice, vendorName: `R${i}` } }));
+    expect(names(applyView(rows, DEFAULT_QUEUE_VIEW, TODAY))).toEqual(["R4", "R3", "R2", "R1", "Decided"]);
   });
 });

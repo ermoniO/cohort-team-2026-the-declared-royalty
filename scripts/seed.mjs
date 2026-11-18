@@ -306,7 +306,7 @@ WHERE blob_file_sha256 = ${sql(bill.sha256)} AND description IS NULL;`);
 
     // Only bills that have a property get a scenario
     const ref = `(SELECT invoice_uuid FROM invoices WHERE blob_file_sha256 = ${sql(bill.sha256)} AND mapping_uuid IS NOT NULL)`;
-    const history = scenarioHistory(bill.file, scenario, bill.uploadedBy);
+    const history = scenarioHistory(bill.file, scenario, scenario.reviewedBy ?? bill.uploadedBy);
     const notYetApplied = `NOT EXISTS (SELECT 1 FROM audit_logs WHERE audit_uuid = ${sql(history[0].id)})`;
     statements.push(`
 UPDATE invoices
