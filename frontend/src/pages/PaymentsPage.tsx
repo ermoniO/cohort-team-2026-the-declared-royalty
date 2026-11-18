@@ -3,30 +3,18 @@ import { FiCheck, FiChevronRight, FiClock, FiSearch } from "react-icons/fi";
 import { TbAlertTriangle, TbExternalLink } from "react-icons/tb";
 import { navigateTo } from "@/app/navigation";
 import { auditHistoryPath } from "@/features/auditLogs/auditLogDisplay";
-import {
-  formatCurrency,
-} from "@/features/invoices/invoiceFormat";
+import { formatCurrency } from "@/features/invoices/invoiceFormat";
 import { invoiceFileUrl } from "@/features/invoices/invoiceService";
 import {
   getAutoPaySettings,
-  getPaymentSummary,
   getPayments,
   updateAutoPaySettings,
 } from "@/features/payments/paymentService";
 import type {
   PaymentResponse,
-  PaymentStatus as ApiPaymentStatus,
-  PaymentSummaryResponse,
 } from "@/types/payment";
-  getInvoices,
-  invoiceFileUrl,
-} from "@/features/invoices/invoiceService";
 import PaymentsSummaryCards from "@/features/payments/PaymentsSummaryCards";
-import {
-  PAYMENT_INVOICE_STATUSES,
-  type PaymentSummaryState,
-} from "@/features/payments/usePaymentSummary";
-import type { InvoiceResponse } from "@/types/invoice";
+import type { PaymentSummaryState } from "@/features/payments/usePaymentSummary";
 
 type PaymentStatus =
   | "Needs approval"
@@ -57,30 +45,31 @@ const statusStyles: Record<PaymentStatus, string> = {
   Exception: "bg-[#fdeeee] text-[#b4322c]",
 };
 
-function toPayment(invoice: InvoiceResponse): Payment {
+function toPayment(payment: PaymentResponse): Payment {
   const status: PaymentStatus =
-    invoice.invoiceStatus === "PENDING_APPROVAL"
+    payment.paymentStatus === "NEEDS_APPROVAL"
       ? "Needs approval"
-      : invoice.invoiceStatus === "APPROVED"
+      : payment.paymentStatus === "SCHEDULED"
         ? "Scheduled"
-        : invoice.invoiceStatus === "PROCESSING_PAYMENT"
+        : payment.paymentStatus === "PROCESSING"
           ? "Processing"
-          : invoice.invoiceStatus === "PAID"
+          : payment.paymentStatus === "PAID"
             ? "Paid"
             : "Exception";
 
   return {
     id: payment.paymentId,
-    vendor: payment.vendorName ?? payment.originalFilename ?? "Unmatched invoice",
-    invoice: payment.vendorSuppliedInvoiceId ?? payment.originalFilename ?? "Invoice",
+    vendor:
+      payment.vendorName ?? payment.originalFilename ?? "Unmatched invoice",
+    invoice:
+      payment.vendorSuppliedInvoiceId ?? payment.originalFilename ?? "Invoice",
     property: payment.propertyName ?? "Unassigned property",
     amount: payment.amount,
     dueDate: payment.dueDate,
     paymentDate: payment.paymentDate ?? undefined,
-    status: displayStatus(payment.paymentStatus),
+    status,
     failureReason: payment.failureReason,
     retryable: payment.retryable,
-    retryable: false,
     hasInvoiceFile: Boolean(payment.blobFileUrl),
   };
 }
@@ -262,14 +251,15 @@ export default function PaymentsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [autoPayEnabled, setAutoPayEnabled] = useState(false);
+  const [autoPayLoading, setAutoPayLoading] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<PaymentStatus | "All">("All");
   const [search, setSearch] = useState("");
 
   useEffect(() => {
     let active = true;
-    Promise.all([getPayments({ page: 0, size: 100 }), getPaymentSummary(), getAutoPaySettings()])
-      .then(([response, summaryResponse, autoPayResponse]) => {
+    getPayments({ page: 0, size: 100 })
+      .then((response) => {
         if (!active) return;
         const loadedPayments = response.items.map(toPayment);
         setPayments(loadedPayments);
@@ -286,6 +276,15 @@ export default function PaymentsPage() {
       .finally(() => {
         if (active) setLoading(false);
       });
+
+    // Auto-pay is an optional control; it must not prevent the payment queue
+    // from rendering if its settings endpoint is unavailable.
+    getAutoPaySettings()
+      .then((response) => {
+        if (active) setAutoPayEnabled(response.enabled);
+      })
+      .catch(() => undefined);
+
     return () => {
       active = false;
     };
@@ -299,7 +298,9 @@ export default function PaymentsPage() {
       const response = await updateAutoPaySettings(nextValue);
       setAutoPayEnabled(response.enabled);
     } catch (reason: unknown) {
-      setError(reason instanceof Error ? reason.message : "Unable to update auto-pay.");
+      setError(
+        reason instanceof Error ? reason.message : "Unable to update auto-pay.",
+      );
     } finally {
       setAutoPayLoading(false);
     }
@@ -319,19 +320,16 @@ export default function PaymentsPage() {
     visiblePayments.find((payment) => payment.id === selectedId) ??
     visiblePayments[0] ??
     payments[0];
-  const processingPayments = payments.filter((payment) => payment.status === "Processing");
+  const processingPayments = payments.filter(
+    (payment) => payment.status === "Processing",
+  );
   const needsApproval = payments.filter(
     (payment) => payment.status === "Needs approval",
   ).length;
   const scheduledPayments = payments.filter(
     (payment) => payment.status === "Scheduled",
   );
-  const processingPayments = payments.filter(
-    (payment) => payment.status === "Processing",
-  );
-  const paidPayments = payments.filter(
-    (payment) => payment.status === "Paid",
-  );
+  const paidPayments = payments.filter((payment) => payment.status === "Paid");
   const sumAmount = (list: Payment[]) =>
     list.reduce((total, payment) => total + (payment.amount ?? 0), 0);
   const summaryState: PaymentSummaryState = loading
@@ -360,8 +358,9 @@ export default function PaymentsPage() {
         <button
           aria-checked={autoPayEnabled}
           aria-label="Schedule payment"
-          className="font-inter-semibold flex items-center gap-2 text-sm text-[#14532d]"
-          onClick={() => setAutoPayEnabled((enabled) => !enabled)}
+          className="font-inter-semibold flex items-center gap-2 text-sm text-[#14532d] disabled:cursor-wait disabled:opacity-60"
+          disabled={autoPayLoading}
+          onClick={toggleAutoPay}
           role="switch"
           type="button"
         >
@@ -377,27 +376,6 @@ export default function PaymentsPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <SummaryCard detail="From live payment records" dot="bg-[#5b45a8]" label="Needs approval" value={String(summary?.needsApprovalCount ?? 0)} />
-        <SummaryCard
-          detail={summary?.nextScheduledDate ? `Next due ${formatDate(summary.nextScheduledDate)}` : "Approved invoices"}
-          dot="bg-[#16834a]"
-          label="Scheduled"
-          value={String(summary?.scheduledCount ?? 0)}
-        />
-        <SummaryCard
-          detail={`${summary?.processingCount ?? processingPayments.length} invoice${(summary?.processingCount ?? processingPayments.length) === 1 ? "" : "s"} in progress`}
-          dot="bg-[#2f5ea8]"
-          label="Processing"
-          value={formatCurrency(summary?.processingTotal ?? 0)}
-        />
-        <SummaryCard
-          detail="From loaded paid invoices"
-          dot="bg-[#16834a]"
-          label="Paid total"
-          value={formatCurrency(summary?.paidTotal ?? 0)}
-        />
-      </div>
       <PaymentsSummaryCards state={summaryState} />
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(360px,0.75fr)]">
