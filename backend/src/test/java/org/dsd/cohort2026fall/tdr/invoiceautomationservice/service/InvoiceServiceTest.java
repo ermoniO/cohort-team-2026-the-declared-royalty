@@ -43,9 +43,10 @@ class InvoiceServiceTest {
     private final InvoiceRepository invoiceRepository = mock(InvoiceRepository.class);
     private final PropertyVendorMappingRepository mappingRepository = mock(PropertyVendorMappingRepository.class);
     private final InvoiceAnalysisService invoiceAnalysisService = mock(InvoiceAnalysisService.class);
+    private final AuditLogService auditLogService = mock(AuditLogService.class);
     private final PropertyAddressMatcher propertyAddressMatcher = mock(PropertyAddressMatcher.class);
-    private final InvoiceService invoiceService =
-            new InvoiceService(invoiceRepository, mappingRepository, invoiceAnalysisService, propertyAddressMatcher);
+    private final InvoiceService invoiceService = new InvoiceService(
+            invoiceRepository, mappingRepository, invoiceAnalysisService, auditLogService, propertyAddressMatcher);
     private final UUID mappingUuid = UUID.randomUUID();
 
     @BeforeEach
@@ -255,7 +256,7 @@ class InvoiceServiceTest {
         PropertyVendorMappingEntity mapping = mappingFor(vendorId, property);
         when(propertyAddressMatcher.findMatches(ADDRESS, null)).thenReturn(List.of(property));
         when(mappingRepository.findByVendor_VendorIdAndProperty_PropertyId(vendorId, property.getPropertyId()))
-                .thenReturn(List.of(mapping));
+                .thenReturn(Optional.of(mapping));
 
         InvoiceUpdateRequest request = new InvoiceUpdateRequest();
         request.setPropertyAddress(ADDRESS);
@@ -272,7 +273,7 @@ class InvoiceServiceTest {
         PropertyVendorMappingEntity mapping = mappingFor(vendorId, workshop);
         when(propertyAddressMatcher.findMatches(ADDRESS, "Alder Creek Workshop")).thenReturn(List.of(workshop));
         when(mappingRepository.findByVendor_VendorIdAndProperty_PropertyId(vendorId, workshop.getPropertyId()))
-                .thenReturn(List.of(mapping));
+                .thenReturn(Optional.of(mapping));
 
         InvoiceUpdateRequest request = new InvoiceUpdateRequest();
         request.setPropertyAddress(ADDRESS);
@@ -323,7 +324,7 @@ class InvoiceServiceTest {
 
         PropertyEntity property = property(UUID.randomUUID());
         when(propertyAddressMatcher.findMatches(ADDRESS, null)).thenReturn(List.of(property));
-        when(mappingRepository.findByVendor_VendorIdAndProperty_PropertyId(vendorId, property.getPropertyId())).thenReturn(List.of());
+        when(mappingRepository.findByVendor_VendorIdAndProperty_PropertyId(vendorId, property.getPropertyId())).thenReturn(Optional.empty());
         PropertyMatchException error = assertThrows(PropertyMatchException.class,
                 () -> invoiceService.updateInvoice(invoice.getInvoiceId(), request));
         assertTrue(error.getMessage().contains("isn't linked"));

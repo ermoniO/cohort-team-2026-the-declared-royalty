@@ -17,6 +17,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.PlatformTransactionManager;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -37,6 +38,7 @@ class AuditLogServiceTest {
     @Mock private AuditLogRepository auditLogRepository;
     @Mock private InvoiceRepository invoiceRepository;
     @Mock private UserRepository userRepository;
+    @Mock private PlatformTransactionManager transactionManager;
 
     @InjectMocks private AuditLogService auditLogService;
 

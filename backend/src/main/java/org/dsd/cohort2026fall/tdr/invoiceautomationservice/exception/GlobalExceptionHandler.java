@@ -85,6 +85,16 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.UNPROCESSABLE_CONTENT, ex.getMessage(), request);
     }
 
+    @ExceptionHandler(InvalidInvoiceException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidInvoice(InvalidInvoiceException ex, HttpServletRequest request) {
+        return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler({InvoiceAlreadyExistsException.class, InvoiceConflictException.class})
+    public ResponseEntity<ErrorResponse> handleInvoiceConflict(RuntimeException ex, HttpServletRequest request) {
+        return build(HttpStatus.CONFLICT, ex.getMessage(), request);
+    }
+
     private ResponseEntity<ErrorResponse> build(HttpStatus status, String message, HttpServletRequest request) {
         ErrorResponse body = new ErrorResponse();
         body.setStatus(status.value());

@@ -11,6 +11,7 @@ import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.PropertyVendor
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.VendorEntity;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.*;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.*;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.AuditLogCreateRequest.ActionTypeEnum;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository.InvoiceRepository;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository.PropertyVendorMappingRepository;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,6 +28,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.UUID;
 
 @Slf4j
@@ -46,17 +48,20 @@ public class InvoiceService {
     private final InvoiceRepository invoiceRepository;
     private final PropertyVendorMappingRepository mappingRepository;
     private final InvoiceAnalysisService invoiceAnalysisService;
+    private final AuditLogService auditLogService;
     private final PropertyAddressMatcher propertyAddressMatcher;
 
     public InvoiceService(
             InvoiceRepository invoiceRepository,
             PropertyVendorMappingRepository mappingRepository,
             InvoiceAnalysisService invoiceAnalysisService,
+            AuditLogService auditLogService,
             PropertyAddressMatcher propertyAddressMatcher
     ) {
         this.invoiceRepository = invoiceRepository;
         this.mappingRepository = mappingRepository;
         this.invoiceAnalysisService = invoiceAnalysisService;
+        this.auditLogService = auditLogService;
         this.propertyAddressMatcher = propertyAddressMatcher;
     }
 
@@ -129,6 +134,20 @@ public class InvoiceService {
 
     public InvoiceResponse updateInvoice(UUID invoiceUuid, InvoiceUpdateRequest request) {
         InvoiceEntity invoice = findInvoice(invoiceUuid);
+
+        // Snapshot before any setter runs, so the audit entry can show old → new
+        UUID oldMappingId = invoice.getMapping() == null ? null : invoice.getMapping().getMappingId();
+        var oldStart = invoice.getBillingPeriodStart();
+        var oldEnd = invoice.getBillingPeriodEnd();
+        var oldIssued = invoice.getInvoiceCreationDate();
+        BigDecimal oldAmount = invoice.getAmount();
+        var oldDue = invoice.getDueDate();
+        String oldStatus = invoice.getInvoiceStatus();
+        String oldDescription = invoice.getDescription();
+        String oldFailure = invoice.getFailureReason();
+        String oldFileUrl = invoice.getBlobFileUrl();
+        String oldFileHash = invoice.getBlobFileSha256();
+
         // An explicit mapping wins; otherwise the address on the bill picks the property
         PropertyVendorMappingEntity mapping;
         if (request.getMappingUuid() != null) {
@@ -184,8 +203,33 @@ public class InvoiceService {
             invoice.setBlobFileSha256(request.getBlobFileSha256());
         }
         invoice.setUpdatedAt(now());
+        InvoiceEntity saved = invoiceRepository.save(invoice);
 
-        return toResponse(invoiceRepository.save(invoice));
+        List<String> changes = new ArrayList<>();
+        addChange(changes, "vendor/property link", oldMappingId, mapping == null ? null : mapping.getMappingId());
+        addChange(changes, "billing period start", oldStart, saved.getBillingPeriodStart());
+        addChange(changes, "billing period end", oldEnd, saved.getBillingPeriodEnd());
+        addChange(changes, "invoice date", oldIssued, saved.getInvoiceCreationDate());
+        addChange(changes, "amount", oldAmount, saved.getAmount());
+        addChange(changes, "due date", oldDue, saved.getDueDate());
+        addChange(changes, "status", oldStatus, saved.getInvoiceStatus());
+        addChange(changes, "description", oldDescription, saved.getDescription());
+        addChange(changes, "failure reason", oldFailure, saved.getFailureReason());
+        addChange(changes, "file", oldFileUrl, saved.getBlobFileUrl());
+        addChange(changes, "file hash", oldFileHash, saved.getBlobFileSha256());
+
+        // Same transaction as the update: the edit and its audit entry commit together or not at all
+        if (!changes.isEmpty()) {
+            String newStatus = saved.getInvoiceStatus();
+            boolean statusChanged = !Objects.equals(oldStatus, newStatus);
+            // TODO(auth): record the signed-in user instead of the system user
+            auditLogService.record(invoiceUuid, InvoiceUploadService.SYSTEM_USER_ID,
+                    editActionType(oldStatus, newStatus),
+                    statusChanged ? "Invoice status changed to " + newStatus : "Invoice details edited",
+                    oldStatus, newStatus, truncate(String.join("\n", changes), 3000));
+        }
+
+        return toResponse(saved);
     }
 
     @Value("${llm.max-attempts}")
@@ -200,8 +244,8 @@ public class InvoiceService {
         for(int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++){
             try {
                 InvoiceAnalysisResponse response = invoiceAnalysisService.analyzeInvoice(invoiceUuid);
-                if(response.getError().contains("No values could be extracted")) throw new InvoiceNoDataException("File " + invoiceUuid + " contains no valid data, likely not an invoice");
-                return response;
+                // error is null when the model had no problem (see llm_prompt.txt)
+                if(response.getError() != null && response.getError().contains("No values could be extracted")) throw new InvoiceNoDataException("File " + invoiceUuid + " contains no valid data, likely not an invoice");                return response;
             } catch(JsonProcessingException e){
                 log.error("Attempt " + attempt + " failed. Model returned malformed Json object:  " + e.getMessage());
                 if(attempt== MAX_ATTEMPTS) throw new InvoiceAnalysisFailureException("Invoice extraction failed after " + attempt +" attempts. Model returned malformed Json object.");
@@ -221,7 +265,7 @@ public class InvoiceService {
     }
 
     // The vendor's mapping to the one property at this address. Never guesses: no match, several
-    // matching properties or several mappings all leave the invoice unchanged and say why.
+    // matching properties or no mapping all leave the invoice unchanged and say why.
     private PropertyVendorMappingEntity mappingForAddress(InvoiceEntity invoice, UUID vendorUuid, String address, String name) {
         UUID vendorId = vendorUuid;
         if (vendorId == null && invoice.getMapping() != null && invoice.getMapping().getVendor() != null) {
@@ -245,17 +289,10 @@ public class InvoiceService {
         }
 
         PropertyEntity property = properties.getFirst();
-        List<PropertyVendorMappingEntity> mappings =
-                mappingRepository.findByVendor_VendorIdAndProperty_PropertyId(vendorId, property.getPropertyId());
-        if (mappings.isEmpty()) {
-            throw new PropertyMatchException("Vendor " + vendorId + " isn't linked to " + property.getName()
-                    + " (" + property.getPropertyId() + "): add a property-vendor mapping first");
-        }
-        if (mappings.size() > 1) {
-            throw new PropertyMatchException("Vendor " + vendorId + " has " + mappings.size() + " mappings for "
-                    + property.getName() + ": give mappingUuid to choose one");
-        }
-        return mappings.getFirst();
+        final UUID vendor = vendorId;
+        return mappingRepository.findByVendor_VendorIdAndProperty_PropertyId(vendor, property.getPropertyId())
+                .orElseThrow(() -> new PropertyMatchException("Vendor " + vendor + " isn't linked to " + property.getName()
+                        + " (" + property.getPropertyId() + "): add a property-vendor mapping first"));
     }
 
     private void ensureNotDuplicate(UUID mappingUuid, String vendorInvoiceId, java.time.LocalDate billingPeriodEnd, UUID currentInvoiceUuid) {
@@ -322,6 +359,33 @@ public class InvoiceService {
     // Treat % and _ typed by the user as literal characters, not wildcards
     private static String escapeLike(String value) {
         return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+    }
+    // Adds "label: old → new" when the value changed. Amounts compare by value, so 4000.0 equals 4000.00
+    private static void addChange(List<String> changes, String label, Object before, Object after) {
+        boolean same = before instanceof BigDecimal b && after instanceof BigDecimal a
+                ? b.compareTo(a) == 0
+                : Objects.equals(before, after);
+        if (!same) changes.add(label + ": " + display(before) + " → " + display(after));
+    }
+
+    private static String display(Object value) {
+        if (value == null) return "(empty)";
+        return value instanceof BigDecimal d ? d.toPlainString() : value.toString();
+    }
+
+    // A status change that matches a pipeline stage is logged as that stage; anything else is an edit
+    private static ActionTypeEnum editActionType(String oldStatus, String newStatus) {
+        if (Objects.equals(oldStatus, newStatus)) return ActionTypeEnum.USER_UPDATED;
+        return switch (newStatus) {
+            case "PENDING_APPROVAL" -> ActionTypeEnum.USER_VALIDATED;
+            case "APPROVED" -> ActionTypeEnum.USER_APPROVED;
+            case "PAID" -> ActionTypeEnum.USER_PAID;
+            default -> ActionTypeEnum.USER_UPDATED;
+        };
+    }
+
+    private static String truncate(String value, int max) {
+        return value.length() <= max ? value : value.substring(0, max - 1) + "…";
     }
 
     private OffsetDateTime now() {

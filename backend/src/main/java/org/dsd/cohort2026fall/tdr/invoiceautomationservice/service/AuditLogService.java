@@ -12,6 +12,12 @@ import org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository.InvoiceRep
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.support.TransactionTemplate;
+
+import java.util.Objects;
 
 import java.util.List;
 import java.util.UUID;
@@ -28,13 +34,17 @@ public class AuditLogService {
     private final AuditLogRepository auditLogRepository;
     private final InvoiceRepository invoiceRepository;
     private final UserRepository userRepository;
+    private final TransactionTemplate newTransaction;
 
     public AuditLogService(AuditLogRepository auditLogRepository,
                            InvoiceRepository invoiceRepository,
-                           UserRepository userRepository) {
+                           UserRepository userRepository,
+                           PlatformTransactionManager transactionManager) {
         this.auditLogRepository = auditLogRepository;
         this.invoiceRepository = invoiceRepository;
         this.userRepository = userRepository;
+        this.newTransaction = new TransactionTemplate(transactionManager);
+        this.newTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
     public AuditLogResponse createAuditLog(AuditLogCreateRequest request) {
@@ -87,6 +97,31 @@ public class AuditLogService {
         log.info("Audit log {} recorded: invoice={}, action={}, {} -> {}",
                 saved.getAuditUuid(), invoiceId, actionType, fromState, toState);
         return toResponse(saved);
+    }
+
+    /**
+     * Records a failed or rejected action. Call it just before rethrowing the error.
+     * Saves in its own transaction, so the entry survives the caller's rollback, and never
+     * throws: a failed audit write must not hide the caller's real error.
+     */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public void recordFailure(UUID invoiceId, UUID userId, ActionTypeEnum actionType,
+                              String actionTaken, String state, String reason) {
+        String current = (state == null || state.isBlank()) ? "UNKNOWN" : state;
+        String notes = (reason == null || reason.length() <= NOTES_MAX)
+                ? reason
+                : reason.substring(0, NOTES_MAX - 1) + "…";
+        try {
+            newTransaction.executeWithoutResult(tx ->
+                    record(invoiceId, userId, actionType, actionTaken, current, current, notes));
+        } catch (RuntimeException e) {
+            log.warn("Could not record failure '{}' for invoice {}", actionTaken, invoiceId, e);
+        }
+    }
+
+    /** The exception's message, or its type when it has none. */
+    public static String reasonOf(Throwable e) {
+        return Objects.requireNonNullElse(e.getMessage(), e.getClass().getSimpleName());
     }
 
     @Transactional(readOnly = true)

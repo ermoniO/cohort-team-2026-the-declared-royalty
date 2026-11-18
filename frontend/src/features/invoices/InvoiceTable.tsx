@@ -1,7 +1,7 @@
 import { FiSearch } from "react-icons/fi";
 import { navigateTo } from "@/app/navigation";
 import { auditHistoryPath } from "@/features/auditLogs/auditLogDisplay";
-import type { InvoiceResponse } from "@/types/invoice";
+import type { InvoiceResponse, InvoiceStatus } from "@/types/invoice";
 import { formatCurrency, formatReceived, plural } from "./invoiceFormat";
 import { invoiceFileUrl } from "./invoiceService";
 import InvoiceStatusPill from "./InvoiceStatusPill";
@@ -15,6 +15,7 @@ type InvoiceTableProps = {
   search: string;
   onSearchChange: (search: string) => void;
   onPageChange: (page: number) => void;
+  onReview: (invoice: InvoiceResponse) => void;
 };
 
 const TABLE_ID = "invoice-table";
@@ -57,8 +58,10 @@ function VendorCell({ invoice }: { invoice: InvoiceResponse }) {
 const actionClass =
   "font-inter-medium inline-flex h-8 items-center rounded-[7px] border border-[#e6ebe8] bg-white px-3 text-[13px] text-[#25362f]";
 
-// Opens the original file until a review screen exists; manual invoices have no file
-function ReviewAction({ invoice }: { invoice: InvoiceResponse }) {
+// Statuses the review modal can work on; matches REVIEWABLE in the backend's InvoiceExtractionService
+const REVIEWABLE: InvoiceStatus[] = ["INGESTED", "PENDING_MAPPING", "FAILED"];
+
+function ReviewAction({ invoice, onReview }: { invoice: InvoiceResponse; onReview: (invoice: InvoiceResponse) => void }) {
   const label = invoice.vendorName ?? invoice.originalFilename ?? "invoice";
   if (!invoice.blobFileUrl) {
     return (
@@ -67,15 +70,23 @@ function ReviewAction({ invoice }: { invoice: InvoiceResponse }) {
       </button>
     );
   }
+  if (REVIEWABLE.includes(invoice.invoiceStatus)) {
+    return (
+      <button aria-label={`Review ${label}`} className={`${actionClass} hover:bg-[#f8faf9]`} onClick={() => onReview(invoice)} type="button">
+        Review
+      </button>
+    );
+  }
+  // Past review: just show the file
   return (
     <a
-      aria-label={`Review ${label} (opens the file in a new tab)`}
+      aria-label={`View file for ${label} (opens in a new tab)`}
       className={`${actionClass} hover:bg-[#f8faf9]`}
       href={invoiceFileUrl(invoice.invoiceUuid)}
       rel="noopener noreferrer"
       target="_blank"
     >
-      Review
+      View file
     </a>
   );
 }
@@ -106,7 +117,7 @@ function EmptyRow({ children, alert = false }: { children: string; alert?: boole
   );
 }
 
-export default function InvoiceTable({ state, tab, onTabChange, search, onSearchChange, onPageChange }: InvoiceTableProps) {
+export default function InvoiceTable({ state, tab, onTabChange, search, onSearchChange, onPageChange, onReview }: InvoiceTableProps) {
   const data = state.status === "loaded" ? state.data : state.status === "loading" ? state.previous : undefined;
   const items = data?.items ?? [];
   const loading = state.status === "loading";
@@ -198,7 +209,7 @@ export default function InvoiceTable({ state, tab, onTabChange, search, onSearch
                   <td className="px-5 py-3.5 text-right">
                     <div className="flex justify-end gap-2">
                       <HistoryAction invoice={invoice} />
-                      <ReviewAction invoice={invoice} />
+                      <ReviewAction invoice={invoice} onReview={onReview} />
                     </div>
                   </td>
                 </tr>

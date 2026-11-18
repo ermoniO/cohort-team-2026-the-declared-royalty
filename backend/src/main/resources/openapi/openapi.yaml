@@ -38,6 +38,12 @@ paths:
     $ref: './paths/invoice_upload_check_duplicates.yaml'
   /api/v1/invoices/{invoiceId}/file:
     $ref: './paths/invoice_file.yaml'
+  /api/v1/invoices/{invoiceUuid}/extract:
+    $ref: './paths/invoice_extract.yaml'
+  /api/v1/invoices/{invoiceUuid}/verify:
+    $ref: './paths/invoice_verify.yaml'
+  /api/v1/invoices/{invoiceUuid}/progress:
+    $ref: './paths/invoice_progress.yaml'
   /api/v1/invoices/{invoiceUuid}/stripe-payment:
     $ref: './paths/stripe_payment.yaml'
   /api/v1/stripe/webhook:
@@ -87,6 +93,16 @@ components:
       $ref: './components/schemas/InvoiceStatus.yaml'
     InvoiceSummaryResponse:
       $ref: './components/schemas/InvoiceSummaryResponse.yaml'
+    ExtractedField:
+      $ref: './components/schemas/ExtractedField.yaml'
+    InvoiceExtractedFields:
+      $ref: './components/schemas/InvoiceExtractedFields.yaml'
+    InvoiceExtractionResponse:
+      $ref: './components/schemas/InvoiceExtractionResponse.yaml'
+    InvoiceVerifyRequest:
+      $ref: './components/schemas/InvoiceVerifyRequest.yaml'
+    InvoiceProgressRequest:
+      $ref: './components/schemas/InvoiceProgressRequest.yaml'
     StripePaymentRequest:
       $ref: './components/schemas/StripePaymentRequest.yaml'
     StripePaymentResponse:

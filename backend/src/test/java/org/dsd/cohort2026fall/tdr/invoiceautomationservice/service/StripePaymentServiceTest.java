@@ -28,12 +28,14 @@ class StripePaymentServiceTest {
     private final PaymentAttemptRepository paymentAttemptRepository = mock(PaymentAttemptRepository.class);
     private final StripeWebhookEventRepository webhookEventRepository = mock(StripeWebhookEventRepository.class);
     private final ObjectProvider<StripeClient> stripeClientProvider = mock(ObjectProvider.class);
+    private final AuditLogService auditLogService = mock(AuditLogService.class);
     private final StripePaymentService service = new StripePaymentService(
             invoiceRepository,
             paymentAttemptRepository,
             new StripeProperties(true, "sk_test_key", "whsec_test", "usd"),
             stripeClientProvider,
-            webhookEventRepository);
+            webhookEventRepository,
+            auditLogService);
     private final UUID invoiceId = UUID.randomUUID();
 
     @BeforeEach

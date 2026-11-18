@@ -1,0 +1,46 @@
+parameters:
+  - name: invoiceUuid
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+post:
+  tags:
+    - Invoice Extraction
+  summary: Save the fields a reviewer has confirmed so far
+  description: >
+    Writes the confirmed values onto the invoice and keeps it in PENDING_MAPPING,
+    so the review can be finished later.
+  operationId: saveInvoiceProgress
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../components/schemas/InvoiceProgressRequest.yaml'
+  responses:
+    '200':
+      description: Progress saved
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/InvoiceResponse.yaml'
+    '400':
+      description: Nothing to save, or invalid values
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'
+    '404':
+      description: Invoice, vendor or property not found
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'
+    '409':
+      description: Invoice is past review, the account number doesn't match the one on file, or it duplicates another invoice
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'
