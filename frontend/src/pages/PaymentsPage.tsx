@@ -1,22 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { FiCheck, FiChevronRight, FiClock, FiSearch } from "react-icons/fi";
-import { TbAlertTriangle, TbCreditCard, TbExternalLink } from "react-icons/tb";
+import { TbAlertTriangle, TbExternalLink } from "react-icons/tb";
 import { navigateTo } from "@/app/navigation";
 import { auditHistoryPath } from "@/features/auditLogs/auditLogDisplay";
+import { formatCurrency } from "@/features/invoices/invoiceFormat";
+import { invoiceFileUrl } from "@/features/invoices/invoiceService";
 import {
-  formatCurrency,
-  formatReceived,
-} from "@/features/invoices/invoiceFormat";
-import {
-  getInvoices,
-  invoiceFileUrl,
-} from "@/features/invoices/invoiceService";
+  getAutoPaySettings,
+  getPayments,
+  updateAutoPaySettings,
+} from "@/features/payments/paymentService";
+import type {
+  PaymentResponse,
+} from "@/types/payment";
 import PaymentsSummaryCards from "@/features/payments/PaymentsSummaryCards";
-import {
-  PAYMENT_INVOICE_STATUSES,
-  type PaymentSummaryState,
-} from "@/features/payments/usePaymentSummary";
-import type { InvoiceResponse, InvoiceStatus } from "@/types/invoice";
+import type { PaymentSummaryState } from "@/features/payments/usePaymentSummary";
 
 type PaymentStatus =
   | "Needs approval"
@@ -35,6 +33,7 @@ type Payment = {
   paymentDate?: string;
   status: PaymentStatus;
   failureReason: string | null;
+  retryable: boolean;
   hasInvoiceFile: boolean;
 };
 
@@ -46,39 +45,32 @@ const statusStyles: Record<PaymentStatus, string> = {
   Exception: "bg-[#fdeeee] text-[#b4322c]",
 };
 
-function paymentStatus(invoiceStatus: InvoiceStatus): PaymentStatus {
-  switch (invoiceStatus) {
-    case "PENDING_APPROVAL":
-      return "Needs approval";
-    case "APPROVED":
-      return "Scheduled";
-    case "PROCESSING_PAYMENT":
-      return "Processing";
-    case "PAID":
-      return "Paid";
-    case "FAILED":
-      return "Exception";
-    default:
-      return "Exception";
-  }
-}
+function toPayment(payment: PaymentResponse): Payment {
+  const status: PaymentStatus =
+    payment.paymentStatus === "NEEDS_APPROVAL"
+      ? "Needs approval"
+      : payment.paymentStatus === "SCHEDULED"
+        ? "Scheduled"
+        : payment.paymentStatus === "PROCESSING"
+          ? "Processing"
+          : payment.paymentStatus === "PAID"
+            ? "Paid"
+            : "Exception";
 
-function toPayment(invoice: InvoiceResponse): Payment {
-  const status = paymentStatus(invoice.invoiceStatus);
   return {
-    id: invoice.invoiceUuid,
+    id: payment.paymentId,
     vendor:
-      invoice.vendorName ?? invoice.originalFilename ?? "Unmatched invoice",
+      payment.vendorName ?? payment.originalFilename ?? "Unmatched invoice",
     invoice:
-      invoice.vendorSuppliedInvoiceId ?? invoice.originalFilename ?? "Invoice",
-    property: invoice.propertyName ?? "Unassigned property",
-    amount: invoice.amount,
-    dueDate: invoice.dueDate,
-    paymentDate:
-      status === "Paid" ? formatReceived(invoice.updatedAt) : undefined,
+      payment.vendorSuppliedInvoiceId ?? payment.originalFilename ?? "Invoice",
+    property: payment.propertyName ?? "Unassigned property",
+    amount: payment.amount,
+    dueDate: payment.dueDate,
+    paymentDate: payment.paymentDate ?? undefined,
     status,
-    failureReason: invoice.failureReason,
-    hasInvoiceFile: Boolean(invoice.blobFileUrl),
+    failureReason: payment.failureReason,
+    retryable: payment.retryable,
+    hasInvoiceFile: Boolean(payment.blobFileUrl),
   };
 }
 
@@ -183,7 +175,10 @@ function PaymentProgress({ payment }: { payment: Payment }) {
             </p>
             <p className="font-inter-regular mt-1 text-xs text-[#68766f]">
               {payment.failureReason ??
-                "The invoice is marked as failed. Review the exception before trying again."}
+                "The invoice is marked as failed. Review the exception before trying again."}{" "}
+              {payment.retryable
+                ? "A retry may be available after confirming the payment details."
+                : "This payment requires review before it can be retried."}
             </p>
           </div>
         </div>
@@ -255,13 +250,15 @@ export default function PaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [autoPayEnabled, setAutoPayEnabled] = useState(false);
+  const [autoPayLoading, setAutoPayLoading] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<PaymentStatus | "All">("All");
   const [search, setSearch] = useState("");
 
   useEffect(() => {
     let active = true;
-    getInvoices({ page: 0, size: 100, statuses: PAYMENT_INVOICE_STATUSES })
+    getPayments({ page: 0, size: 100 })
       .then((response) => {
         if (!active) return;
         const loadedPayments = response.items.map(toPayment);
@@ -279,10 +276,35 @@ export default function PaymentsPage() {
       .finally(() => {
         if (active) setLoading(false);
       });
+
+    // Auto-pay is an optional control; it must not prevent the payment queue
+    // from rendering if its settings endpoint is unavailable.
+    getAutoPaySettings()
+      .then((response) => {
+        if (active) setAutoPayEnabled(response.enabled);
+      })
+      .catch(() => undefined);
+
     return () => {
       active = false;
     };
   }, []);
+
+  const toggleAutoPay = async () => {
+    const nextValue = !autoPayEnabled;
+    setAutoPayLoading(true);
+    setError(null);
+    try {
+      const response = await updateAutoPaySettings(nextValue);
+      setAutoPayEnabled(response.enabled);
+    } catch (reason: unknown) {
+      setError(
+        reason instanceof Error ? reason.message : "Unable to update auto-pay.",
+      );
+    } finally {
+      setAutoPayLoading(false);
+    }
+  };
 
   const visiblePayments = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -298,18 +320,16 @@ export default function PaymentsPage() {
     visiblePayments.find((payment) => payment.id === selectedId) ??
     visiblePayments[0] ??
     payments[0];
+  const processingPayments = payments.filter(
+    (payment) => payment.status === "Processing",
+  );
   const needsApproval = payments.filter(
     (payment) => payment.status === "Needs approval",
   ).length;
   const scheduledPayments = payments.filter(
     (payment) => payment.status === "Scheduled",
   );
-  const processingPayments = payments.filter(
-    (payment) => payment.status === "Processing",
-  );
-  const paidPayments = payments.filter(
-    (payment) => payment.status === "Paid",
-  );
+  const paidPayments = payments.filter((payment) => payment.status === "Paid");
   const sumAmount = (list: Payment[]) =>
     list.reduce((total, payment) => total + (payment.amount ?? 0), 0);
   const summaryState: PaymentSummaryState = loading
@@ -336,13 +356,23 @@ export default function PaymentsPage() {
           Track approved invoices from authorization to settlement.
         </p>
         <button
-          className="font-inter-semibold flex h-9 cursor-not-allowed items-center gap-2 rounded-[7px] bg-[#16834a] px-4 text-sm text-white opacity-60"
-          disabled
-          title="Payment scheduling will be enabled when the payment write endpoint is connected"
+          aria-checked={autoPayEnabled}
+          aria-label="Auto-pay"
+          className="font-inter-semibold flex items-center gap-2 text-sm text-[#14532d] disabled:cursor-wait disabled:opacity-60"
+          disabled={autoPayLoading}
+          onClick={toggleAutoPay}
+          role="switch"
           type="button"
         >
-          <TbCreditCard size={16} />
-          Schedule payment
+          <span
+            aria-hidden="true"
+            className={`relative h-5 w-9 rounded-full transition-colors ${autoPayEnabled ? "bg-[#16834a]" : "bg-[#b9c8be]"}`}
+          >
+            <span
+              className={`absolute top-0.5 left-0.5 size-4 rounded-full bg-white shadow-sm transition-transform ${autoPayEnabled ? "translate-x-4" : "translate-x-0"}`}
+            />
+          </span>
+          <span>Auto-pay</span>
         </button>
       </div>
 

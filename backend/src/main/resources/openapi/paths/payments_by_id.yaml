@@ -1,0 +1,25 @@
+get:
+  tags:
+    - Payments
+  summary: Get payment details
+  operationId: getPaymentById
+  parameters:
+    - name: paymentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    '200':
+      description: Payment details
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/PaymentResponse.yaml'
+    '404':
+      description: Payment not found
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'

@@ -7,5 +7,6 @@ public record StripeProperties(
         boolean enabled,
         String secretKey,
         String webhookSecret,
-        String currency) {
+        String currency,
+        String autoPayPaymentMethodId) {
 }

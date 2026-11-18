@@ -23,6 +23,11 @@ public interface InvoiceRepository extends JpaRepository<InvoiceEntity, UUID>, J
 
     Page<InvoiceEntity> findByInvoiceStatus(String status, Pageable pageable);
 
+    Optional<InvoiceEntity> findFirstByInvoiceStatusAndDueDateIsNotNullOrderByDueDateAsc(String status);
+
+    List<InvoiceEntity> findByInvoiceStatusAndDueDateLessThanEqualOrderByDueDateAsc(
+            String status, LocalDate dueDate);
+
     Optional<InvoiceEntity> findByMapping_Vendor_VendorIdAndVendorSuppliedInvoiceIdAndBillingPeriodEnd(
             UUID vendorId, String vendorSuppliedInvoiceId, LocalDate billingPeriodEnd);
 

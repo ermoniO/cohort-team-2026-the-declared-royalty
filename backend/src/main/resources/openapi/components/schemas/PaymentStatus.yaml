@@ -1,0 +1,7 @@
+type: string
+enum:
+  - NEEDS_APPROVAL
+  - SCHEDULED
+  - PROCESSING
+  - PAID
+  - EXCEPTION

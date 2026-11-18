@@ -1,0 +1,35 @@
+type: object
+required:
+  - needsApprovalCount
+  - scheduledCount
+  - processingCount
+  - processingTotal
+  - paidCount
+  - paidTotal
+  - exceptionCount
+properties:
+  needsApprovalCount:
+    type: integer
+    format: int64
+  scheduledCount:
+    type: integer
+    format: int64
+  nextScheduledDate:
+    type: string
+    format: date
+    nullable: true
+  processingCount:
+    type: integer
+    format: int64
+  processingTotal:
+    type: number
+    multipleOf: 0.01
+  paidCount:
+    type: integer
+    format: int64
+  paidTotal:
+    type: number
+    multipleOf: 0.01
+  exceptionCount:
+    type: integer
+    format: int64

@@ -50,6 +50,14 @@ paths:
     $ref: './paths/invoice_validation_batch.yaml'
   /api/v1/invoices/{invoiceUuid}/stripe-payment:
     $ref: './paths/stripe_payment.yaml'
+  /api/v1/payments:
+    $ref: './paths/payments.yaml'
+  /api/v1/payments/summary:
+    $ref: './paths/payments_summary.yaml'
+  /api/v1/payments/auto-pay:
+    $ref: './paths/payments_auto_pay.yaml'
+  /api/v1/payments/{paymentId}:
+    $ref: './paths/payments_by_id.yaml'
   /api/v1/stripe/webhook:
     $ref: './paths/stripe_webhook.yaml'
 
@@ -117,3 +125,15 @@ components:
       $ref: './components/schemas/StripePaymentRequest.yaml'
     StripePaymentResponse:
       $ref: './components/schemas/StripePaymentResponse.yaml'
+    PaymentResponse:
+      $ref: './components/schemas/PaymentResponse.yaml'
+    PaymentPageResponse:
+      $ref: './components/schemas/PaymentPageResponse.yaml'
+    PaymentSummaryResponse:
+      $ref: './components/schemas/PaymentSummaryResponse.yaml'
+    PaymentStatus:
+      $ref: './components/schemas/PaymentStatus.yaml'
+    AutoPaySettingsRequest:
+      $ref: './components/schemas/AutoPaySettingsRequest.yaml'
+    AutoPaySettingsResponse:
+      $ref: './components/schemas/AutoPaySettingsResponse.yaml'

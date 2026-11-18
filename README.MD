@@ -275,11 +275,15 @@ STRIPE_ENABLED=true
 STRIPE_SECRET_KEY=sk_test_...
 STRIPE_WEBHOOK_SECRET=whsec_...
 STRIPE_CURRENCY=usd
+STRIPE_AUTO_PAY_PAYMENT_METHOD_ID=pm_card_visa
+STRIPE_AUTO_PAY_INTERVAL_MS=300000
 ```
 
 The endpoint `POST /api/v1/invoices/{invoiceUuid}/stripe-payment` requires an `APPROVED` invoice, an `approvedAmount` that exactly matches the stored invoice amount, a Stripe test PaymentMethod ID, and `humanApprovalConfirmed: true`. The backend rejects the request until those conditions are met. Stripe webhook events are received at `POST /api/v1/stripe/webhook` and must include a valid `Stripe-Signature` header.
 
 Use Stripe test keys and test PaymentMethods only. Live keys and real payment credentials are not supported by this integration phase.
+
+When auto-pay is enabled in the Payments page, the scheduled worker checks every five minutes for approved invoices due today or earlier and submits them to Stripe using `STRIPE_AUTO_PAY_PAYMENT_METHOD_ID`. This is a single shared test PaymentMethod for the current test-mode setup; it must be replaced with an account-specific saved PaymentMethod before production use.
 
 From the root directory, you can run/redeploy the backend container only with (naming the service enables its profile automatically):
 

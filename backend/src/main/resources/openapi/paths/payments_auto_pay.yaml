@@ -1,0 +1,33 @@
+get:
+  tags:
+    - Payments
+  summary: Get auto-pay setting
+  operationId: getAutoPaySettings
+  responses:
+    '200':
+      description: Auto-pay setting
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/AutoPaySettingsResponse.yaml'
+put:
+  tags:
+    - Payments
+  summary: Update auto-pay setting
+  description: Enables or disables automatic payment processing for approved invoices. A configured payment provider and payment method are required before charges can be created.
+  operationId: updateAutoPaySettings
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../components/schemas/AutoPaySettingsRequest.yaml'
+  responses:
+    '200':
+      description: Auto-pay setting updated
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/AutoPaySettingsResponse.yaml'
+    '400':
+      description: Invalid auto-pay setting

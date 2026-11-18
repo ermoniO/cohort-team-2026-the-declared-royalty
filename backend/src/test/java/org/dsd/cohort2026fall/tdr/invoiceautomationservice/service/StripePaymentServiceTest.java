@@ -32,7 +32,7 @@ class StripePaymentServiceTest {
     private final StripePaymentService service = new StripePaymentService(
             invoiceRepository,
             paymentAttemptRepository,
-            new StripeProperties(true, "sk_test_key", "whsec_test", "usd"),
+            new StripeProperties(true, "sk_test_key", "whsec_test", "usd", "pm_card_visa"),
             stripeClientProvider,
             webhookEventRepository,
             auditLogService);
