@@ -1,0 +1,36 @@
+get:
+  summary: Find the properties an address refers to
+  description: >
+    Matches an address as printed on a bill (e.g. "125 Industrial Way, Springfield, IL 62701"), and
+    optionally the property's name, against active properties, ignoring case, punctuation and common
+    abbreviations.
+    An empty list means no match; more than one means the address is ambiguous.
+  operationId: matchPropertiesByAddress
+  tags:
+    - Properties
+  parameters:
+    - name: address
+      in: query
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 500
+    - name: name
+      in: query
+      required: false
+      description: >
+        The property's name as printed on the bill (e.g. "Alder Creek Workshop"). Several properties can
+        share one street address, so when given, only properties with this name match.
+      schema:
+        type: string
+        maxLength: 255
+  responses:
+    '200':
+      description: The matching properties, possibly none
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: '../components/schemas/PropertyResponse.yaml'

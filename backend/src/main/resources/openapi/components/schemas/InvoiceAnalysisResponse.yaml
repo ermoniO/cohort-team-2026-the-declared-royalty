@@ -29,6 +29,8 @@ properties:
         $ref: '#/$defs/StringField'
       invoice_issued_date:
         $ref: '#/$defs/StringField'
+      service_description:
+        $ref: '#/$defs/StringField'
     required:
       - vendor_name
       - property_address
@@ -40,6 +42,7 @@ properties:
       - billing_period_start
       - billing_period_end
       - invoice_issued_date
+      - service_description
 required:
   - error
   - extractedValues

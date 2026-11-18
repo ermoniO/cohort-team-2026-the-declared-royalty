@@ -27,7 +27,7 @@ post:
           schema:
             $ref: '../components/schemas/InvoiceResponse.yaml'
     '400':
-      description: Nothing to save, or invalid values
+      description: Nothing to save, invalid values, or an unknown reviewedBy user
       content:
         application/json:
           schema:

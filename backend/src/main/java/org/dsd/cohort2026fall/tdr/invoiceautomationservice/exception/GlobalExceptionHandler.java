@@ -74,6 +74,11 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_GATEWAY, ex.getMessage(), request);
     }
 
+    @ExceptionHandler(PropertyMatchException.class)
+    public ResponseEntity<ErrorResponse> handlePropertyMatch(PropertyMatchException ex, HttpServletRequest request) {
+        return build(HttpStatus.UNPROCESSABLE_CONTENT, ex.getMessage(), request);
+    }
+
     @ExceptionHandler(InvoiceNoDataException.class)
     public ResponseEntity<ErrorResponse> handleInvoiceNoData(InvoiceNoDataException ex, HttpServletRequest request){
         log.error(ex.getMessage());

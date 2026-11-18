@@ -5,8 +5,32 @@
       format: uuid
       description: New property-vendor mapping, if changing the association
       example: "f9e8d7c6-b5a4-3210-fedc-ba9876543210"
+    propertyAddress:
+      type: string
+      maxLength: 500
+      description: >
+        The service address printed on the bill. When mappingUuid is not given, the mapping is the one
+        between the invoice's vendor and the property at this address. Refused with 422 when the address
+        matches no property or several, or the vendor isn't linked to that property.
+      example: "125 Industrial Way, Springfield, IL 62701"
+    propertyName:
+      type: string
+      maxLength: 255
+      description: >
+        The property's name as printed on the bill, used with propertyAddress. Several properties can
+        share one street address, so when given, only a property with this name matches.
+      example: "Alder Creek Workshop"
+    vendorUuid:
+      type: string
+      format: uuid
+      description: The vendor to match with propertyAddress. Defaults to the invoice's current vendor.
     invoiceStatus:
       $ref: './InvoiceStatus.yaml'
+    description:
+      type: string
+      maxLength: 500
+      description: What the bill is for, as written on it. An empty string clears it.
+      example: "Monthly water usage and sewer service"
     billingPeriodStart:
       type: string
       format: date

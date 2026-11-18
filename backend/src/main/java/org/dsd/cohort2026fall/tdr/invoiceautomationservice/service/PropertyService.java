@@ -19,10 +19,17 @@ import java.util.stream.Collectors;
 public class PropertyService {
 
     private final PropertyRepository propertyRepository;
+    private final PropertyAddressMatcher propertyAddressMatcher;
 
 
-    public PropertyService(PropertyRepository propertyRepository) { // add in PropertyVendorMappingEntity propertyVendorMapper in the parameters
+    public PropertyService(PropertyRepository propertyRepository, PropertyAddressMatcher propertyAddressMatcher) { // add in PropertyVendorMappingEntity propertyVendorMapper in the parameters
         this.propertyRepository = propertyRepository;
+        this.propertyAddressMatcher = propertyAddressMatcher;
+    }
+
+    @Transactional(readOnly = true)
+    public List<PropertyResponse> matchByAddress(String address, String name) {
+        return propertyAddressMatcher.findMatches(address, name).stream().map(PropertyEntity::toResponse).toList();
     }
 
     @Transactional(readOnly = true)

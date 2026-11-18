@@ -1,0 +1,28 @@
+parameters:
+  - name: invoiceUuid
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+get:
+  tags:
+    - Invoice Validation
+  summary: Run the validation checks on an invoice
+  description: >
+    Active property, verified account, no duplicate invoice, and amount and due date set.
+    Read-only: running the checks changes nothing.
+  operationId: getInvoiceValidation
+  responses:
+    '200':
+      description: The check results
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/InvoiceValidationResponse.yaml'
+    '404':
+      description: Invoice not found
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'

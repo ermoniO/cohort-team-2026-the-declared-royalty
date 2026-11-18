@@ -37,7 +37,12 @@ export type InvoiceResponse = {
     propertyUuid: string | null;
     propertyName: string | null;
     originalFilename: string | null;
+    // Who uploaded the file; null for manually entered invoices
+    uploadedByUuid: string | null;
+    uploadedByName: string | null;
     vendorSuppliedInvoiceId: string | null;
+    // What the bill is for, as written on it (e.g. "Monthly water usage and sewer service")
+    description: string | null;
     billingPeriodStart: string | null;
     billingPeriodEnd: string | null;
     invoiceCreationDate: string | null;
@@ -67,6 +72,43 @@ export type InvoiceSummaryResponse = {
     awaitingApprovalCount: number;
     awaitingApprovalTotal: number;
     exceptionsCount: number;
+};
+
+// PATCH /api/v1/invoices/{invoiceUuid}: only the fields sent are changed
+export type InvoiceUpdateRequest = Partial<{
+    // An explicit mapping wins; otherwise propertyAddress (plus vendorUuid, or the invoice's
+    // current vendor) picks the property. The backend refuses with 422 when it can't match exactly one.
+    mappingUuid: string;
+    propertyAddress: string;
+    // The property's name as printed on the bill; several properties can share one address
+    propertyName: string;
+    vendorUuid: string;
+    invoiceStatus: InvoiceStatus;
+    // An empty string clears it
+    description: string;
+    billingPeriodStart: string;
+    billingPeriodEnd: string;
+    invoiceCreationDate: string;
+    amount: number;
+    dueDate: string;
+    failureReason: string;
+}>;
+
+// GET /api/v1/invoices/{invoiceUuid}/validation: checks shown to the approver. They only inform
+// the decision; nothing is blocked when one fails.
+export type InvoiceValidationCheck = {
+    id: "PROPERTY" | "ACCOUNT" | "DUPLICATE" | "AMOUNT";
+    label: string; // short, lower case, e.g. "active property"
+    status: "PASSED" | "FAILED" | "UNKNOWN"; // UNKNOWN: not enough on the bill to run it
+    detail: string | null; // why it failed or couldn't run; null when it passed
+};
+
+export type InvoiceValidationResponse = {
+    invoiceUuid: string;
+    passed: boolean;
+    passedCount: number;
+    totalCount: number;
+    checks: InvoiceValidationCheck[];
 };
 
 export type ConfidenceLevel = "HIGH" | "MEDIUM" | "LOW" | "NOT_FOUND";
@@ -116,8 +158,11 @@ export type InvoiceVerifyRequest = {
     invoiceCreationDate?: string;
     notes?: string; // audit note: what the reviewer changed from the AI's values
     aiValuesChanged?: boolean; // true → logged as USER_IDENTIFIED instead of USER_VALIDATED
+    // Who is sending it for approval; the audit entry is recorded under them (System when omitted)
+    // TODO(auth): drop once the backend takes the user from the session
+    reviewedBy?: string;
 };
 
 // Body for POST /api/v1/invoices/{invoiceUuid}/progress: only the fields the reviewer confirmed.
-// Vendor, property and account number are saved together or not at all.
+// Vendor, property and account number are saved together or not at all. reviewedBy isn't a field.
 export type InvoiceProgressRequest = Partial<Omit<InvoiceVerifyRequest, "notes" | "aiValuesChanged">>;

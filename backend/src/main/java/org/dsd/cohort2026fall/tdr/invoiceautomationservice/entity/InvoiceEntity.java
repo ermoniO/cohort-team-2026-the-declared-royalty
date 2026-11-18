@@ -29,6 +29,10 @@ public class InvoiceEntity {
     @JoinColumn(name = "mapping_uuid")
     private PropertyVendorMappingEntity mapping;
 
+    // What the bill is for, as written on it; null until extracted or entered
+    @Column(name = "description", length = 500)
+    private String description;
+
     @Column(name = "billing_period_start")
     private LocalDate billingPeriodStart;
 
@@ -58,6 +62,11 @@ public class InvoiceEntity {
 
     @Column(name = "original_filename")
     private String originalFilename;
+
+    // Who uploaded the file; null for manually entered invoices
+    @ManyToOne
+    @JoinColumn(name = "uploaded_by")
+    private UserEntity uploadedBy;
 
     @Builder.Default
     @Column(name = "created_at", updatable = false, nullable = false)

@@ -7,6 +7,7 @@ import BillsPage from "./pages/BillsPage";
 import PropertiesPage from "./pages/PropertiesPage";
 import VendorsPage from "./pages/VendorsPage";
 import AuditLogsPage from "./pages/AuditLogsPage";
+import ApprovalsPage from "./pages/ApprovalsPage";
 import PaymentsPage from "./pages/PaymentsPage";
 import { navigateTo } from "./app/navigation";
 import {
@@ -105,6 +106,8 @@ export default function App() {
           <PropertiesPage />
         ) : currentRoute.path === "/vendors" ? (
           <VendorsPage />
+        ) : currentRoute.path === "/approvals" ? (
+          <ApprovalsPage />
         ) : currentRoute.path === "/activity" ? (
           <AuditLogsPage
             invoiceUuid={new URLSearchParams(location.search).get("invoice")}

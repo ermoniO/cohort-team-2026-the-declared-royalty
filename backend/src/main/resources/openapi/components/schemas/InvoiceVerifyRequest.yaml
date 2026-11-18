@@ -44,3 +44,10 @@ properties:
     type: boolean
     default: false
     description: True when the reviewer changed any value the AI read. Logged as USER_IDENTIFIED instead of USER_VALIDATED.
+  reviewedBy:
+    type: string
+    format: uuid
+    description: >
+      The user sending the invoice for approval; the audit entry is recorded under them.
+      Omitted means the system user. An unknown user is rejected with 400.
+      TODO(auth): take this from the session instead.

@@ -4,12 +4,15 @@ import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.InvoiceEntity;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.PropertyEntity;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.PropertyVendorMappingEntity;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.VendorEntity;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.BadRequestException;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.InvoiceAlreadyExistsException;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.PropertyMatchException;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.InvalidInvoiceException;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.InvoiceCreateRequest;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.InvoicePageResponse;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.InvoiceStatus;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.InvoiceSummaryResponse;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.InvoiceUpdateRequest;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository.InvoiceRepository;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository.PropertyVendorMappingRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,7 +44,10 @@ class InvoiceServiceTest {
     private final PropertyVendorMappingRepository mappingRepository = mock(PropertyVendorMappingRepository.class);
     private final InvoiceAnalysisService invoiceAnalysisService = mock(InvoiceAnalysisService.class);
     private final AuditLogService auditLogService = mock(AuditLogService.class);
-    private final InvoiceService invoiceService = new InvoiceService(invoiceRepository, mappingRepository, invoiceAnalysisService, auditLogService);    private final UUID mappingUuid = UUID.randomUUID();
+    private final PropertyAddressMatcher propertyAddressMatcher = mock(PropertyAddressMatcher.class);
+    private final InvoiceService invoiceService = new InvoiceService(
+            invoiceRepository, mappingRepository, invoiceAnalysisService, auditLogService, propertyAddressMatcher);
+    private final UUID mappingUuid = UUID.randomUUID();
 
     @BeforeEach
     void setUp() {
@@ -67,6 +73,40 @@ class InvoiceServiceTest {
         assertEquals(new BigDecimal("1250.40"), response.getAmount());
         assertEquals(mappingUuid, response.getMappingUuid());
         verify(invoiceRepository).save(any(InvoiceEntity.class));
+    }
+
+    @Test
+    void createInvoice_storesTrimmedDescription_andBlankAsNull() {
+        InvoiceCreateRequest request = new InvoiceCreateRequest(mappingUuid);
+        request.setDescription("  Monthly water usage and sewer service  ");
+        assertEquals("Monthly water usage and sewer service", invoiceService.createInvoice(request).getDescription());
+
+        InvoiceCreateRequest blank = new InvoiceCreateRequest(mappingUuid);
+        blank.setDescription("   ");
+        assertNull(invoiceService.createInvoice(blank).getDescription());
+    }
+
+    @Test
+    void updateInvoice_changesDescription_keepsItWhenOmitted_andClearsItWhenEmpty() {
+        InvoiceEntity invoice = new InvoiceEntity();
+        UUID invoiceUuid = UUID.randomUUID();
+        invoice.setInvoiceId(invoiceUuid);
+        invoice.setInvoiceStatus(InvoiceStatus.PENDING_APPROVAL.getValue());
+        invoice.setMapping(mappingRepository.findById(mappingUuid).orElseThrow());
+        invoice.setDescription("Old description");
+        when(invoiceRepository.findById(invoiceUuid)).thenReturn(Optional.of(invoice));
+
+        InvoiceUpdateRequest statusOnly = new InvoiceUpdateRequest();
+        statusOnly.setInvoiceStatus(InvoiceStatus.APPROVED);
+        assertEquals("Old description", invoiceService.updateInvoice(invoiceUuid, statusOnly).getDescription());
+
+        InvoiceUpdateRequest change = new InvoiceUpdateRequest();
+        change.setDescription("Quarterly pest prevention and inspection");
+        assertEquals("Quarterly pest prevention and inspection", invoiceService.updateInvoice(invoiceUuid, change).getDescription());
+
+        InvoiceUpdateRequest clear = new InvoiceUpdateRequest();
+        clear.setDescription("");
+        assertNull(invoiceService.updateInvoice(invoiceUuid, clear).getDescription());
     }
 
     @Test
@@ -179,5 +219,133 @@ class InvoiceServiceTest {
 
        assertEquals(0L, summary.getNeedsReviewReceivedSince());
        verify(invoiceRepository, never()).countByInvoiceStatusAndCreatedAtGreaterThanEqual(anyString(), any());
+    }
+
+    // ---------- property from the address on the bill ----------
+
+    private static final String ADDRESS = "125 Industrial Way, Springfield, IL 62701";
+
+    private PropertyEntity property(UUID id) {
+        PropertyEntity property = new PropertyEntity();
+        property.setPropertyId(id);
+        property.setName("Industrial Business Park");
+        return property;
+    }
+
+    private PropertyVendorMappingEntity mappingFor(UUID vendorId, PropertyEntity property) {
+        VendorEntity vendor = new VendorEntity();
+        vendor.setVendorId(vendorId);
+        PropertyVendorMappingEntity mapping = new PropertyVendorMappingEntity();
+        mapping.setMappingId(UUID.randomUUID());
+        mapping.setVendor(vendor);
+        mapping.setProperty(property);
+        return mapping;
+    }
+
+    private InvoiceEntity unmatchedInvoice() {
+        InvoiceEntity invoice = InvoiceEntity.builder().invoiceId(UUID.randomUUID()).invoiceStatus("INGESTED").build();
+        when(invoiceRepository.findById(invoice.getInvoiceId())).thenReturn(Optional.of(invoice));
+        return invoice;
+    }
+
+    @Test
+    void updateInvoice_byAddress_linksTheVendorsMappingForTheMatchingProperty() {
+        InvoiceEntity invoice = unmatchedInvoice();
+        UUID vendorId = UUID.randomUUID();
+        PropertyEntity property = property(UUID.randomUUID());
+        PropertyVendorMappingEntity mapping = mappingFor(vendorId, property);
+        when(propertyAddressMatcher.findMatches(ADDRESS, null)).thenReturn(List.of(property));
+        when(mappingRepository.findByVendor_VendorIdAndProperty_PropertyId(vendorId, property.getPropertyId()))
+                .thenReturn(Optional.of(mapping));
+
+        InvoiceUpdateRequest request = new InvoiceUpdateRequest();
+        request.setPropertyAddress(ADDRESS);
+        request.setVendorUuid(vendorId);
+
+        assertEquals(mapping.getMappingId(), invoiceService.updateInvoice(invoice.getInvoiceId(), request).getMappingUuid());
+    }
+
+    @Test
+    void updateInvoice_byAddressAndName_matchesOnBoth() {
+        InvoiceEntity invoice = unmatchedInvoice();
+        UUID vendorId = UUID.randomUUID();
+        PropertyEntity workshop = property(UUID.randomUUID());
+        PropertyVendorMappingEntity mapping = mappingFor(vendorId, workshop);
+        when(propertyAddressMatcher.findMatches(ADDRESS, "Alder Creek Workshop")).thenReturn(List.of(workshop));
+        when(mappingRepository.findByVendor_VendorIdAndProperty_PropertyId(vendorId, workshop.getPropertyId()))
+                .thenReturn(Optional.of(mapping));
+
+        InvoiceUpdateRequest request = new InvoiceUpdateRequest();
+        request.setPropertyAddress(ADDRESS);
+        request.setPropertyName("Alder Creek Workshop");
+        request.setVendorUuid(vendorId);
+
+        assertEquals(mapping.getMappingId(), invoiceService.updateInvoice(invoice.getInvoiceId(), request).getMappingUuid());
+    }
+
+    @Test
+    void updateInvoice_explicitMapping_winsOverTheAddress() {
+        InvoiceEntity invoice = unmatchedInvoice();
+        InvoiceUpdateRequest request = new InvoiceUpdateRequest();
+        request.setMappingUuid(mappingUuid);
+        request.setPropertyAddress(ADDRESS);
+
+        assertEquals(mappingUuid, invoiceService.updateInvoice(invoice.getInvoiceId(), request).getMappingUuid());
+        verify(propertyAddressMatcher, never()).findMatches(any(), any());
+    }
+
+    @Test
+    void updateInvoice_addressMatchingSeveralProperties_isRefused_andNothingChanges() {
+        InvoiceEntity invoice = unmatchedInvoice();
+        when(propertyAddressMatcher.findMatches(ADDRESS, null))
+                .thenReturn(List.of(property(UUID.randomUUID()), property(UUID.randomUUID())));
+
+        InvoiceUpdateRequest request = new InvoiceUpdateRequest();
+        request.setPropertyAddress(ADDRESS);
+        request.setVendorUuid(UUID.randomUUID());
+
+        PropertyMatchException error = assertThrows(PropertyMatchException.class,
+                () -> invoiceService.updateInvoice(invoice.getInvoiceId(), request));
+        assertTrue(error.getMessage().contains("match 2 properties"));
+        assertNull(invoice.getMapping());
+        verify(invoiceRepository, never()).save(any());
+    }
+
+    @Test
+    void updateInvoice_addressWithNoMatch_orVendorNotLinked_isRefused() {
+        InvoiceEntity invoice = unmatchedInvoice();
+        UUID vendorId = UUID.randomUUID();
+        InvoiceUpdateRequest request = new InvoiceUpdateRequest();
+        request.setPropertyAddress(ADDRESS);
+        request.setVendorUuid(vendorId);
+
+        when(propertyAddressMatcher.findMatches(ADDRESS, null)).thenReturn(List.of());
+        assertThrows(PropertyMatchException.class, () -> invoiceService.updateInvoice(invoice.getInvoiceId(), request));
+
+        PropertyEntity property = property(UUID.randomUUID());
+        when(propertyAddressMatcher.findMatches(ADDRESS, null)).thenReturn(List.of(property));
+        when(mappingRepository.findByVendor_VendorIdAndProperty_PropertyId(vendorId, property.getPropertyId())).thenReturn(Optional.empty());
+        PropertyMatchException error = assertThrows(PropertyMatchException.class,
+                () -> invoiceService.updateInvoice(invoice.getInvoiceId(), request));
+        assertTrue(error.getMessage().contains("isn't linked"));
+    }
+
+    @Test
+    void updateInvoice_byAddress_withoutAnyVendor_isABadRequest() {
+        InvoiceEntity invoice = unmatchedInvoice();
+        InvoiceUpdateRequest request = new InvoiceUpdateRequest();
+        request.setPropertyAddress(ADDRESS);
+
+        assertThrows(BadRequestException.class, () -> invoiceService.updateInvoice(invoice.getInvoiceId(), request));
+    }
+
+    @Test
+    void updateInvoice_withoutAnyMapping_stillSavesOtherChanges() {
+        InvoiceEntity invoice = unmatchedInvoice();
+        InvoiceUpdateRequest request = new InvoiceUpdateRequest();
+        request.setDescription("Monthly grounds maintenance");
+
+        assertEquals("Monthly grounds maintenance",
+                invoiceService.updateInvoice(invoice.getInvoiceId(), request).getDescription());
     }
 }

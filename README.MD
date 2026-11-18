@@ -174,11 +174,18 @@ Expand Servers ➔ Invoice DB Local ➔ Databases ➔ invoice_automation_postgre
 
 ```bash
 node scripts/seed.mjs              # vendors + property mappings, and the PDFs uploaded as INGESTED invoices
-node scripts/seed.mjs --processed  # also fills amount, dates and vendor match, as PENDING_APPROVAL
+node scripts/seed.mjs --processed  # a demo mix across every workflow state (see below)
 ```
 
-- The PDFs go through `POST /api/v1/invoices/upload`, so they're stored in MinIO, hashed and audit-logged like a real upload. The property, vendors and mappings are written with SQL, since there's no mapping endpoint yet.
-- It's safe to re-run: existing rows are kept and files that were already uploaded are skipped.
+- The PDFs go through `POST /api/v1/invoices/upload`, so they're stored in MinIO, hashed and audit-logged like a real upload. Each one is uploaded as one of two demo users (Jordan Rivera, Priya Shah), who become the bill's submitter. The property, vendors and mappings are written with SQL, since there's no mapping endpoint yet.
+- Each bill's property is the business named on it at the service address printed on it, e.g. "Alder Creek Workshop, 125 Industrial Way, Springfield, IL 62701" (`customerName` and `serviceAddress` in `bills.json`). Several businesses share that address, so both have to match. The seed matches them against the properties already in the database with `GET /api/v1/properties/match?address=…&name=…`. If none matches, it creates the property. If several do, the bill isn't linked: with `--processed` it's left in Needs review with the reason in its history. A bill can name its property outright with `propertyUuid`.
+- `--processed` links each bill through `PATCH /api/v1/invoices/{id}` with its `propertyAddress` and `propertyName`, the same way the app would, then moves the 5 PDF bills into a mix of states from `seed_data/demo.json`: three awaiting approval (one of each priority), one approved and one with information requested. Each bill gets its description from the PDF and a matching audit history, and due dates are relative to the day you run it.
+  - **High:** Brightwater, past due.
+  - **Medium:** Harborlight. Its property (Harborlight Design Co.) is marked inactive, so it fails a validation check; reject it with "Property no longer valid" to try a rejection.
+  - **Low:** Alder Creek, due in 20 days. It was reviewed by Priya Shah, not its uploader Jordan Rivera, so "Sent by" differs from "Submitted by".
+- Only the PDFs in `seed_data/` are seeded. There are no bills without a file.
+- The mix's dates and states differ from what's printed on the PDFs. `bills.json` remains the answer key for extraction.
+- It's safe to re-run: existing rows are kept, files already uploaded aren't sent again, and the mix is applied once, so decisions you make in the app afterwards are kept.
 - Options: `--api-url <url>` (or `SEED_API_URL`) if the backend isn't on `localhost:8080`, and `--help`.
 - This is demo data, so it's deliberately not a Flyway migration. Migrations run in every environment.
 

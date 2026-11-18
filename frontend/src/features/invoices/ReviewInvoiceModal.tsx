@@ -10,6 +10,7 @@ import {
 } from "react";
 import { FiAlertCircle, FiCheck, FiExternalLink, FiFileText, FiLoader, FiRefreshCw, FiSave, FiX } from "react-icons/fi";
 import { getProperties } from "@/features/properties/propertyService";
+import { useCurrentUserContext } from "@/features/users/currentUserContext";
 import { getVendors } from "@/features/vendors/vendorService";
 import type {
   ConfidenceLevel,
@@ -314,6 +315,9 @@ type ReviewInvoiceModalProps = {
 };
 
 export default function ReviewInvoiceModal({ invoice, onClose }: ReviewInvoiceModalProps) {
+  // Recorded as the reviewer, so Approvals can show who sent the bill for approval
+  // TODO(auth): the backend should take this from the session instead
+  const reviewerId = useCurrentUserContext().user?.userId;
   const dialogRef = useRef<HTMLDialogElement>(null);
   const runId = useRef(0);
   const lastDataRef = useRef<InvoiceExtractionResponse | null>(null);
@@ -489,6 +493,7 @@ export default function ReviewInvoiceModal({ invoice, onClose }: ReviewInvoiceMo
       invoiceCreationDate: values.invoiceDate || undefined,
       notes: review.notes,
       aiValuesChanged: review.changed,
+      reviewedBy: reviewerId,
     };
 
     setSaving(true);
@@ -539,7 +544,8 @@ export default function ReviewInvoiceModal({ invoice, onClose }: ReviewInvoiceMo
     setSaveError(null);
     setSavedMessage(null);
     try {
-      savedRef.current = await saveInvoiceProgress(invoice.invoiceUuid, request);
+      // Added after the "nothing confirmed" check: the reviewer isn't a field
+      savedRef.current = await saveInvoiceProgress(invoice.invoiceUuid, { ...request, reviewedBy: reviewerId });
       const partialLink =
         !linkReady && (fields.vendor.confirmed || fields.property.confirmed || fields.accountNumber.confirmed);
       setSavedMessage(

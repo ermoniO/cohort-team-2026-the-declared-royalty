@@ -23,8 +23,8 @@ public class InvoiceUploadController implements InvoiceUploadsApi {
     private final InvoiceUploadService invoiceUploadService;
 
     @Override
-    public ResponseEntity<InvoiceUploadResponse> uploadInvoice(MultipartFile file) {
-        InvoiceEntity saved = invoiceUploadService.upload(file);
+    public ResponseEntity<InvoiceUploadResponse> uploadInvoice(MultipartFile file, UUID uploadedBy) {
+        InvoiceEntity saved = invoiceUploadService.upload(file, uploadedBy);
 
         InvoiceUploadResponse body = new InvoiceUploadResponse();
         body.setInvoiceId(saved.getInvoiceId());

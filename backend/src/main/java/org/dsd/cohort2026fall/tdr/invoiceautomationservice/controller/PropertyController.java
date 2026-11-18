@@ -34,6 +34,11 @@ public class PropertyController implements PropertiesApi {
     }
 
     @Override
+    public ResponseEntity<List<PropertyResponse>> matchPropertiesByAddress(String address, String name) {
+        return ResponseEntity.ok(propertyService.matchByAddress(address, name));
+    }
+
+    @Override
     public ResponseEntity<PropertyResponse> getPropertyById(UUID propertyId) {
         return ResponseEntity.ok(propertyService.getPropertyById(propertyId));
     }

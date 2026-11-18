@@ -1,0 +1,30 @@
+post:
+  tags:
+    - Invoice Validation
+  summary: Run the validation checks on several invoices at once
+  description: >
+    The same checks as GET /api/v1/invoices/{invoiceUuid}/validation, for a list of invoices (the
+    Approvals table shows a result per row). Read-only. Invoices that don't exist are left out of
+    the result; results come back in the order asked for.
+  operationId: getInvoiceValidations
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../components/schemas/InvoiceValidationBatchRequest.yaml'
+  responses:
+    '200':
+      description: One result per invoice found
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: '../components/schemas/InvoiceValidationResponse.yaml'
+    '400':
+      description: No invoice ids, or more than 200
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'

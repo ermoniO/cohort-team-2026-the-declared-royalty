@@ -49,17 +49,20 @@ public class InvoiceService {
     private final PropertyVendorMappingRepository mappingRepository;
     private final InvoiceAnalysisService invoiceAnalysisService;
     private final AuditLogService auditLogService;
+    private final PropertyAddressMatcher propertyAddressMatcher;
 
     public InvoiceService(
             InvoiceRepository invoiceRepository,
             PropertyVendorMappingRepository mappingRepository,
             InvoiceAnalysisService invoiceAnalysisService,
-            AuditLogService auditLogService
+            AuditLogService auditLogService,
+            PropertyAddressMatcher propertyAddressMatcher
     ) {
         this.invoiceRepository = invoiceRepository;
         this.mappingRepository = mappingRepository;
         this.invoiceAnalysisService = invoiceAnalysisService;
         this.auditLogService = auditLogService;
+        this.propertyAddressMatcher = propertyAddressMatcher;
     }
 
     @Transactional(readOnly = true)
@@ -110,6 +113,7 @@ public class InvoiceService {
         InvoiceEntity invoice = InvoiceEntity.builder()
                 .invoiceId(UUID.randomUUID())
                 .vendorSuppliedInvoiceId(request.getVendorSuppliedInvoiceId())
+                .description(trimToNull(request.getDescription()))
                 .mapping(mapping)
                 .billingPeriodStart(request.getBillingPeriodStart())
                 .billingPeriodEnd(request.getBillingPeriodEnd())
@@ -139,13 +143,20 @@ public class InvoiceService {
         BigDecimal oldAmount = invoice.getAmount();
         var oldDue = invoice.getDueDate();
         String oldStatus = invoice.getInvoiceStatus();
+        String oldDescription = invoice.getDescription();
         String oldFailure = invoice.getFailureReason();
         String oldFileUrl = invoice.getBlobFileUrl();
         String oldFileHash = invoice.getBlobFileSha256();
 
-        PropertyVendorMappingEntity mapping = request.getMappingUuid() == null
-                ? invoice.getMapping()
-                : findMapping(request.getMappingUuid());
+        // An explicit mapping wins; otherwise the address on the bill picks the property
+        PropertyVendorMappingEntity mapping;
+        if (request.getMappingUuid() != null) {
+            mapping = findMapping(request.getMappingUuid());
+        } else if (request.getPropertyAddress() != null && !request.getPropertyAddress().isBlank()) {
+            mapping = mappingForAddress(invoice, request.getVendorUuid(), request.getPropertyAddress(), request.getPropertyName());
+        } else {
+            mapping = invoice.getMapping();
+        }
 
         var billingPeriodStart = request.getBillingPeriodStart() == null
                 ? invoice.getBillingPeriodStart()
@@ -155,7 +166,9 @@ public class InvoiceService {
                 : request.getBillingPeriodEnd();
         validateBillingPeriod(billingPeriodStart, billingPeriodEnd);
         validateAmount(request.getAmount());
-        ensureNotDuplicate(mapping.getMappingId(), invoice.getVendorSuppliedInvoiceId(), billingPeriodEnd, invoiceUuid);
+        if (mapping != null) {
+            ensureNotDuplicate(mapping.getMappingId(), invoice.getVendorSuppliedInvoiceId(), billingPeriodEnd, invoiceUuid);
+        }
 
         invoice.setMapping(mapping);
         if (request.getBillingPeriodStart() != null) {
@@ -175,6 +188,10 @@ public class InvoiceService {
         }
         if (request.getInvoiceStatus() != null) {
             invoice.setInvoiceStatus(request.getInvoiceStatus().getValue());
+        }
+        // Omitted keeps it; an empty string clears it
+        if (request.getDescription() != null) {
+            invoice.setDescription(trimToNull(request.getDescription()));
         }
         if (request.getFailureReason() != null) {
             invoice.setFailureReason(request.getFailureReason());
@@ -196,6 +213,7 @@ public class InvoiceService {
         addChange(changes, "amount", oldAmount, saved.getAmount());
         addChange(changes, "due date", oldDue, saved.getDueDate());
         addChange(changes, "status", oldStatus, saved.getInvoiceStatus());
+        addChange(changes, "description", oldDescription, saved.getDescription());
         addChange(changes, "failure reason", oldFailure, saved.getFailureReason());
         addChange(changes, "file", oldFileUrl, saved.getBlobFileUrl());
         addChange(changes, "file hash", oldFileHash, saved.getBlobFileSha256());
@@ -246,6 +264,37 @@ public class InvoiceService {
                 .orElseThrow(() -> new ResourceNotFoundException("Property-vendor mapping not found: " + mappingUuid));
     }
 
+    // The vendor's mapping to the one property at this address. Never guesses: no match, several
+    // matching properties or no mapping all leave the invoice unchanged and say why.
+    private PropertyVendorMappingEntity mappingForAddress(InvoiceEntity invoice, UUID vendorUuid, String address, String name) {
+        UUID vendorId = vendorUuid;
+        if (vendorId == null && invoice.getMapping() != null && invoice.getMapping().getVendor() != null) {
+            vendorId = invoice.getMapping().getVendor().getVendorId();
+        }
+        if (vendorId == null) {
+            throw new BadRequestException("vendorUuid is required to match by address: this invoice has no vendor yet");
+        }
+
+        List<PropertyEntity> properties = propertyAddressMatcher.findMatches(address, name);
+        String described = (name == null || name.isBlank() ? "" : "'" + name + "' at ") + "the address '" + address + "'";
+        if (properties.isEmpty()) {
+            throw new PropertyMatchException("No property matches " + described);
+        }
+        if (properties.size() > 1) {
+            throw new PropertyMatchException("The address '" + address + "'"
+                    + (name == null || name.isBlank() ? "" : " and name '" + name + "'")
+                    + " match " + properties.size() + " properties ("
+                    + properties.stream().map(p -> p.getPropertyId().toString()).collect(java.util.stream.Collectors.joining(", "))
+                    + "): give mappingUuid to choose one");
+        }
+
+        PropertyEntity property = properties.getFirst();
+        final UUID vendor = vendorId;
+        return mappingRepository.findByVendor_VendorIdAndProperty_PropertyId(vendor, property.getPropertyId())
+                .orElseThrow(() -> new PropertyMatchException("Vendor " + vendor + " isn't linked to " + property.getName()
+                        + " (" + property.getPropertyId() + "): add a property-vendor mapping first"));
+    }
+
     private void ensureNotDuplicate(UUID mappingUuid, String vendorInvoiceId, java.time.LocalDate billingPeriodEnd, UUID currentInvoiceUuid) {
         if (vendorInvoiceId == null || billingPeriodEnd == null) {
             return;
@@ -291,12 +340,20 @@ public class InvoiceService {
                 predicates.add(cb.or(
                         cb.like(cb.lower(root.get("vendorSuppliedInvoiceId")), pattern, '\\'),
                         cb.like(cb.lower(root.get("originalFilename")), pattern, '\\'),
+                        cb.like(cb.lower(root.get("description")), pattern, '\\'),
                         cb.like(cb.lower(vendor.get("name")), pattern, '\\'),
                         cb.like(cb.lower(property.get("name")), pattern, '\\')));
             }
 
             return cb.and(predicates.toArray(Predicate[]::new));
         };
+    }
+
+    // Blank text is stored as null, so "no description" has one representation
+    private static String trimToNull(String value) {
+        if (value == null) return null;
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     // Treat % and _ typed by the user as literal characters, not wildcards
@@ -352,7 +409,12 @@ public class InvoiceService {
            }
         }
         response.setOriginalFilename(entity.getOriginalFilename());
+        if (entity.getUploadedBy() != null) {
+            response.setUploadedByUuid(entity.getUploadedBy().getUserId());
+            response.setUploadedByName(entity.getUploadedBy().getUserName());
+        }
         response.setVendorSuppliedInvoiceId(entity.getVendorSuppliedInvoiceId());
+        response.setDescription(entity.getDescription());
         response.setBillingPeriodStart(entity.getBillingPeriodStart());
         response.setBillingPeriodEnd(entity.getBillingPeriodEnd());
         response.setInvoiceCreationDate(entity.getInvoiceCreationDate());

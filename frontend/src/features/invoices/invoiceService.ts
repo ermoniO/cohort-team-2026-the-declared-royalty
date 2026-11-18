@@ -1,5 +1,15 @@
 import { API_BASE_URL, apiClient } from "@/app/services/apiClient";
-import type {InvoiceExtractionResponse, InvoicePageResponse, InvoiceProgressRequest, InvoiceResponse, InvoiceStatus, InvoiceSummaryResponse, InvoiceVerifyRequest } from "@/types/invoice";
+import type {
+  InvoiceExtractionResponse,
+  InvoicePageResponse,
+  InvoiceProgressRequest,
+  InvoiceResponse,
+  InvoiceStatus,
+  InvoiceSummaryResponse,
+  InvoiceUpdateRequest,
+  InvoiceValidationResponse,
+  InvoiceVerifyRequest,
+} from "@/types/invoice";
 import { ApiError } from "./invoiceUploadService";
 
 export type InvoiceListQuery = {
@@ -26,6 +36,26 @@ export function getInvoices(query: InvoiceListQuery): Promise<InvoicePageRespons
 // One invoice; rejects with a 404 HttpError when it doesn't exist
 export function getInvoiceByUuid(invoiceUuid: string): Promise<InvoiceResponse> {
   return apiClient.get<InvoiceResponse>(`/api/v1/invoices/${invoiceUuid}`, undefined, false);
+}
+
+// Partial update: only the fields in `changes` are changed
+export function updateInvoice(invoiceUuid: string, changes: InvoiceUpdateRequest): Promise<InvoiceResponse> {
+  return apiClient.patch<InvoiceResponse, InvoiceUpdateRequest>(`/api/v1/invoices/${invoiceUuid}`, changes, undefined, false);
+}
+
+// The validation checks shown on the Approvals page (active property, verified account, ...)
+export function getInvoiceValidation(invoiceUuid: string): Promise<InvoiceValidationResponse> {
+  return apiClient.get<InvoiceValidationResponse>(`/api/v1/invoices/${invoiceUuid}/validation`, undefined, false);
+}
+
+// The same checks for many bills in one request (at most 200)
+export function getInvoiceValidations(invoiceUuids: string[]): Promise<InvoiceValidationResponse[]> {
+  return apiClient.post<InvoiceValidationResponse[], { invoiceUuids: string[] }>(
+    "/api/v1/invoices/validation",
+    { invoiceUuids },
+    undefined,
+    false,
+  );
 }
 
 // receivedSince is the start of the user's "today", so "received today" follows their time zone

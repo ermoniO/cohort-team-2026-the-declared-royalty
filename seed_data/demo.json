@@ -1,0 +1,39 @@
+{
+  "_comment": "Workflow states for the PDF bills in this folder, used by `node scripts/seed.mjs --processed`. Days are relative to the day the seed runs (negative = in the past), so due dates stay realistic. Everything else (vendor, amount, invoice number, description) comes from bills.json, which stays the extraction answer key. The awaiting bills cover each priority on the Approvals page (high, medium, low). Optional: propertyStatus sets the bill's property's status (to fail a validation check); reviewedBy records the review under that user instead of the uploader.",
+  "pdfBills": {
+    "alder-creek-bill.pdf": {
+      "_demo": "Low priority. Reviewed by someone other than its uploader, so Sent by differs from Submitted by.",
+      "outcome": "awaiting",
+      "receivedDaysAgo": 3,
+      "dueInDays": 20,
+      "reviewedBy": "44444444-0000-0000-0000-000000000002"
+    },
+    "brightwater-bill.pdf": {
+      "_demo": "High priority: past due.",
+      "outcome": "awaiting",
+      "receivedDaysAgo": 10,
+      "dueInDays": -3
+    },
+    "copper-ridge-bill.pdf": {
+      "outcome": "approved",
+      "receivedDaysAgo": 4,
+      "dueInDays": 6,
+      "decisionDaysAgo": 1,
+      "note": "Matches the four scheduled pickups."
+    },
+    "cedar-valley-bill.pdf": {
+      "outcome": "infoRequested",
+      "receivedDaysAgo": 6,
+      "dueInDays": 12,
+      "decisionDaysAgo": 2,
+      "note": "Please confirm whether the quarterly inspection covers the loading dock."
+    },
+    "harborlight-bill.pdf": {
+      "_demo": "Medium priority: its property is inactive, so it fails the active-property validation check. Reject it live with 'Property no longer valid'.",
+      "outcome": "awaiting",
+      "receivedDaysAgo": 7,
+      "dueInDays": 10,
+      "propertyStatus": "INACTIVE"
+    }
+  }
+}

@@ -40,9 +40,23 @@ properties:
     nullable: true
     description: Filename the invoice was uploaded with; null for manually entered invoices
     example: "northline-bill.pdf"
+  uploadedByUuid:
+    type: string
+    format: uuid
+    nullable: true
+    description: Who uploaded the file; null for manually entered invoices
+  uploadedByName:
+    type: string
+    nullable: true
+    example: "Jordan Rivera"
   vendorSuppliedInvoiceId:
     type: string
     nullable: true
+  description:
+    type: string
+    nullable: true
+    description: What the bill is for, as written on it
+    example: "Monthly water usage and sewer service"
   billingPeriodStart:
     type: string
     format: date

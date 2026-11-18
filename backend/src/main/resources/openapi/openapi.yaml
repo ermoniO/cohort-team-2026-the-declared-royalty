@@ -10,6 +10,8 @@ servers:
 paths:
   /api/v1/properties:
     $ref: './paths/properties.yaml'
+  /api/v1/properties/match:
+    $ref: './paths/properties_match.yaml'
   /api/v1/properties/{propertyId}:
     $ref: './paths/properties_by_id.yaml'
   /api/v1/users:
@@ -42,6 +44,10 @@ paths:
     $ref: './paths/invoice_verify.yaml'
   /api/v1/invoices/{invoiceUuid}/progress:
     $ref: './paths/invoice_progress.yaml'
+  /api/v1/invoices/{invoiceUuid}/validation:
+    $ref: './paths/invoice_validation.yaml'
+  /api/v1/invoices/validation:
+    $ref: './paths/invoice_validation_batch.yaml'
   /api/v1/invoices/{invoiceUuid}/stripe-payment:
     $ref: './paths/stripe_payment.yaml'
   /api/v1/stripe/webhook:
@@ -101,6 +107,12 @@ components:
       $ref: './components/schemas/InvoiceVerifyRequest.yaml'
     InvoiceProgressRequest:
       $ref: './components/schemas/InvoiceProgressRequest.yaml'
+    InvoiceValidationCheck:
+      $ref: './components/schemas/InvoiceValidationCheck.yaml'
+    InvoiceValidationResponse:
+      $ref: './components/schemas/InvoiceValidationResponse.yaml'
+    InvoiceValidationBatchRequest:
+      $ref: './components/schemas/InvoiceValidationBatchRequest.yaml'
     StripePaymentRequest:
       $ref: './components/schemas/StripePaymentRequest.yaml'
     StripePaymentResponse:
