@@ -18,6 +18,15 @@ import type {
   PaymentStatus as ApiPaymentStatus,
   PaymentSummaryResponse,
 } from "@/types/payment";
+  getInvoices,
+  invoiceFileUrl,
+} from "@/features/invoices/invoiceService";
+import PaymentsSummaryCards from "@/features/payments/PaymentsSummaryCards";
+import {
+  PAYMENT_INVOICE_STATUSES,
+  type PaymentSummaryState,
+} from "@/features/payments/usePaymentSummary";
+import type { InvoiceResponse, InvoiceStatus } from "@/types/invoice";
 
 type PaymentStatus =
   | "Needs approval"
@@ -102,32 +111,6 @@ function StatusPill({ status }: { status: PaymentStatus }) {
       <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${dot}`} />
       {status}
     </span>
-  );
-}
-
-function SummaryCard({
-  label,
-  value,
-  detail,
-  dot,
-}: {
-  label: string;
-  value: string;
-  detail: string;
-  dot: string;
-}) {
-  return (
-    <div className="relative rounded-xl border border-[#e6ebe8] bg-white px-5 py-4">
-      <span
-        aria-hidden="true"
-        className={`absolute right-5 top-5 h-2 w-2 rounded-full ${dot}`}
-      />
-      <p className="font-inter-regular text-[13px] text-[#25362f]">{label}</p>
-      <p className="font-inter-semibold mt-2 text-[28px] leading-none text-[#14532d]">
-        {value}
-      </p>
-      <p className="font-inter-regular mt-2 text-xs text-[#68766f]">{detail}</p>
-    </div>
   );
 }
 
@@ -340,6 +323,36 @@ export default function PaymentsPage() {
     visiblePayments[0] ??
     payments[0];
   const processingPayments = payments.filter((payment) => payment.status === "Processing");
+  const needsApproval = payments.filter(
+    (payment) => payment.status === "Needs approval",
+  ).length;
+  const scheduledPayments = payments.filter(
+    (payment) => payment.status === "Scheduled",
+  );
+  const processingPayments = payments.filter(
+    (payment) => payment.status === "Processing",
+  );
+  const paidPayments = payments.filter(
+    (payment) => payment.status === "Paid",
+  );
+  const sumAmount = (list: Payment[]) =>
+    list.reduce((total, payment) => total + (payment.amount ?? 0), 0);
+  const summaryState: PaymentSummaryState = loading
+    ? { status: "loading" }
+    : error
+      ? { status: "error", message: error }
+      : {
+          status: "loaded",
+          data: {
+            needsApprovalCount: needsApproval,
+            scheduledCount: scheduledPayments.length,
+            scheduledTotal: sumAmount(scheduledPayments),
+            processingCount: processingPayments.length,
+            processingTotal: sumAmount(processingPayments),
+            paidCount: paidPayments.length,
+            paidTotal: sumAmount(paidPayments),
+          },
+        };
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -380,6 +393,7 @@ export default function PaymentsPage() {
           value={formatCurrency(summary?.paidTotal ?? 0)}
         />
       </div>
+      <PaymentsSummaryCards state={summaryState} />
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(360px,0.75fr)]">
         <section
