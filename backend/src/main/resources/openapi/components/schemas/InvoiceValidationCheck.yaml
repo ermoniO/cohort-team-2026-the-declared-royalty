@@ -1,0 +1,35 @@
+type: object
+description: One validation check on an invoice
+required:
+  - id
+  - label
+  - status
+properties:
+  id:
+    type: string
+    enum:
+      - PROPERTY
+      - ACCOUNT
+      - DUPLICATE
+      - AMOUNT
+    description: >
+      PROPERTY: the invoice's property exists and is active.
+      ACCOUNT: the invoice is linked to a vendor + property with an account number, and the vendor is active.
+      DUPLICATE: no other invoice on the same vendor + property has the same invoice number (VOID ones don't count).
+      AMOUNT: the amount and due date are set.
+  label:
+    type: string
+    description: Short label for a summary line
+    example: "active property"
+  status:
+    type: string
+    enum:
+      - PASSED
+      - FAILED
+      - UNKNOWN
+    description: UNKNOWN when there isn't enough on the invoice to run the check (e.g. no invoice number)
+  detail:
+    type: string
+    nullable: true
+    description: Why it failed or couldn't be checked; null when it passed
+    example: "Oak Street Lofts is inactive."

@@ -1,5 +1,5 @@
 {
-  "_comment": "Workflow states for the PDF bills in this folder, used by `node scripts/seed.mjs --processed`. Days are relative to the day the seed runs (negative = in the past), so due dates stay realistic. Everything else (vendor, amount, invoice number, description) comes from bills.json, which stays the extraction answer key.",
+  "_comment": "Workflow states for the PDF bills in this folder, used by `node scripts/seed.mjs --processed`. Days are relative to the day the seed runs (negative = in the past), so due dates stay realistic. Everything else (vendor, amount, invoice number, description) comes from bills.json, which stays the extraction answer key. propertyStatus sets the bill's property's status, so the Approvals page's validation checks have a failure to show.",
   "pdfBills": {
     "alder-creek-bill.pdf": {
       "outcome": "awaiting",
@@ -30,8 +30,9 @@
       "receivedDaysAgo": 7,
       "dueInDays": 1,
       "decisionDaysAgo": 4,
-      "reason": "Incorrect billing",
-      "note": "Billed for two alarm panels; the site has one."
+      "reason": "Property no longer valid",
+      "note": "Harborlight Design Co. moved out at the end of October; the alarm contract should have been cancelled.",
+      "propertyStatus": "INACTIVE"
     }
   }
 }

@@ -1,5 +1,5 @@
 import type { AuditLogsResponse } from "@/types/auditlogs";
-import type { InvoiceResponse, InvoiceStatus } from "@/types/invoice";
+import type { InvoiceResponse, InvoiceStatus, InvoiceValidationResponse } from "@/types/invoice";
 
 // The backend has no REJECTED or INFORMATION_REQUESTED status yet, so decisions map onto
 // existing ones, and the audit entry written with the decision tells them apart:
@@ -16,6 +16,19 @@ export type ApprovalItem = {
   status: ApprovalStatus;
   // The latest decision made in the approval queue, if any
   decision: AuditLogsResponse | null;
+  // The backend's validation checks; null when they couldn't be loaded
+  validation: InvoiceValidationResponse | null;
+  // Who confirmed the details and sent it for approval; null when not recorded or not loaded
+  sentForApprovalBy: string | null;
+};
+
+// Loaded alongside the queue; each is optional so a failure only affects its own column
+export type QueueExtras = {
+  validations?: InvoiceValidationResponse[];
+  // Audit entries that moved bills to PENDING_APPROVAL
+  reviews?: AuditLogsResponse[];
+  // userId -> display name
+  userNames?: Record<string, string>;
 };
 
 // Where each invoice status lands once it has left the queue through a decision
@@ -49,13 +62,24 @@ export function sentForApprovalEntry(logs: AuditLogsResponse[]): AuditLogsRespon
 }
 
 // Every invoice awaiting approval, plus any invoice with a decision made from the queue
-export function buildQueue(invoices: InvoiceResponse[], logs: AuditLogsResponse[]): ApprovalItem[] {
+export function buildQueue(invoices: InvoiceResponse[], logs: AuditLogsResponse[], extras: QueueExtras = {}): ApprovalItem[] {
   const latest = new Map<string, AuditLogsResponse>();
   for (const log of logs) {
     if (!isQueueDecision(log)) continue;
     const current = latest.get(log.invoice);
     if (!current || Date.parse(log.createdAt) > Date.parse(current.createdAt)) latest.set(log.invoice, log);
   }
+
+  const validations = new Map((extras.validations ?? []).map((v) => [v.invoiceUuid, v]));
+  const reviewsByInvoice = new Map<string, AuditLogsResponse[]>();
+  for (const review of extras.reviews ?? []) {
+    reviewsByInvoice.set(review.invoice, [...(reviewsByInvoice.get(review.invoice) ?? []), review]);
+  }
+  const sentBy = (invoiceUuid: string) => {
+    const entry = sentForApprovalEntry(reviewsByInvoice.get(invoiceUuid) ?? []);
+    if (!entry) return null;
+    return extras.userNames?.[entry.user] ?? `User ${entry.user.slice(0, 8)}`;
+  };
 
   const seen = new Set<string>();
   const items: ApprovalItem[] = [];
@@ -64,15 +88,27 @@ export function buildQueue(invoices: InvoiceResponse[], logs: AuditLogsResponse[
     seen.add(invoice.invoiceUuid);
 
     const decision = latest.get(invoice.invoiceUuid) ?? null;
+    const details = {
+      decision,
+      validation: validations.get(invoice.invoiceUuid) ?? null,
+      sentForApprovalBy: sentBy(invoice.invoiceUuid),
+    };
     if (invoice.invoiceStatus === AWAITING) {
       // A bill sent back and resubmitted is awaiting again; its old decision is still history
-      items.push({ invoice, status: "awaiting", decision });
+      items.push({ invoice, status: "awaiting", ...details });
       continue;
     }
     const status = DECIDED_STATUS[invoice.invoiceStatus];
-    if (status && decision) items.push({ invoice, status, decision });
+    if (status && decision) items.push({ invoice, status, ...details });
   }
   return items;
+}
+
+// The validation column's text: "4/4 passed", or the checks that need a look
+export function validationIssues(validation: InvoiceValidationResponse): string[] {
+  return validation.checks
+    .filter((check) => check.status !== "PASSED")
+    .map((check) => (check.status === "FAILED" ? check.detail ?? check.label : `Couldn't check ${check.label}`));
 }
 
 // --- Dates ---
@@ -155,9 +191,18 @@ export const SORT_ORDERS: { value: SortOrder; label: string }[] = [
 
 const DUE_WINDOW_DAYS: Record<"month" | "week" | "day", number> = { month: 31, week: 7, day: 1 };
 
-function matchesSearch(invoice: InvoiceResponse, query: string): boolean {
+function matchesSearch(item: ApprovalItem, query: string): boolean {
   if (!query) return true;
-  return [invoice.vendorName, invoice.propertyName, invoice.vendorSuppliedInvoiceId, invoice.originalFilename, invoice.description].some(
+  const { invoice } = item;
+  return [
+    invoice.vendorName,
+    invoice.propertyName,
+    invoice.vendorSuppliedInvoiceId,
+    invoice.originalFilename,
+    invoice.description,
+    invoice.uploadedByName,
+    item.sentForApprovalBy,
+  ].some(
     (field) => field?.toLowerCase().includes(query),
   );
 }
@@ -184,7 +229,7 @@ export function applyView(items: ApprovalItem[], view: QueueView, today: Date): 
     if (view.status === "pastDue" ? !isPastDue(item, today) : view.status !== "all" && item.status !== view.status) {
       return false;
     }
-    return matchesDue(item, view.due, today) && matchesSearch(item.invoice, query);
+    return matchesDue(item, view.due, today) && matchesSearch(item, query);
   });
 
   const dueTime = (item: ApprovalItem) => parseLocalDate(item.invoice.dueDate)?.getTime() ?? null;

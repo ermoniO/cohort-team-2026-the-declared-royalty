@@ -142,6 +142,19 @@ for (const bill of bills) {
     console.log(`  ${bill.file}: ${match.json[0].name}, ${address} (matched)`);
   } else if (match.json.length === 0) {
     const a = bill.serviceAddress ?? serviceAddress;
+    // Matching skips inactive properties (the demo marks one inactive), so look for this exact
+    // property before creating it again
+    const existing = psql(`
+SELECT property_uuid || '|' || status FROM properties
+WHERE lower(name) = lower(${sql(name)}) AND lower(street_address) = lower(${sql(a.streetAddress)})
+  AND zip_code = ${sql(a.zipCode)}
+ORDER BY created_at LIMIT 1;`);
+    if (existing) {
+      const [propertyUuid, status] = existing.split("|");
+      bill.propertyUuid = propertyUuid;
+      console.log(`  ${bill.file}: ${name}, ${address} (existing, ${status.toLowerCase()})`);
+      continue;
+    }
     const made = await api("POST", "/api/v1/properties", {
       name, streetAddress: a.streetAddress, city: a.city, state: a.state, zipCode: a.zipCode,
     });
@@ -314,6 +327,14 @@ WHERE blob_file_sha256 = ${sql(bill.sha256)} AND description IS NULL;
 -- Move the real upload entry back to the bill's received time, so the history reads in order
 UPDATE audit_logs SET created_at = ${sql(at(scenario.receivedDaysAgo))}, updated_at = ${sql(at(scenario.receivedDaysAgo))}
 WHERE invoice_uuid = ${ref} AND action_taken = 'File uploaded and stored' AND ${notYetApplied};`);
+    // e.g. the property moved out, so the bill fails the "active property" validation check
+    if (scenario.propertyStatus) {
+      statements.push(`
+UPDATE properties SET status = ${sql(scenario.propertyStatus)}, updated_at = now()
+WHERE property_uuid = (SELECT m.property_uuid FROM invoices i JOIN property_vendor_mapping m ON m.mapping_uuid = i.mapping_uuid
+                       WHERE i.blob_file_sha256 = ${sql(bill.sha256)})
+  AND ${notYetApplied};`);
+    }
     statements.push(...history.map((entry) => auditInsert(entry, ref)));
   }
 

@@ -1,16 +1,17 @@
 import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { FiAlertCircle, FiX } from "react-icons/fi";
-import { TbExternalLink, TbFileText, TbInfoCircle } from "react-icons/tb";
+import { TbAlertTriangle, TbCircleCheck, TbExternalLink, TbFileText, TbInfoCircle } from "react-icons/tb";
 import ActionMenu from "@/components/ui/ActionMenu";
 import Icon from "@/components/ui/Icon";
 import { getAuditLogs } from "@/features/auditLogs/auditLogService";
 import { formatTime } from "@/features/auditLogs/auditLogDisplay";
 import { formatCurrency, formatReceived } from "@/features/invoices/invoiceFormat";
-import { invoiceFileUrl } from "@/features/invoices/invoiceService";
+import { getInvoiceValidation, invoiceFileUrl } from "@/features/invoices/invoiceService";
 import { getPropertyById } from "@/features/properties/propertyService";
 import { getDisplayName } from "@/features/users/userDisplay";
 import { getUsers } from "@/features/users/userService";
 import type { AuditLogsResponse } from "@/types/auditlogs";
+import type { InvoiceValidationResponse } from "@/types/invoice";
 import type { PropertyResponse } from "@/types/property";
 import type { UserResponse } from "@/types/user";
 import { type DecisionKind, NOTE_MAX } from "./approvalDecision";
@@ -60,6 +61,56 @@ function SectionTitle({ children }: { children: string }) {
   return <h3 className="font-inter-semibold mb-3 text-sm text-[#14532d]">{children}</h3>;
 }
 
+const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
+// The backend's validation checks. Failed or unchecked ones are listed with the reason, so the
+// approver can decide what to do; the checks don't block anything themselves.
+type Validation = { status: "loading" } | { status: "error" } | { status: "loaded"; result: InvoiceValidationResponse };
+
+function ValidationCard({ validation }: { validation: Validation }) {
+  if (validation.status !== "loaded") {
+    return (
+      <p
+        className="font-inter-regular rounded-lg border border-[#e6ebe8] bg-[#f8faf9] px-4 py-3 text-[13px] text-[#68766f]"
+        role={validation.status === "error" ? "alert" : "status"}
+      >
+        {validation.status === "error" ? "Couldn't run the validation checks." : "Running validation checks…"}
+      </p>
+    );
+  }
+  const { result } = validation;
+  const open = result.checks.filter((check) => check.status !== "PASSED");
+  const title = result.passed
+    ? `Validation passed · ${result.passedCount} of ${result.totalCount}`
+    : `${result.passedCount} of ${result.totalCount} checks passed`;
+  return (
+    <div className={`rounded-lg border px-4 py-3 ${result.passed ? "border-[#cfe9d8] bg-[#f3faf5]" : "border-[#f3dfb0] bg-[#fdf9ee]"}`}>
+      <p className={`font-inter-semibold flex items-center gap-2 text-[13px] ${result.passed ? "text-[#14532d]" : "text-[#946200]"}`}>
+        <Icon className="shrink-0" icon={result.passed ? TbCircleCheck : TbAlertTriangle} size={17} />
+        {title}
+      </p>
+      {result.passed ? (
+        <p className="font-inter-regular mt-1 text-xs text-[#68766f]">
+          {capitalize(result.checks.map((check) => check.label).join(" · "))}.
+        </p>
+      ) : (
+        <ul className="font-inter-regular mt-2 flex flex-col gap-1 text-xs text-[#25362f]">
+          {open.map((check) => (
+            <li className="flex gap-1.5" key={check.id}>
+              <span className={`font-inter-medium shrink-0 ${check.status === "FAILED" ? "text-[#b4322c]" : "text-[#68766f]"}`}>
+                {check.status === "FAILED" ? "Failed:" : "Couldn't check:"}
+              </span>
+              <span>
+                {capitalize(check.label)}. {check.detail}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 const servicePeriod = (start: string | null, end: string | null) =>
   start && end ? `${formatDueDate(start)} – ${formatDueDate(end)}` : (formatDueDate(start ?? end) ?? null);
 
@@ -70,6 +121,7 @@ export default function BillDetailModal({ item, today, decideBlockedReason, onAp
   const commentId = useId();
   const [history, setHistory] = useState<History>({ status: "loading" });
   const [property, setProperty] = useState<PropertyResponse | null>(null);
+  const [validation, setValidation] = useState<Validation>({ status: "loading" });
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,6 +144,17 @@ export default function BillDetailModal({ item, today, decideBlockedReason, onAp
         setHistory({ status: "loaded", logs: sorted, users: Object.fromEntries(users.map((u) => [u.userId, u])) });
       })
       .catch(() => active && setHistory({ status: "error" }));
+    return () => {
+      active = false;
+    };
+  }, [invoice.invoiceUuid]);
+
+  // The service address and the validation checks; each failing only affects its own section
+  useEffect(() => {
+    let active = true;
+    getInvoiceValidation(invoice.invoiceUuid)
+      .then((result) => active && setValidation({ status: "loaded", result }))
+      .catch(() => active && setValidation({ status: "error" }));
     if (invoice.propertyUuid) {
       getPropertyById(invoice.propertyUuid)
         .then((found) => active && setProperty(found))
@@ -277,7 +340,7 @@ export default function BillDetailModal({ item, today, decideBlockedReason, onAp
                   </a>
                 )}
               </div>
-              <Placeholder>Validation checks aren't available yet.</Placeholder>
+              <ValidationCard validation={validation} />
             </section>
           </div>
 

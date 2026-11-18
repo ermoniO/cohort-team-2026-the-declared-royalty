@@ -8,9 +8,10 @@ import {
   isPastDue,
   sentForApprovalEntry,
   summarize,
+  validationIssues,
 } from "@/features/approvals/approvalQueue";
 import type { AuditLogsResponse } from "@/types/auditlogs";
-import type { InvoiceResponse } from "@/types/invoice";
+import type { InvoiceResponse, InvoiceValidationResponse } from "@/types/invoice";
 
 // A fixed "today": Nov 10, 2026, mid-afternoon local time
 const TODAY = new Date(2026, 10, 10, 15, 30);
@@ -60,6 +61,8 @@ const item = (overrides: Partial<InvoiceResponse> = {}, status: ApprovalItem["st
   invoice: invoice(overrides),
   status,
   decision: null,
+  validation: null,
+  sentForApprovalBy: null,
 });
 
 describe("buildQueue", () => {
@@ -234,5 +237,67 @@ describe("sentForApprovalEntry", () => {
     const sameState = entry({ fromState: "PENDING_APPROVAL" });
     const matched = entry({ actionType: "SYSTEM_MATCHED", fromState: "INGESTED" });
     expect(sentForApprovalEntry([progress, decided, sameState, matched])).toBeNull();
+  });
+});
+
+describe("queue extras", () => {
+  const validation = (inv: InvoiceResponse, failed: string[] = []): InvoiceValidationResponse => ({
+    invoiceUuid: inv.invoiceUuid,
+    passed: failed.length === 0,
+    passedCount: 4 - failed.length,
+    totalCount: 4,
+    checks: [
+      { id: "PROPERTY", label: "active property", status: failed.includes("PROPERTY") ? "FAILED" : "PASSED", detail: failed.includes("PROPERTY") ? "Oak Street Lofts is inactive." : null },
+      { id: "ACCOUNT", label: "verified account", status: "PASSED", detail: null },
+      { id: "DUPLICATE", label: "no duplicate invoice", status: failed.includes("DUPLICATE") ? "UNKNOWN" : "PASSED", detail: failed.includes("DUPLICATE") ? "No invoice number to compare." : null },
+      { id: "AMOUNT", label: "amount and due date set", status: "PASSED", detail: null },
+    ],
+  });
+  const review = (inv: InvoiceResponse, user: string, createdAt: string): AuditLogsResponse => ({
+    ...decision(inv, "PENDING_APPROVAL", createdAt, "Reviewer confirmed invoice details"),
+    actionType: "USER_VALIDATED",
+    fromState: "PENDING_MAPPING",
+    user,
+  });
+
+  it("attaches each bill's validation and who sent it for approval", () => {
+    const inv = invoice();
+    const [item] = buildQueue([inv], [], {
+      validations: [validation(inv)],
+      reviews: [review(inv, "u-1", "2026-11-01T12:00:00Z"), review(inv, "u-2", "2026-11-05T12:00:00Z")],
+      userNames: { "u-1": "Jordan Rivera", "u-2": "Priya Shah" },
+    });
+    expect(item.validation?.passed).toBe(true);
+    expect(item.sentForApprovalBy).toBe("Priya Shah"); // the latest time it was sent
+  });
+
+  it("leaves them empty when the extras weren't loaded", () => {
+    const [item] = buildQueue([invoice()], []);
+    expect(item.validation).toBeNull();
+    expect(item.sentForApprovalBy).toBeNull();
+  });
+
+  it("falls back to a short id when the sender's name isn't known", () => {
+    const inv = invoice();
+    const [item] = buildQueue([inv], [], { reviews: [review(inv, "abcdef0123456789", "2026-11-01T12:00:00Z")] });
+    expect(item.sentForApprovalBy).toBe("User abcdef01");
+  });
+
+  it("lists failed and unchecked validations as issues", () => {
+    const inv = invoice();
+    expect(validationIssues(validation(inv))).toEqual([]);
+    expect(validationIssues(validation(inv, ["PROPERTY", "DUPLICATE"]))).toEqual([
+      "Oak Street Lofts is inactive.",
+      "Couldn't check no duplicate invoice",
+    ]);
+  });
+
+  it("finds bills by uploader or sender", () => {
+    const items = [
+      { ...item({ uploadedByName: "Jordan Rivera" }), sentForApprovalBy: "Priya Shah" },
+      item({ uploadedByName: "Someone Else" }),
+    ];
+    expect(applyView(items, { ...DEFAULT_QUEUE_VIEW, search: "priya" }, TODAY)).toHaveLength(1);
+    expect(applyView(items, { ...DEFAULT_QUEUE_VIEW, search: "jordan" }, TODAY)).toHaveLength(1);
   });
 });

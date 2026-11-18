@@ -94,6 +94,23 @@ export type InvoiceUpdateRequest = Partial<{
     failureReason: string;
 }>;
 
+// GET /api/v1/invoices/{invoiceUuid}/validation: checks shown to the approver. They only inform
+// the decision; nothing is blocked when one fails.
+export type InvoiceValidationCheck = {
+    id: "PROPERTY" | "ACCOUNT" | "DUPLICATE" | "AMOUNT";
+    label: string; // short, lower case, e.g. "active property"
+    status: "PASSED" | "FAILED" | "UNKNOWN"; // UNKNOWN: not enough on the bill to run it
+    detail: string | null; // why it failed or couldn't run; null when it passed
+};
+
+export type InvoiceValidationResponse = {
+    invoiceUuid: string;
+    passed: boolean;
+    passedCount: number;
+    totalCount: number;
+    checks: InvoiceValidationCheck[];
+};
+
 export type ConfidenceLevel = "HIGH" | "MEDIUM" | "LOW" | "NOT_FOUND";
 
 // One value the AI read from the bill. level and reason come from checks against our

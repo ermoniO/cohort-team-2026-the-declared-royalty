@@ -28,7 +28,7 @@ export function useApprovalQueue(reloadKey: number): ApprovalQueueState {
   }, [reloadKey]);
 
   const data = result?.data;
-  const items = useMemo(() => (data ? buildQueue(data.invoices, data.decisions) : undefined), [data]);
+  const items = useMemo(() => (data ? buildQueue(data.invoices, data.decisions, data.extras) : undefined), [data]);
 
   if (result?.key !== reloadKey) return { status: "loading", previous: items };
   if (result.error !== undefined) return { status: "error", message: result.error, previous: items };

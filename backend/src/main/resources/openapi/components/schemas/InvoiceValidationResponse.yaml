@@ -1,0 +1,27 @@
+type: object
+description: >
+  The validation checks shown to the approver. They only inform the decision: nothing is blocked
+  or changed because a check failed.
+required:
+  - invoiceUuid
+  - passed
+  - passedCount
+  - totalCount
+  - checks
+properties:
+  invoiceUuid:
+    type: string
+    format: uuid
+  passed:
+    type: boolean
+    description: True when every check passed
+  passedCount:
+    type: integer
+    example: 4
+  totalCount:
+    type: integer
+    example: 4
+  checks:
+    type: array
+    items:
+      $ref: './InvoiceValidationCheck.yaml'

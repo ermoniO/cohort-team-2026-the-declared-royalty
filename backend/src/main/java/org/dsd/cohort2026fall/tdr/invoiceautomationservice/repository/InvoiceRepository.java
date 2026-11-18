@@ -39,6 +39,9 @@ public interface InvoiceRepository extends JpaRepository<InvoiceEntity, UUID>, J
     // Recent bills on the same vendor + property link, for comparing amounts and billing periods
     List<InvoiceEntity> findTop6ByMapping_MappingIdAndInvoiceIdNotOrderByCreatedAtDesc(UUID mappingId, UUID invoiceId);
 
+    // Every bill on a vendor + property link (validation compares invoice numbers loosely)
+    List<InvoiceEntity> findByMapping_MappingId(UUID mappingId);
+
     boolean existsByMapping_MappingIdAndVendorSuppliedInvoiceIdAndInvoiceIdNot(
             UUID mappingId, String vendorSuppliedInvoiceId, UUID invoiceId);
 

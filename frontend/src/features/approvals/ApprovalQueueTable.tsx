@@ -1,5 +1,5 @@
 import { FiSearch } from "react-icons/fi";
-import { TbArrowsMaximize } from "react-icons/tb";
+import { TbAlertTriangle, TbArrowsMaximize, TbCircleCheck } from "react-icons/tb";
 import ActionMenu from "@/components/ui/ActionMenu";
 import Icon from "@/components/ui/Icon";
 import { formatCurrency, plural } from "@/features/invoices/invoiceFormat";
@@ -11,6 +11,7 @@ import {
   type QueueView,
   SORT_ORDERS,
   STATUS_FILTERS,
+  validationIssues,
 } from "./approvalQueue";
 import { approvalStatusDetail, billName, DECISION_MENU_ITEMS, formatDueDate } from "./approvalStatus";
 import ApprovalStatusPill from "./ApprovalStatusPill";
@@ -62,10 +63,53 @@ function Select<T extends string>({
   );
 }
 
+const COLUMN_COUNT = 8;
+
+// Uploader, and who confirmed the details and sent it for approval (they can differ)
+function SubmittedCell({ item }: { item: ApprovalItem }) {
+  return (
+    <>
+      <span className="block">{item.invoice.uploadedByName ?? <NotAvailable label="Unknown" />}</span>
+      <span className="block text-xs text-[#68766f]">
+        {item.sentForApprovalBy ? `Sent by ${item.sentForApprovalBy}` : "Sender not recorded"}
+      </span>
+    </>
+  );
+}
+
+// "4/4 passed", or each issue: the approver decides what to do, nothing is blocked
+function ValidationCell({ item }: { item: ApprovalItem }) {
+  if (!item.validation) return <NotAvailable label="Not checked" />;
+  const issues = validationIssues(item.validation);
+  if (issues.length === 0) {
+    return (
+      <span className="font-inter-medium inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-[#e8f7ed] px-2 py-0.5 text-xs text-[#16834a]">
+        <Icon icon={TbCircleCheck} size={13} />
+        {item.validation.passedCount}/{item.validation.totalCount} passed
+      </span>
+    );
+  }
+  return (
+    <div className="max-w-[240px]" title={issues.join("\n")}>
+      <span className="font-inter-medium inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-[#fdf6e3] px-2 py-0.5 text-xs text-[#946200]">
+        <Icon icon={TbAlertTriangle} size={13} />
+        {plural(issues.length, "issue")}
+      </span>
+      <ul className="mt-1 text-xs text-[#68766f]">
+        {issues.map((issue) => (
+          <li className="truncate" key={issue}>
+            {issue}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function EmptyRow({ children, alert = false }: { children: string; alert?: boolean }) {
   return (
     <tr>
-      <td className="px-5 py-16 text-center" colSpan={6}>
+      <td className="px-5 py-16 text-center" colSpan={COLUMN_COUNT}>
         <p className={`font-inter-regular text-sm ${alert ? "text-[#b42318]" : "text-[#68766f]"}`} role={alert ? "alert" : "status"}>
           {children}
         </p>
@@ -105,7 +149,7 @@ export default function ApprovalQueueTable({
             className="font-inter-regular w-full bg-transparent text-sm text-[#25362f] outline-none placeholder:text-[#98a29c]"
             maxLength={100}
             onChange={(event) => onViewChange({ search: event.target.value })}
-            placeholder="Search vendor, property, description or invoice number"
+            placeholder="Search vendor, property, invoice number or who submitted it"
             type="search"
             value={view.search}
           />
@@ -128,11 +172,13 @@ export default function ApprovalQueueTable({
       )}
 
       <div className="relative overflow-x-auto">
-        <table aria-busy={loading} className={`w-full min-w-[900px] text-left text-[13px] ${loading && rows ? "opacity-60" : ""}`}>
+        <table aria-busy={loading} className={`w-full min-w-[1180px] text-left text-[13px] ${loading && rows ? "opacity-60" : ""}`}>
           <thead>
             <tr className="font-inter-semibold border-y border-[#e6ebe8] bg-[#f8faf9] text-[11px] text-[#98a29c]">
               <th className="px-5 py-2.5 font-normal" scope="col">BILL / PROPERTY</th>
               <th className="px-5 py-2.5 text-right font-normal" scope="col">AMOUNT</th>
+              <th className="px-5 py-2.5 font-normal" scope="col">SUBMITTED BY</th>
+              <th className="px-5 py-2.5 font-normal" scope="col">VALIDATION</th>
               <th className="px-5 py-2.5 font-normal" scope="col">PRIORITY</th>
               <th className="px-5 py-2.5 font-normal" scope="col">STATUS</th>
               <th className="px-5 py-2.5 font-normal" scope="col">DUE DATE</th>
@@ -166,6 +212,12 @@ export default function ApprovalQueueTable({
                     </td>
                     <td className="font-inter-semibold whitespace-nowrap px-5 py-3.5 text-right tabular-nums">
                       {invoice.amount === null ? <NotAvailable label="Not set" /> : formatCurrency(invoice.amount)}
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <SubmittedCell item={item} />
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <ValidationCell item={item} />
                     </td>
                     <td className="px-5 py-3.5">
                       <NotAvailable label="Priority isn't available yet" />
