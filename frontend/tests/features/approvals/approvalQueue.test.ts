@@ -6,6 +6,7 @@ import {
   DEFAULT_QUEUE_VIEW,
   dueDetail,
   isPastDue,
+  sentForApprovalEntry,
   summarize,
 } from "@/features/approvals/approvalQueue";
 import type { AuditLogsResponse } from "@/types/auditlogs";
@@ -192,5 +193,46 @@ describe("summarize", () => {
       TODAY,
     );
     expect(summary).toEqual({ awaitingCount: 3, awaitingTotal: 870, pastDueCount: 2, infoRequestedCount: 1 });
+  });
+});
+
+describe("sentForApprovalEntry", () => {
+  const entry = (overrides: Partial<AuditLogsResponse>): AuditLogsResponse => ({
+    auditLogId: `a-${++seq}`,
+    invoice: "i",
+    user: "reviewer",
+    actionType: "USER_VALIDATED",
+    actionTaken: "Reviewer confirmed invoice details",
+    fromState: "PENDING_MAPPING",
+    toState: "PENDING_APPROVAL",
+    notes: null,
+    createdAt: "2026-11-05T12:00:00Z",
+    updatedAt: "2026-11-05T12:00:00Z",
+    ...overrides,
+  });
+
+  it("finds the review that sent the bill for approval", () => {
+    const review = entry({});
+    const upload = entry({ actionType: "USER_INGESTED", fromState: "NONE", toState: "INGESTED", user: "uploader" });
+    expect(sentForApprovalEntry([upload, review])).toBe(review);
+  });
+
+  it("counts a review where the AI's values were corrected", () => {
+    const corrected = entry({ actionType: "USER_IDENTIFIED" });
+    expect(sentForApprovalEntry([corrected])).toBe(corrected);
+  });
+
+  it("uses the latest one when a bill was sent back and sent again", () => {
+    const first = entry({ user: "first", createdAt: "2026-11-01T12:00:00Z" });
+    const again = entry({ user: "second", createdAt: "2026-11-08T12:00:00Z" });
+    expect(sentForApprovalEntry([again, first])?.user).toBe("second");
+  });
+
+  it("ignores saved progress, decisions and other entries that don't send it for approval", () => {
+    const progress = entry({ actionType: "USER_IDENTIFIED", toState: "PENDING_MAPPING" });
+    const decided = entry({ actionType: "USER_APPROVED", fromState: "PENDING_APPROVAL", toState: "APPROVED" });
+    const sameState = entry({ fromState: "PENDING_APPROVAL" });
+    const matched = entry({ actionType: "SYSTEM_MATCHED", fromState: "INGESTED" });
+    expect(sentForApprovalEntry([progress, decided, sameState, matched])).toBeNull();
   });
 });

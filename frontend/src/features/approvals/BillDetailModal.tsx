@@ -14,7 +14,7 @@ import type { AuditLogsResponse } from "@/types/auditlogs";
 import type { PropertyResponse } from "@/types/property";
 import type { UserResponse } from "@/types/user";
 import { type DecisionKind, NOTE_MAX } from "./approvalDecision";
-import { type ApprovalItem, dueDetail } from "./approvalQueue";
+import { type ApprovalItem, dueDetail, sentForApprovalEntry } from "./approvalQueue";
 import { billName, DECISION_MENU_ITEMS, formatDueDate } from "./approvalStatus";
 import ApprovalStatusPill from "./ApprovalStatusPill";
 
@@ -107,6 +107,17 @@ export default function BillDetailModal({ item, today, decideBlockedReason, onAp
     return user ? getDisplayName(user) : `User ${userId.slice(0, 8)}`;
   };
 
+  // Who confirmed the details and sent the bill for approval (can differ from the uploader)
+  const sentForApproval = (): ReactNode => {
+    if (history.status === "loading") return <Missing>Loading…</Missing>;
+    if (history.status === "error") return <Missing>Couldn't load</Missing>;
+    const entry = sentForApprovalEntry(history.logs);
+    return entry ? (
+      <span title={formatTime(entry.createdAt)}>{actor(entry.user)}</span>
+    ) : (
+      <Missing>Not recorded</Missing>
+    );
+  };
 
   const close = () => dialogRef.current?.close();
 
@@ -202,6 +213,7 @@ export default function BillDetailModal({ item, today, decideBlockedReason, onAp
                 <Detail label="Submitted by">
                   {invoice.uploadedByName ?? <Missing>{invoice.originalFilename ? "Unknown" : "Entered manually"}</Missing>}
                 </Detail>
+                <Detail label="Sent for approval by">{sentForApproval()}</Detail>
               </dl>
               {property && (
                 <p className="font-inter-regular mt-3 text-xs text-[#68766f]">

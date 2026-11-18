@@ -15,6 +15,7 @@ import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.*;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository.InvoiceRepository;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository.PropertyRepository;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository.PropertyVendorMappingRepository;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository.UserRepository;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository.VendorRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -56,6 +57,7 @@ public class InvoiceExtractionService {
     private final PropertyVendorMappingRepository mappingRepository;
     private final VendorRepository vendorRepository;
     private final PropertyRepository propertyRepository;
+    private final UserRepository userRepository;
     private final TransactionTemplate transactionTemplate;
     private final EntityManager entityManager;
 
@@ -119,15 +121,17 @@ public class InvoiceExtractionService {
     }
 
     public InvoiceResponse verify(UUID invoiceUuid, InvoiceVerifyRequest request) {
+        // Checked first: an unknown reviewer is a bad request, not a review attempt to log
+        UUID reviewer = reviewerId(request.getReviewedBy());
         try {
-            return verifyInTransaction(invoiceUuid, request);
+            return verifyInTransaction(invoiceUuid, request, reviewer);
         } catch (RuntimeException e) {
-            recordReviewRejection(invoiceUuid, ActionTypeEnum.USER_VALIDATED, "Reviewer confirmation rejected", e);
+            recordReviewRejection(invoiceUuid, reviewer, ActionTypeEnum.USER_VALIDATED, "Reviewer confirmation rejected", e);
             throw e;
         }
     }
 
-    private InvoiceResponse verifyInTransaction(UUID invoiceUuid, InvoiceVerifyRequest request) {
+    private InvoiceResponse verifyInTransaction(UUID invoiceUuid, InvoiceVerifyRequest request, UUID reviewer) {
         return transactionTemplate.execute(tx -> {
             InvoiceEntity invoice = findInvoice(invoiceUuid);
             requireReviewable(invoice);
@@ -143,8 +147,8 @@ public class InvoiceExtractionService {
 
             String notes = (request.getNotes() == null ? "" : request.getNotes()) + linkNote(applied, invoice);
             boolean corrected = Boolean.TRUE.equals(request.getAiValuesChanged());
-            // TODO(auth): record the signed-in reviewer instead of the system user
-            auditLogService.record(invoiceUuid, InvoiceUploadService.SYSTEM_USER_ID,
+            // The Approvals page shows this entry's user as "Sent for approval by"
+            auditLogService.record(invoiceUuid, reviewer,
                     corrected ? ActionTypeEnum.USER_IDENTIFIED : ActionTypeEnum.USER_VALIDATED,
                     corrected ? "Reviewer corrected and confirmed invoice details" : "Reviewer confirmed invoice details",
                     fromStatus, toStatus, truncate(blankToNull(notes), AUDIT_NOTES_MAX));
@@ -155,15 +159,16 @@ public class InvoiceExtractionService {
 
     /** Saves the fields confirmed so far; the invoice stays in PENDING_MAPPING until it's verified. */
     public InvoiceResponse saveProgress(UUID invoiceUuid, InvoiceProgressRequest request) {
+        UUID reviewer = reviewerId(request.getReviewedBy());
         try {
-            return saveProgressInTransaction(invoiceUuid, request);
+            return saveProgressInTransaction(invoiceUuid, request, reviewer);
         } catch (RuntimeException e) {
-            recordReviewRejection(invoiceUuid, ActionTypeEnum.USER_IDENTIFIED, "Review progress save rejected", e);
+            recordReviewRejection(invoiceUuid, reviewer, ActionTypeEnum.USER_IDENTIFIED, "Review progress save rejected", e);
             throw e;
         }
     }
 
-    private InvoiceResponse saveProgressInTransaction(UUID invoiceUuid, InvoiceProgressRequest request) {
+    private InvoiceResponse saveProgressInTransaction(UUID invoiceUuid, InvoiceProgressRequest request, UUID reviewer) {
         return transactionTemplate.execute(tx -> {
             InvoiceEntity invoice = findInvoice(invoiceUuid);
             requireReviewable(invoice);
@@ -179,8 +184,7 @@ public class InvoiceExtractionService {
             invoice.setUpdatedAt(now());
             invoiceRepository.saveAndFlush(invoice);
 
-            // TODO(auth): record the signed-in reviewer instead of the system user
-            auditLogService.record(invoiceUuid, InvoiceUploadService.SYSTEM_USER_ID,
+            auditLogService.record(invoiceUuid, reviewer,
                     ActionTypeEnum.USER_IDENTIFIED, "Reviewer saved review progress",
                     fromStatus, toStatus,
                     truncate("Saved: " + String.join(", ", applied.saved()) + linkNote(applied, invoice), AUDIT_NOTES_MAX));
@@ -366,16 +370,26 @@ public class InvoiceExtractionService {
                 ActionTypeEnum.SYSTEM_IDENTIFIED, "AI extraction failed", invoice.getInvoiceStatus(), reason);
     }
 
+    // Who the review's audit entries are recorded under: the reviewer sent with the request, or the
+    // system user when none was sent.
+    // TODO(auth): take the signed-in user from the session instead of the request
+    private UUID reviewerId(UUID reviewedBy) {
+        if (reviewedBy == null) return InvoiceUploadService.SYSTEM_USER_ID;
+        if (!userRepository.existsById(reviewedBy)) {
+            throw new BadRequestException("Unknown reviewer: " + reviewedBy);
+        }
+        return reviewedBy;
+    }
+
     // The review transaction has already rolled back, so this reads the status from before the attempt
-    private void recordReviewRejection(UUID invoiceUuid, ActionTypeEnum actionType, String actionTaken, RuntimeException e) {
+    private void recordReviewRejection(UUID invoiceUuid, UUID reviewer, ActionTypeEnum actionType, String actionTaken, RuntimeException e) {
         String status;
         try {
             status = invoiceRepository.findById(invoiceUuid).map(InvoiceEntity::getInvoiceStatus).orElse(null);
         } catch (RuntimeException lookupFailed) {
             status = null;
         }
-        // TODO(auth): record the signed-in reviewer instead of the system user
-        auditLogService.recordFailure(invoiceUuid, InvoiceUploadService.SYSTEM_USER_ID,
+        auditLogService.recordFailure(invoiceUuid, reviewer,
                 actionType, actionTaken, status, AuditLogService.reasonOf(e));
     }
 }

@@ -27,7 +27,7 @@ post:
           schema:
             $ref: '../components/schemas/InvoiceResponse.yaml'
     '400':
-      description: Invalid values (e.g. billing period start after end)
+      description: Invalid values (e.g. billing period start after end), or an unknown reviewedBy user
       content:
         application/json:
           schema:

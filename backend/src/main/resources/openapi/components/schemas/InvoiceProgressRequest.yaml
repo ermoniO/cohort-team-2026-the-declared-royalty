@@ -34,3 +34,10 @@ properties:
   invoiceCreationDate:
     type: string
     format: date
+  reviewedBy:
+    type: string
+    format: uuid
+    description: >
+      The user saving the review; the audit entry is recorded under them. Omitted means
+      the system user. An unknown user is rejected with 400. Not counted as a confirmed field.
+      TODO(auth): take this from the session instead.

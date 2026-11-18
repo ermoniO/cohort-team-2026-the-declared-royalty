@@ -36,6 +36,18 @@ export function isQueueDecision(log: AuditLogsResponse): boolean {
   return log.actionType === "USER_APPROVED" && log.fromState === AWAITING && log.toState !== AWAITING;
 }
 
+// The review that sent the bill for approval most recently (a bill sent back can be sent again).
+// The backend logs it as USER_VALIDATED, or USER_IDENTIFIED when the reviewer corrected the AI.
+export function sentForApprovalEntry(logs: AuditLogsResponse[]): AuditLogsResponse | null {
+  let latest: AuditLogsResponse | null = null;
+  for (const log of logs) {
+    const review = log.actionType === "USER_VALIDATED" || log.actionType === "USER_IDENTIFIED";
+    if (!review || log.toState !== AWAITING || log.fromState === AWAITING) continue;
+    if (!latest || Date.parse(log.createdAt) > Date.parse(latest.createdAt)) latest = log;
+  }
+  return latest;
+}
+
 // Every invoice awaiting approval, plus any invoice with a decision made from the queue
 export function buildQueue(invoices: InvoiceResponse[], logs: AuditLogsResponse[]): ApprovalItem[] {
   const latest = new Map<string, AuditLogsResponse>();

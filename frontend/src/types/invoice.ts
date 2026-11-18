@@ -141,8 +141,11 @@ export type InvoiceVerifyRequest = {
     invoiceCreationDate?: string;
     notes?: string; // audit note: what the reviewer changed from the AI's values
     aiValuesChanged?: boolean; // true → logged as USER_IDENTIFIED instead of USER_VALIDATED
+    // Who is sending it for approval; the audit entry is recorded under them (System when omitted)
+    // TODO(auth): drop once the backend takes the user from the session
+    reviewedBy?: string;
 };
 
 // Body for POST /api/v1/invoices/{invoiceUuid}/progress: only the fields the reviewer confirmed.
-// Vendor, property and account number are saved together or not at all.
+// Vendor, property and account number are saved together or not at all. reviewedBy isn't a field.
 export type InvoiceProgressRequest = Partial<Omit<InvoiceVerifyRequest, "notes" | "aiValuesChanged">>;

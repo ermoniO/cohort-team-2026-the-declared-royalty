@@ -23,6 +23,8 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SEED_DIR = join(ROOT, "seed_data");
+// The backend's System user (migration V4)
+const SYSTEM_USER = "00000000-0000-0000-0000-000000000001";
 const args = process.argv.slice(2);
 
 if (args.includes("--help") || args.includes("-h")) {
@@ -291,7 +293,7 @@ WHERE blob_file_sha256 = ${sql(bill.sha256)} AND description IS NULL;`);
 
     // Only bills that have a property get a scenario
     const ref = `(SELECT invoice_uuid FROM invoices WHERE blob_file_sha256 = ${sql(bill.sha256)} AND mapping_uuid IS NOT NULL)`;
-    const history = scenarioHistory(bill.file, scenario);
+    const history = scenarioHistory(bill.file, scenario, bill.uploadedBy);
     const notYetApplied = `NOT EXISTS (SELECT 1 FROM audit_logs WHERE audit_uuid = ${sql(history[0].id)})`;
     statements.push(`
 UPDATE invoices
@@ -343,18 +345,19 @@ function seedUuid(...parts) {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-8${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
 }
 
-// The audit entries that tell a bill's story. Decisions use the same wording as the Approvals page,
-// and the backend's System user (migration V4) records them until there are real users.
-function scenarioHistory(key, s) {
+// The audit entries that tell a bill's story, in the same wording the app uses. The review is
+// recorded under the bill's uploader (Approvals shows them as "Sent for approval by"); everything
+// else under the backend's System user (migration V4).
+function scenarioHistory(key, s, reviewer = SYSTEM_USER) {
   const entries = [];
-  const add = (step, actionType, actionTaken, fromState, toState, when, notes = null) =>
-    entries.push({ id: seedUuid("audit", key, step), actionType, actionTaken, fromState, toState, at: when, notes });
+  const add = (step, actionType, actionTaken, fromState, toState, when, notes = null, user = SYSTEM_USER) =>
+    entries.push({ id: seedUuid("audit", key, step), user, actionType, actionTaken, fromState, toState, at: when, notes });
 
   if (s.outcome === "failed") {
     add("failed", "SYSTEM_IDENTIFIED", "Extraction failed", "INGESTED", "FAILED", at(s.receivedDaysAgo, 0.1), s.failureReason);
     return entries;
   }
-  add("matched", "SYSTEM_MATCHED", "Matched to vendor and property", "INGESTED", "PENDING_APPROVAL", at(s.receivedDaysAgo, 1));
+  add("reviewed", "USER_VALIDATED", "Reviewer confirmed invoice details", "INGESTED", "PENDING_APPROVAL", at(s.receivedDaysAgo, 1), null, reviewer);
 
   const decided = at(s.decisionDaysAgo ?? 0);
   if (["approved", "paid", "processing"].includes(s.outcome)) {
@@ -374,7 +377,7 @@ function scenarioHistory(key, s) {
 function auditInsert(entry, invoiceRef) {
   return `
 INSERT INTO audit_logs (audit_uuid, invoice_uuid, user_uuid, action_type, action_taken, from_state, to_state, notes, created_at, updated_at)
-SELECT ${sql(entry.id)}, ${invoiceRef}, '00000000-0000-0000-0000-000000000001', ${sql(entry.actionType)}, ${sql(entry.actionTaken)},
+SELECT ${sql(entry.id)}, ${invoiceRef}, ${sql(entry.user ?? SYSTEM_USER)}, ${sql(entry.actionType)}, ${sql(entry.actionTaken)},
        ${sql(entry.fromState)}, ${sql(entry.toState)}, ${sql(entry.notes)}, ${sql(entry.at)}, ${sql(entry.at)}
 WHERE ${invoiceRef} IS NOT NULL
 ON CONFLICT (audit_uuid) DO NOTHING;`;
