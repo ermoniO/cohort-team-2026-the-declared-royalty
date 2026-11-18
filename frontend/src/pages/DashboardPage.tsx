@@ -88,7 +88,10 @@ export default function DashboardPage() {
       </div>
 
       {/* Row 1: Invoice Pipeline KPIs */}
-      <section aria-label="Invoice pipeline summary" className="flex flex-col gap-2">
+      <section
+        aria-label="Invoice pipeline summary"
+        className="flex flex-col gap-3 rounded-2xl border border-[#e6ebe8] bg-[#f1f5f3] p-4"
+      >
         <div className="flex items-center justify-between">
           <h2 className="font-inter-semibold text-sm text-[#14532d]">Invoice pipeline</h2>
           <button
@@ -105,7 +108,7 @@ export default function DashboardPage() {
 
       {/* Row 2: Payments Snapshot + Directory Footprint */}
       <section aria-label="Payments and directory summary" className="grid grid-cols-1 gap-4 xl:grid-cols-4">
-        <div className="flex flex-col gap-2 xl:col-span-3">
+        <div className="flex flex-col gap-3 rounded-2xl border border-[#e6ebe8] bg-[#f1f5f3] p-4 xl:col-span-3">
           <div className="flex items-center justify-between">
             <h2 className="font-inter-semibold text-sm text-[#14532d]">Payments snapshot</h2>
             <button
@@ -120,7 +123,7 @@ export default function DashboardPage() {
           <PaymentsSummaryCards compact state={paymentSummary} />
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-3 rounded-2xl border border-[#e6ebe8] bg-[#f1f5f3] p-4">
           <h2 className="font-inter-semibold text-sm text-[#14532d]">Directory</h2>
           <div className="flex flex-1 flex-col justify-between gap-3 rounded-xl border border-[#e6ebe8] bg-white px-5 py-4">
             <button
@@ -174,7 +177,7 @@ export default function DashboardPage() {
           existing={propertiesState.status === "loaded" ? propertiesState.items : []}
           mode={{ kind: "create" }}
           onClose={() => setPropertyModalOpen(false)}
-          onDeleted={() => {}}
+          onDeleted={() => { }}
           onSaved={(property) => {
             addProperty(property);
             setPropertyModalOpen(false);
@@ -187,7 +190,7 @@ export default function DashboardPage() {
           existing={vendorsState.status === "loaded" ? vendorsState.items : []}
           mode={{ kind: "create" }}
           onClose={() => setVendorModalOpen(false)}
-          onDeleted={() => {}}
+          onDeleted={() => { }}
           onSaved={(vendor) => {
             addVendor(vendor);
             setVendorModalOpen(false);
