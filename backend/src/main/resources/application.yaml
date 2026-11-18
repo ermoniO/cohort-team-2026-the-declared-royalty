@@ -52,3 +52,5 @@ stripe:
   secret-key: ${STRIPE_SECRET_KEY:}
   webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
   currency: ${STRIPE_CURRENCY:usd}
+  auto-pay-payment-method-id: ${STRIPE_AUTO_PAY_PAYMENT_METHOD_ID:}
+  auto-pay-interval-ms: ${STRIPE_AUTO_PAY_INTERVAL_MS:300000}

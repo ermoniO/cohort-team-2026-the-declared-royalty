@@ -357,7 +357,7 @@ export default function PaymentsPage() {
         </p>
         <button
           aria-checked={autoPayEnabled}
-          aria-label="Schedule payment"
+          aria-label="Auto-pay"
           className="font-inter-semibold flex items-center gap-2 text-sm text-[#14532d] disabled:cursor-wait disabled:opacity-60"
           disabled={autoPayLoading}
           onClick={toggleAutoPay}
@@ -372,7 +372,7 @@ export default function PaymentsPage() {
               className={`absolute top-0.5 left-0.5 size-4 rounded-full bg-white shadow-sm transition-transform ${autoPayEnabled ? "translate-x-4" : "translate-x-0"}`}
             />
           </span>
-          <span>Schedule payment</span>
+          <span>Auto-pay</span>
         </button>
       </div>
 
