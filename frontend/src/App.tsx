@@ -106,6 +106,8 @@ export default function App() {
           <PropertiesPage />
         ) : currentRoute.path === "/vendors" ? (
           <VendorsPage />
+        ) : currentRoute.path === "/approvals" ? (
+          <ApprovalsPage />
         ) : currentRoute.path === "/activity" ? (
           <AuditLogsPage
             invoiceUuid={new URLSearchParams(location.search).get("invoice")}
