@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { FiCheck, FiChevronRight, FiClock, FiSearch } from "react-icons/fi";
-import { TbAlertTriangle, TbCreditCard, TbExternalLink } from "react-icons/tb";
+import { TbAlertTriangle, TbExternalLink } from "react-icons/tb";
 import { navigateTo } from "@/app/navigation";
 import { auditHistoryPath } from "@/features/auditLogs/auditLogDisplay";
 import {
@@ -26,7 +26,7 @@ import {
   PAYMENT_INVOICE_STATUSES,
   type PaymentSummaryState,
 } from "@/features/payments/usePaymentSummary";
-import type { InvoiceResponse, InvoiceStatus } from "@/types/invoice";
+import type { InvoiceResponse } from "@/types/invoice";
 
 type PaymentStatus =
   | "Needs approval"
@@ -57,18 +57,18 @@ const statusStyles: Record<PaymentStatus, string> = {
   Exception: "bg-[#fdeeee] text-[#b4322c]",
 };
 
-function displayStatus(status: ApiPaymentStatus): PaymentStatus {
-  const labels: Record<ApiPaymentStatus, PaymentStatus> = {
-    NEEDS_APPROVAL: "Needs approval",
-    SCHEDULED: "Scheduled",
-    PROCESSING: "Processing",
-    PAID: "Paid",
-    EXCEPTION: "Exception",
-  };
-  return labels[status];
-}
+function toPayment(invoice: InvoiceResponse): Payment {
+  const status: PaymentStatus =
+    invoice.invoiceStatus === "PENDING_APPROVAL"
+      ? "Needs approval"
+      : invoice.invoiceStatus === "APPROVED"
+        ? "Scheduled"
+        : invoice.invoiceStatus === "PROCESSING_PAYMENT"
+          ? "Processing"
+          : invoice.invoiceStatus === "PAID"
+            ? "Paid"
+            : "Exception";
 
-function toPayment(payment: PaymentResponse): Payment {
   return {
     id: payment.paymentId,
     vendor: payment.vendorName ?? payment.originalFilename ?? "Unmatched invoice",
@@ -80,6 +80,7 @@ function toPayment(payment: PaymentResponse): Payment {
     status: displayStatus(payment.paymentStatus),
     failureReason: payment.failureReason,
     retryable: payment.retryable,
+    retryable: false,
     hasInvoiceFile: Boolean(payment.blobFileUrl),
   };
 }
@@ -258,11 +259,9 @@ function Message({
 
 export default function PaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
-  const [summary, setSummary] = useState<PaymentSummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [autoPayEnabled, setAutoPayEnabled] = useState(false);
-  const [autoPayLoading, setAutoPayLoading] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<PaymentStatus | "All">("All");
   const [search, setSearch] = useState("");
@@ -274,8 +273,6 @@ export default function PaymentsPage() {
         if (!active) return;
         const loadedPayments = response.items.map(toPayment);
         setPayments(loadedPayments);
-        setSummary(summaryResponse);
-        setAutoPayEnabled(autoPayResponse.enabled);
         setSelectedId((current) => current ?? loadedPayments[0]?.id ?? null);
       })
       .catch((reason: unknown) => {
@@ -361,14 +358,22 @@ export default function PaymentsPage() {
           Track approved invoices from authorization to settlement.
         </p>
         <button
-          aria-pressed={autoPayEnabled}
-          className={`font-inter-semibold flex h-9 items-center gap-2 rounded-[7px] px-4 text-sm ${autoPayEnabled ? "bg-[#14532d] text-white" : "border border-[#b9c8be] bg-white text-[#14532d]"}`}
-          disabled={autoPayLoading}
-          onClick={() => void toggleAutoPay()}
+          aria-checked={autoPayEnabled}
+          aria-label="Schedule payment"
+          className="font-inter-semibold flex items-center gap-2 text-sm text-[#14532d]"
+          onClick={() => setAutoPayEnabled((enabled) => !enabled)}
+          role="switch"
           type="button"
         >
-          <TbCreditCard size={16} />
-          {autoPayLoading ? "Saving…" : autoPayEnabled ? "Auto-pay on" : "Enable auto-pay"}
+          <span
+            aria-hidden="true"
+            className={`relative h-5 w-9 rounded-full transition-colors ${autoPayEnabled ? "bg-[#16834a]" : "bg-[#b9c8be]"}`}
+          >
+            <span
+              className={`absolute top-0.5 left-0.5 size-4 rounded-full bg-white shadow-sm transition-transform ${autoPayEnabled ? "translate-x-4" : "translate-x-0"}`}
+            />
+          </span>
+          <span>Schedule payment</span>
         </button>
       </div>
 
