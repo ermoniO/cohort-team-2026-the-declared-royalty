@@ -140,6 +140,11 @@ public class StripePaymentService {
                 .setCurrency(currency)
                 .setPaymentMethod(request.getPaymentMethodId().trim())
                 .setConfirm(true)
+                // Server-side charge with no page to return to: only allow methods that don't redirect
+                .setAutomaticPaymentMethods(PaymentIntentCreateParams.AutomaticPaymentMethods.builder()
+                        .setEnabled(true)
+                        .setAllowRedirects(PaymentIntentCreateParams.AutomaticPaymentMethods.AllowRedirects.NEVER)
+                        .build())
                 .putMetadata("invoice_id", invoiceId.toString())
                 .putMetadata("payment_attempt_id", attemptId.toString())
                 .build();

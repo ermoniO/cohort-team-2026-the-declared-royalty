@@ -16,6 +16,9 @@ import type { PaymentResponse, PaymentSource } from "@/types/payment";
 import PaymentsSummaryCards from "@/features/payments/PaymentsSummaryCards";
 import type { PaymentSummaryState } from "@/features/payments/usePaymentSummary";
 
+// Auto-pay runs on the server; while it's on, re-check the list this often
+const PAYMENTS_POLL_MS = 15_000;
+
 type PaymentStatus =
   | "Needs approval"
   | "Scheduled"
@@ -291,6 +294,7 @@ export default function PaymentsPage() {
         if (active) setLoading(false);
       });
 
+
     // Auto-pay is an optional control; it must not prevent the payment queue
     // from rendering if its settings endpoint is unavailable.
     getAutoPaySettings()
@@ -303,6 +307,19 @@ export default function PaymentsPage() {
       active = false;
     };
   }, []);
+
+  // Auto-pay pays bills on the server, so poll while it's on to show what it paid.
+  // Skips hidden tabs, and keeps the current selection and filters.
+  useEffect(() => {
+    if (!autoPayEnabled) return;
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      getPayments({ page: 0, size: 100 })
+        .then((response) => setPayments(response.items.map(toPayment)))
+        .catch(() => undefined);
+    }, PAYMENTS_POLL_MS);
+    return () => window.clearInterval(timer);
+  }, [autoPayEnabled]);
 
   const toggleAutoPay = async () => {
     const nextValue = !autoPayEnabled;
