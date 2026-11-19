@@ -1,13 +1,33 @@
-import { type ResourceListState, useResourceList } from "@/app/hooks/useResourceList";
+import { useEffect, useMemo } from "react";
+import type { ResourceListState } from "@/app/hooks/useResourceList";
+import { useVendorStore } from "@/stores";
 import type { VendorResponse } from "@/types/vendor";
-import { getVendors } from "./vendorService.ts";
 
 export type VendorsState = ResourceListState<VendorResponse>;
 
-// Module-level so it's stable: useResourceList reloads when its loader changes
-const getId = (vendor: VendorResponse) => vendor.vendorUuid;
-
 export function useVendors() {
-  const { state, add, replace, remove } = useResourceList(getVendors, getId);
-  return { state, addVendor: add, replaceVendor: replace, removeVendor: remove };
+  const vendors = useVendorStore((s) => s.vendors);
+  const hasLoaded = useVendorStore((s) => s.hasLoaded);
+  const error = useVendorStore((s) => s.error);
+  const fetchVendors = useVendorStore((s) => s.fetchVendors);
+  const addVendor = useVendorStore((s) => s.addVendor);
+  const replaceVendor = useVendorStore((s) => s.replaceVendor);
+  const removeVendor = useVendorStore((s) => s.removeVendor);
+
+  useEffect(() => {
+    void fetchVendors();
+  }, [fetchVendors]);
+
+  // Based on hasLoaded, not isLoading, so a save doesn't flip the list back to "loading"
+  const state = useMemo<VendorsState>(
+    () =>
+      hasLoaded
+        ? { status: "loaded", items: vendors }
+        : error
+          ? { status: "error", message: error }
+          : { status: "loading" },
+    [hasLoaded, error, vendors],
+  );
+
+  return { state, addVendor, replaceVendor, removeVendor };
 }

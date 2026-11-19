@@ -1,10 +1,7 @@
 import type { CurrentUserState } from "@/features/users/useCurrentUser";
+import { useCurrentUserContext } from "@/features/users/currentUserContext";
 import UserAvatar from "@/features/users/UserAvatar";
 import { getDisplayName } from "@/features/users/userDisplay";
-
-type SidebarProfileProps = {
-  currentUser: CurrentUserState;
-};
 
 function profileText({ user, loading }: CurrentUserState) {
   if (loading) return { name: "Loading…", detail: "" };
@@ -15,7 +12,8 @@ function profileText({ user, loading }: CurrentUserState) {
 }
 
 // Shows who you are; the account menu itself lives on the top bar avatar
-export default function SidebarProfile({ currentUser }: SidebarProfileProps) {
+export default function SidebarProfile() {
+  const currentUser = useCurrentUserContext();
   const { name, detail } = profileText(currentUser);
 
   return (

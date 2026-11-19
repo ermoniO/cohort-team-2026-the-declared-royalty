@@ -6,12 +6,13 @@ import {
   useEffect,
   useId,
   useRef,
+  useMemo,
   useState,
 } from "react";
 import { FiAlertCircle, FiCheck, FiExternalLink, FiFileText, FiLoader, FiRefreshCw, FiSave, FiX } from "react-icons/fi";
-import { getProperties } from "@/features/properties/propertyService";
 import { useCurrentUserContext } from "@/features/users/currentUserContext";
-import { getVendors } from "@/features/vendors/vendorService";
+import { useProperties } from "@/features/properties/useProperties";
+import { useVendors } from "@/features/vendors/useVendors";
 import type {
   ConfidenceLevel,
   ExtractedField,
@@ -20,8 +21,6 @@ import type {
   InvoiceResponse,
   InvoiceVerifyRequest,
 } from "@/types/invoice";
-import type { PropertyResponse } from "@/types/property";
-import type { VendorResponse } from "@/types/vendor";
 import AddVendorInline from "./AddVendorInline";
 import AddPropertyInline from "./AddPropertyInline";
 import { extractInvoice, fetchInvoiceFile, invoiceFileUrl, saveInvoiceProgress, verifyInvoice } from "./invoiceService";
@@ -328,9 +327,22 @@ export default function ReviewInvoiceModal({ invoice, onClose }: ReviewInvoiceMo
   const [extraction, setExtraction] = useState<Extraction>({ status: "loading" });
   const [values, setValues] = useState<Values>(EMPTY_VALUES);
   const [fields, setFields] = useState(() => initialState(null).fields);
-  const [vendors, setVendors] = useState<VendorResponse[]>([]);
-  const [properties, setProperties] = useState<PropertyResponse[]>([]);
-  const [listError, setListError] = useState<string | null>(null);
+  // Shared with the Vendors and Properties pages, so anything added here shows up there too
+  const { state: vendorsState, addVendor } = useVendors();
+  const { state: propertiesState, addProperty } = useProperties();
+  const vendors = useMemo(
+    () => (vendorsState.status === "loaded" ? [...vendorsState.items].sort((a, b) => a.name.localeCompare(b.name)) : []),
+    [vendorsState],
+  );
+  const properties = useMemo(
+    () =>
+      propertiesState.status === "loaded" ? [...propertiesState.items].sort((a, b) => a.name.localeCompare(b.name)) : [],
+    [propertiesState],
+  );
+  const listError =
+    vendorsState.status === "error" || propertiesState.status === "error"
+      ? "Couldn't load vendors and properties. Close and try again."
+      : null;
   const [file, setFile] = useState<{ url: string } | { error: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [savingProgress, setSavingProgress] = useState(false);
@@ -344,22 +356,6 @@ export default function ReviewInvoiceModal({ invoice, onClose }: ReviewInvoiceMo
 
   useEffect(() => {
     dialogRef.current?.showModal();
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all([getVendors(), getProperties()])
-      .then(([v, p]) => {
-        if (cancelled) return;
-        setVendors(v);
-        setProperties(p);
-      })
-      .catch(() => {
-        if (!cancelled) setListError("Couldn't load vendors and properties. Close and try again.");
-      });
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   useEffect(() => {
@@ -678,7 +674,7 @@ export default function ReviewInvoiceModal({ invoice, onClose }: ReviewInvoiceMo
                 <AddVendorInline
                   disabled={busy}
                   onAdded={(vendor) => {
-                    setVendors((prev) => [...prev, vendor].sort((a, b) => a.name.localeCompare(b.name)));
+                    addVendor(vendor);
                     update("vendor", { vendorUuid: vendor.vendorUuid });
                   }}
                   suggestedName={data?.fields.vendorName.value ?? ""}
@@ -724,7 +720,7 @@ export default function ReviewInvoiceModal({ invoice, onClose }: ReviewInvoiceMo
                 <AddPropertyInline
                   disabled={busy}
                   onAdded={(property) => {
-                    setProperties((prev) => [...prev, property].sort((a, b) => a.name.localeCompare(b.name)));
+                    addProperty(property);
                     update("property", { propertyUuid: property.propertyId });
                   }}
                   suggestedAddress={data?.fields.propertyAddress.value ?? ""}

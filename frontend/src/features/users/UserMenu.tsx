@@ -1,30 +1,26 @@
-import { type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
+import { type KeyboardEvent, useEffect, useId, useMemo, useRef, useState } from "react";
 import { TbCheck, TbLogout } from "react-icons/tb";
 import Icon from "@/components/ui/Icon";
 import type { UserResponse } from "@/types/user";
-import type { CurrentUser } from "./useCurrentUser";
 import { isSelectableUser } from "./useCurrentUser";
 import UserAvatar from "./UserAvatar";
 import { getDisplayName } from "./userDisplay";
-import { getUsers } from "./userService";
-
-type UserMenuProps = {
-  currentUser: CurrentUser;
-};
-
-type UserList =
-  | { status: "idle" | "loading" }
-  | { status: "loaded"; users: UserResponse[] }
-  | { status: "error" };
+import { useUserStore } from "@/stores";
+import { useCurrentUserContext } from "./currentUserContext";
 
 const itemClass =
   "flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-[13px] outline-none";
 
 // Account menu behind the top bar avatar (ARIA menu-button pattern)
-export default function UserMenu({ currentUser }: UserMenuProps) {
-  const { user, switchUser } = currentUser;
+export default function UserMenu() {
+  const { user, switchUser } = useCurrentUserContext();
   const [open, setOpen] = useState(false);
-  const [userList, setUserList] = useState<UserList>({ status: "idle" });
+  const users = useUserStore((s) => s.users);
+  const usersLoaded = useUserStore((s) => s.hasLoaded);
+  const usersLoading = useUserStore((s) => s.isLoading);
+  const usersError = useUserStore((s) => s.error);
+  const fetchUsers = useUserStore((s) => s.fetchUsers);
+  const selectable = useMemo(() => users.filter(isSelectableUser), [users]);
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -41,12 +37,8 @@ export default function UserMenu({ currentUser }: UserMenuProps) {
 
   const openMenu = () => {
     setOpen(true);
-    if (import.meta.env.DEV) {
-      setUserList({ status: "loading" });
-      getUsers()
-        .then((users) => setUserList({ status: "loaded", users: users.filter(isSelectableUser) }))
-        .catch(() => setUserList({ status: "error" }));
-    }
+    // Refresh on open so newly created users show up; the cached list stays visible meanwhile
+    if (import.meta.env.DEV) void fetchUsers({ force: true });
   };
 
   // Focus the checked user, or else the first item, whenever the menu opens or the list arrives
@@ -54,7 +46,7 @@ export default function UserMenu({ currentUser }: UserMenuProps) {
     if (!open) return;
     const all = items();
     (all.find((item) => item.getAttribute("aria-checked") === "true") ?? all[0])?.focus();
-  }, [open, userList]);
+  }, [open, selectable, usersLoading]);
 
   // Clicks outside close the menu without stealing focus back
   useEffect(() => {
@@ -154,23 +146,23 @@ export default function UserMenu({ currentUser }: UserMenuProps) {
                 SWITCH USER · DEV ONLY
               </p>
               <div className="max-h-[240px] overflow-y-auto">
-                {userList.status === "loading" && (
+                {!usersLoaded && !usersError && (
                   <p className="font-inter-regular px-3 py-2 text-[13px] text-[#98a29c]" role="none">
                     Loading users…
                   </p>
                 )}
-                {userList.status === "error" && (
+                {!usersLoaded && usersError && (
                   <p className="font-inter-regular px-3 py-2 text-[13px] text-[#98a29c]" role="none">
                     Couldn't load users.
                   </p>
                 )}
-                {userList.status === "loaded" && userList.users.length === 0 && (
+                {usersLoaded && selectable.length === 0 && (
                   <p className="font-inter-regular px-3 py-2 text-[13px] text-[#98a29c]" role="none">
                     No users yet. Create one with POST /api/v1/users.
                   </p>
                 )}
-                {userList.status === "loaded" &&
-                  userList.users.map((option) => {
+                {	usersLoaded &&
+                  selectable.map((option) => {
                     const checked = option.userId === user?.userId;
                     return (
                       <button

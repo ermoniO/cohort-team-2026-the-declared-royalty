@@ -1,19 +1,16 @@
 import { TbBell } from "react-icons/tb";
 import Icon from "@/components/ui/Icon";
-import type { CurrentUser } from "@/features/users/useCurrentUser";
 import UserMenu from "@/features/users/UserMenu";
 import { ACTIVITY_DRAWER_ID } from "../activity/ActivityDrawer";
 import SearchBox from "./SearchBox";
 
 type TopBarProps = {
   activityOpen: boolean;
-  currentUser: CurrentUser;
   onOpenActivity: () => void;
 };
 
 export default function TopBar({
   activityOpen,
-  currentUser,
   onOpenActivity,
 }: TopBarProps) {
   return (
@@ -32,7 +29,7 @@ export default function TopBar({
         >
           <Icon icon={TbBell} size={16} />
         </button>
-        <UserMenu currentUser={currentUser} />
+        <UserMenu />
       </div>
     </div>
   );
