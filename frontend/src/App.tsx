@@ -11,7 +11,6 @@ import ApprovalsPage from "./pages/ApprovalsPage";
 import PaymentsPage from "./pages/PaymentsPage";
 import { navigateTo } from "./app/navigation";
 import {
-  TbAlertTriangle,
   TbBlocks,
   TbBuilding,
   TbBuildingStore,
@@ -57,12 +56,6 @@ const routes: AppRoute[] = [
     path: "/payments",
     section: "OPERATIONS",
     icon: TbCreditCard,
-  },
-  {
-    label: "Exceptions",
-    path: "/exceptions",
-    section: "OPERATIONS",
-    icon: TbAlertTriangle,
   },
   {
     label: "Activity & Audit Logs",
