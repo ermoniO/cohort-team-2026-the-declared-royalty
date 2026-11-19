@@ -5,6 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -68,4 +69,14 @@ public interface InvoiceRepository extends JpaRepository<InvoiceEntity, UUID>, J
 
     @Query("select coalesce(sum(i.amount), 0) from InvoiceEntity i where i.invoiceStatus = :status")
     BigDecimal sumAmountByInvoiceStatus(@Param("status") String status);
+
+    // Claims a bill for payment: moves it to PROCESSING_PAYMENT only if it is still in expectedStatus.
+    // Returns 1 when this caller won, 0 when another payment already moved it. A concurrent caller
+    // waits on the row lock, then Postgres re-checks the WHERE and finds the status changed.
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("update InvoiceEntity i set i.invoiceStatus = 'PROCESSING_PAYMENT', i.updatedAt = :now "
+            + "where i.invoiceId = :invoiceId and i.invoiceStatus = :expectedStatus")
+    int claimForPayment(@Param("invoiceId") UUID invoiceId,
+                        @Param("expectedStatus") String expectedStatus,
+                        @Param("now") OffsetDateTime now);
 }

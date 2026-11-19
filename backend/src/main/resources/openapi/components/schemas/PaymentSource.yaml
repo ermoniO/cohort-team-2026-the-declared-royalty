@@ -1,0 +1,5 @@
+type: string
+description: Who started the payment attempt. MANUAL is a person (Pay now); AUTO_PAY is the scheduler.
+enum:
+  - MANUAL
+  - AUTO_PAY

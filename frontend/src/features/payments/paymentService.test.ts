@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getAutoPaySettings,
   updateAutoPaySettings,
+  payNow
 } from "./paymentService";
 import { API_BASE_URL } from "@/app/services/apiClient";
 
@@ -53,5 +54,24 @@ describe("auto-pay settings", () => {
     respondWith(400);
 
     await expect(updateAutoPaySettings(true)).rejects.toThrow("400");
+  });
+});
+
+describe("pay now", () => {
+  it("posts the confirmed amount", async () => {
+    respondWith(200, { paymentId: "abc" });
+
+    await payNow("abc", 125);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${API_BASE_URL}/api/v1/payments/abc/pay-now`,
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ approvedAmount: 125 }) }),
+    );
+  });
+
+  it("surfaces a conflict when another payment already started", async () => {
+    respondWith(409);
+
+    await expect(payNow("abc", 125)).rejects.toThrow("409");
   });
 });

@@ -34,3 +34,12 @@ export function getAutoPaySettings(): Promise<AutoPaySettings> {
 export function updateAutoPaySettings(enabled: boolean): Promise<AutoPaySettings> {
   return apiClient.put<AutoPaySettings>("/api/v1/payments/auto-pay", { enabled }, undefined, false);
 }
+
+export function payNow(paymentId: string, approvedAmount: number): Promise<PaymentResponse> {
+  return apiClient.post<PaymentResponse>(
+    `/api/v1/payments/${paymentId}/pay-now`,
+    { approvedAmount },
+    undefined,
+    false,
+  );
+}
