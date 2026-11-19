@@ -1,20 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
 import { FiCheck, FiChevronRight, FiClock, FiSearch } from "react-icons/fi";
-import { TbAlertTriangle, TbExternalLink } from "react-icons/tb";
+import { TbAlertTriangle, TbCreditCard, TbExternalLink } from "react-icons/tb";
 import { navigateTo } from "@/app/navigation";
 import { auditHistoryPath } from "@/features/auditLogs/auditLogDisplay";
 import { formatCurrency } from "@/features/invoices/invoiceFormat";
 import { invoiceFileUrl } from "@/features/invoices/invoiceService";
 import {
   getAutoPaySettings,
+  getPayment,
   getPayments,
   updateAutoPaySettings,
 } from "@/features/payments/paymentService";
-import type {
-  PaymentResponse,
-} from "@/types/payment";
+import PayNowModal, { type PayNowTarget } from "@/features/payments/PayNowModal";
+import type { PaymentResponse, PaymentSource } from "@/types/payment";
 import PaymentsSummaryCards from "@/features/payments/PaymentsSummaryCards";
 import type { PaymentSummaryState } from "@/features/payments/usePaymentSummary";
+
+// Auto-pay runs on the server; while it's on, re-check the list this often
+const PAYMENTS_POLL_MS = 15_000;
 
 type PaymentStatus =
   | "Needs approval"
@@ -34,6 +37,8 @@ type Payment = {
   status: PaymentStatus;
   failureReason: string | null;
   retryable: boolean;
+  payNowAvailable: boolean;
+  source: PaymentSource | null;
   hasInvoiceFile: boolean;
 };
 
@@ -70,6 +75,8 @@ function toPayment(payment: PaymentResponse): Payment {
     status,
     failureReason: payment.failureReason,
     retryable: payment.retryable,
+    payNowAvailable: Boolean(payment.payNowAvailable),
+    source: payment.paymentSource ?? null,
     hasInvoiceFile: Boolean(payment.blobFileUrl),
   };
 }
@@ -100,6 +107,15 @@ function StatusPill({ status }: { status: PaymentStatus }) {
     >
       <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${dot}`} />
       {status}
+    </span>
+  );
+}
+
+// Who started the payment; shown only once a payment is processing or paid
+function SourcePill({ source }: { source: PaymentSource }) {
+  return (
+    <span className="font-inter-medium inline-flex items-center whitespace-nowrap rounded-full bg-[#f1f4f2] px-2.5 py-1 text-xs text-[#68766f]">
+      {source === "MANUAL" ? "Paid manually" : "Auto-pay"}
     </span>
   );
 }
@@ -255,6 +271,7 @@ export default function PaymentsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<PaymentStatus | "All">("All");
   const [search, setSearch] = useState("");
+  const [payNowTarget, setPayNowTarget] = useState<PayNowTarget | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -277,6 +294,7 @@ export default function PaymentsPage() {
         if (active) setLoading(false);
       });
 
+
     // Auto-pay is an optional control; it must not prevent the payment queue
     // from rendering if its settings endpoint is unavailable.
     getAutoPaySettings()
@@ -289,6 +307,19 @@ export default function PaymentsPage() {
       active = false;
     };
   }, []);
+
+  // Auto-pay pays bills on the server, so poll while it's on to show what it paid.
+  // Skips hidden tabs, and keeps the current selection and filters.
+  useEffect(() => {
+    if (!autoPayEnabled) return;
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      getPayments({ page: 0, size: 100 })
+        .then((response) => setPayments(response.items.map(toPayment)))
+        .catch(() => undefined);
+    }, PAYMENTS_POLL_MS);
+    return () => window.clearInterval(timer);
+  }, [autoPayEnabled]);
 
   const toggleAutoPay = async () => {
     const nextValue = !autoPayEnabled;
@@ -306,6 +337,17 @@ export default function PaymentsPage() {
     }
   };
 
+    // Swap in the latest copy of one payment (after Pay now succeeds or fails)
+  const replacePayment = (response: PaymentResponse) =>
+    setPayments((current) =>
+      current.map((payment) =>
+        payment.id === response.paymentId ? toPayment(response) : payment,
+      ),
+    );
+
+  const refreshPayment = (paymentId: string) =>
+    getPayment(paymentId).then(replacePayment).catch(() => undefined);
+
   const visiblePayments = useMemo(() => {
     const query = search.trim().toLowerCase();
     return payments.filter((payment) => {
@@ -320,6 +362,20 @@ export default function PaymentsPage() {
     visiblePayments.find((payment) => payment.id === selectedId) ??
     visiblePayments[0] ??
     payments[0];
+
+  const payNowCandidate: PayNowTarget | null =
+  selected?.payNowAvailable && selected.amount !== null
+    ? {
+        id: selected.id,
+        vendor: selected.vendor,
+        invoice: selected.invoice,
+        amount: selected.amount,
+        dueDate: formatDate(selected.dueDate),
+        failureReason: selected.failureReason,
+        isRetry: selected.status === "Exception",
+      }
+    : null;
+
   const processingPayments = payments.filter(
     (payment) => payment.status === "Processing",
   );
@@ -552,7 +608,13 @@ export default function PaymentsPage() {
                 </div>
               </div>
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#e6ebe8] px-5 py-3">
-                <StatusPill status={selected.status} />
+                <div className="flex flex-wrap items-center gap-2">
+                  <StatusPill status={selected.status} />
+                  {selected.source &&
+                    (selected.status === "Paid" || selected.status === "Processing") && (
+                      <SourcePill source={selected.source} />
+                    )}
+                </div>
                 <span className="font-inter-regular text-xs text-[#68766f]">
                   Due {formatDate(selected.dueDate)}
                 </span>
@@ -578,6 +640,16 @@ export default function PaymentsPage() {
                   No invoice file
                 </button>
               )}
+              {payNowCandidate && (
+                <button
+                  className="font-inter-semibold inline-flex h-8 items-center gap-1.5 rounded-[7px] bg-[#16834a] px-3 text-[13px] text-white hover:bg-[#13723f]"
+                  onClick={() => setPayNowTarget(payNowCandidate)}
+                  type="button"
+                >
+                  <TbCreditCard aria-hidden="true" size={14} />
+                  Pay now
+                </button>
+              )}
               <button
                 className="font-inter-medium inline-flex h-8 items-center rounded-[7px] border border-[#e6ebe8] bg-white px-3 text-[13px] text-[#25362f] hover:bg-[#f8faf9]"
                 onClick={() => navigateTo(auditHistoryPath(selected.id))}
@@ -593,6 +665,15 @@ export default function PaymentsPage() {
           </div>
         )}
       </div>
+
+      {payNowTarget && (
+        <PayNowModal
+          onClose={() => setPayNowTarget(null)}
+          onFailed={() => refreshPayment(payNowTarget.id)}
+          onPaid={replacePayment}
+          target={payNowTarget}
+        />
+      )}
     </div>
   );
 }

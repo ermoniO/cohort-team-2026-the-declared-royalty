@@ -3,17 +3,16 @@ package org.dsd.cohort2026fall.tdr.invoiceautomationservice.service;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.config.StripeProperties;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.InvoiceEntity;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.PaymentAttemptEntity;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.ResourceNotFoundException;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.BadRequestException;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.AutoPaySettingEntity;
-import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.AutoPaySettingsRequest;
-import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.AutoPaySettingsResponse;
-import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.PaymentPageResponse;
-import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.PaymentResponse;
-import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.PaymentStatus;
-import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.PaymentSummaryResponse;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.*;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.PaymentSource;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.PayNowRequest;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.StripePaymentRequest;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository.InvoiceRepository;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository.PaymentAttemptRepository;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository.AutoPaySettingRepository;
@@ -42,13 +41,19 @@ public class PaymentService {
     private final InvoiceRepository invoiceRepository;
     private final PaymentAttemptRepository paymentAttemptRepository;
     private final AutoPaySettingRepository autoPaySettingRepository;
+    private final StripePaymentService stripePaymentService;
+    private final StripeProperties stripeProperties;
 
     public PaymentService(InvoiceRepository invoiceRepository,
                           PaymentAttemptRepository paymentAttemptRepository,
-                          AutoPaySettingRepository autoPaySettingRepository) {
+                          AutoPaySettingRepository autoPaySettingRepository,
+                          StripePaymentService stripePaymentService,
+                          StripeProperties stripeProperties) {
         this.invoiceRepository = invoiceRepository;
         this.paymentAttemptRepository = paymentAttemptRepository;
         this.autoPaySettingRepository = autoPaySettingRepository;
+        this.stripePaymentService = stripePaymentService;
+        this.stripeProperties = stripeProperties;
     }
 
     public PaymentPageResponse getPayments(Integer page, Integer size, List<PaymentStatus> statuses, String search) {
@@ -104,6 +109,44 @@ public class PaymentService {
         return new AutoPaySettingsResponse(setting.isEnabled());
     }
 
+    // Pay now: charges the configured payment method right away, with auto-pay on or off.
+    // noRollbackFor matches StripePaymentService so a Stripe rejection's FAILED state is kept.
+    @Transactional(noRollbackFor = BadRequestException.class)
+    public PaymentResponse payNow(UUID paymentId, PayNowRequest request) {
+        if (request == null || request.getApprovedAmount() == null) {
+            throw new BadRequestException("approvedAmount is required");
+        }
+        InvoiceEntity invoice = invoiceRepository.findById(paymentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Payment not found: " + paymentId));
+        PaymentAttemptEntity latest = paymentAttemptRepository
+                .findFirstByInvoice_InvoiceIdOrderByCreatedAtDesc(paymentId)
+                .orElse(null);
+        if (!isPayNowAvailable(invoice, latest)) {
+            throw new BadRequestException(
+                    "Pay now is only available for approved bills due today or earlier, or bills whose last payment failed");
+        }
+        String paymentMethodId = stripeProperties.autoPayPaymentMethodId();
+        if (paymentMethodId == null || paymentMethodId.isBlank()) {
+            throw new BadRequestException("No payment method is configured (STRIPE_AUTO_PAY_PAYMENT_METHOD_ID)");
+        }
+        stripePaymentService.createPayment(paymentId, new StripePaymentRequest(
+                paymentMethodId, stripeProperties.currency(), request.getApprovedAmount(), true), PaymentSource.MANUAL);
+        return getPayment(paymentId);
+    }
+
+    // One rule for the button (payNowAvailable) and the endpoint, so they can't disagree
+    private boolean isPayNowAvailable(InvoiceEntity invoice, PaymentAttemptEntity latest) {
+        if (invoice.getAmount() == null) {
+            return false;
+        }
+        String status = invoice.getInvoiceStatus();
+        if ("APPROVED".equals(status)) {
+            return invoice.getDueDate() != null && !invoice.getDueDate().isAfter(LocalDate.now());
+        }
+        return "FAILED".equals(status) && latest != null
+                && StripePaymentService.FAILED_ATTEMPT_STATUSES.contains(latest.getStatus());
+    }
+
     private BigDecimal sumFor(String status) {
         return invoiceRepository.sumAmountByInvoiceStatus(status);
     }
@@ -140,6 +183,9 @@ public class PaymentService {
                 ? attempt.getFailureReason() : invoice.getFailureReason());
         response.setRetryable(status == PaymentStatus.EXCEPTION && (attempt == null
                 || !"SUCCEEDED".equals(attempt.getStatus())));
+        response.setPaymentSource(attempt == null || attempt.getPaymentSource() == null
+                ? null : PaymentSource.fromValue(attempt.getPaymentSource()));
+        response.setPayNowAvailable(isPayNowAvailable(invoice, attempt));
         response.setPaymentDate(status == PaymentStatus.PAID && attempt != null ? attempt.getUpdatedAt() : null);
         response.setBlobFileUrl(invoice.getBlobFileUrl());
         response.setCreatedAt(invoice.getCreatedAt());

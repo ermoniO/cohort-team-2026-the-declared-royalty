@@ -2,6 +2,8 @@ import type { InvoiceStatus } from "@/types/invoice";
 
 export type PaymentStatus = "NEEDS_APPROVAL" | "SCHEDULED" | "PROCESSING" | "PAID" | "EXCEPTION";
 
+export type PaymentSource = "MANUAL" | "AUTO_PAY";
+
 export type PaymentResponse = {
   paymentId: string;
   paymentAttemptId: string | null;
@@ -18,6 +20,8 @@ export type PaymentResponse = {
   providerStatus: string | null;
   failureReason: string | null;
   retryable: boolean;
+  paymentSource: PaymentSource | null;
+  payNowAvailable: boolean;
   paymentDate: string | null;
   blobFileUrl: string | null;
   createdAt: string;

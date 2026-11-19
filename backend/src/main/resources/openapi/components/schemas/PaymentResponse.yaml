@@ -52,6 +52,11 @@ properties:
     nullable: true
   retryable:
     type: boolean
+  paymentSource:
+    $ref: './PaymentSource.yaml'
+  payNowAvailable:
+    type: boolean
+    description: True when Pay now can be used (approved and due today or earlier, or last payment attempt failed).
   paymentDate:
     type: string
     format: date-time

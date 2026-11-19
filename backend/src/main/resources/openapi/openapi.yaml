@@ -60,6 +60,8 @@ paths:
     $ref: './paths/payments_by_id.yaml'
   /api/v1/stripe/webhook:
     $ref: './paths/stripe_webhook.yaml'
+  /api/v1/payments/{paymentId}/pay-now:
+    $ref: './paths/payments_pay_now.yaml'
 
 components:
   parameters:
@@ -137,3 +139,7 @@ components:
       $ref: './components/schemas/AutoPaySettingsRequest.yaml'
     AutoPaySettingsResponse:
       $ref: './components/schemas/AutoPaySettingsResponse.yaml'
+    PaymentSource:
+      $ref: './components/schemas/PaymentSource.yaml'
+    PayNowRequest:
+      $ref: './components/schemas/PayNowRequest.yaml'

@@ -3,6 +3,7 @@ package org.dsd.cohort2026fall.tdr.invoiceautomationservice.service;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.config.StripeProperties;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.AutoPaySettingEntity;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.InvoiceEntity;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.PaymentSource;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository.AutoPaySettingRepository;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository.InvoiceRepository;
 import org.junit.jupiter.api.Test;
@@ -38,7 +39,7 @@ class AutoPaySchedulerTest {
 
         scheduler.processDuePayments();
 
-        verify(stripePaymentService).createPayment(eq(invoice.getInvoiceId()), any());
+        verify(stripePaymentService).createPayment(eq(invoice.getInvoiceId()), any(), eq(PaymentSource.AUTO_PAY));
     }
 
     @Test
@@ -60,12 +61,12 @@ class AutoPaySchedulerTest {
         when(invoiceRepository.findByInvoiceStatusAndDueDateLessThanEqualOrderByDueDateAsc(
                 eq("APPROVED"), any(LocalDate.class))).thenReturn(List.of(first, second));
         doThrow(new RuntimeException("Stripe unavailable"))
-                .when(stripePaymentService).createPayment(eq(first.getInvoiceId()), any());
+                .when(stripePaymentService).createPayment(eq(first.getInvoiceId()), any(), eq(PaymentSource.AUTO_PAY));
 
         scheduler.processDuePayments();
 
-        verify(stripePaymentService).createPayment(eq(first.getInvoiceId()), any());
-        verify(stripePaymentService).createPayment(eq(second.getInvoiceId()), any());
+        verify(stripePaymentService).createPayment(eq(first.getInvoiceId()), any(), eq(PaymentSource.AUTO_PAY));
+        verify(stripePaymentService).createPayment(eq(second.getInvoiceId()), any(), eq(PaymentSource.AUTO_PAY));
     }
 
     private InvoiceEntity invoice(String status, LocalDate dueDate) {

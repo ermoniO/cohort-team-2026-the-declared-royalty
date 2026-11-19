@@ -3,8 +3,11 @@ package org.dsd.cohort2026fall.tdr.invoiceautomationservice.service;
 import com.stripe.StripeClient;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.config.StripeProperties;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.InvoiceEntity;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.PaymentAttemptEntity;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.BadRequestException;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.exception.InvoiceConflictException;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.InvoiceStatus;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.PaymentSource;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.StripePaymentRequest;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository.InvoiceRepository;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository.PaymentAttemptRepository;
@@ -73,6 +76,44 @@ class StripePaymentServiceTest {
         assertThrows(BadRequestException.class, () -> service.createPayment(invoiceId, request));
         verifyNoInteractions(stripeClientProvider);
         verify(paymentAttemptRepository, never()).save(any());
+    }
+
+    @Test
+    void stopsWithoutChargingWhenAnotherPaymentClaimedTheInvoiceFirst() {
+        when(invoiceRepository.claimForPayment(eq(invoiceId), eq("APPROVED"), any())).thenReturn(0);
+        StripePaymentRequest request = new StripePaymentRequest("pm_card_visa", "usd", new BigDecimal("125.00"), true);
+
+        assertThrows(InvoiceConflictException.class, () -> service.createPayment(invoiceId, request));
+        verifyNoInteractions(stripeClientProvider);
+        verify(paymentAttemptRepository, never()).save(any());
+    }
+
+    @Test
+    void autoPayNeverRetriesAFailedInvoice() {
+        InvoiceEntity invoice = approvedInvoice();
+        invoice.setInvoiceStatus(InvoiceStatus.FAILED.getValue());
+        when(invoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
+        StripePaymentRequest request = new StripePaymentRequest("pm_card_visa", "usd", new BigDecimal("125.00"), true);
+
+        assertThrows(BadRequestException.class,
+                () -> service.createPayment(invoiceId, request, PaymentSource.AUTO_PAY));
+        verify(invoiceRepository, never()).claimForPayment(any(), any(), any());
+        verifyNoInteractions(stripeClientProvider);
+    }
+
+    @Test
+    void manualRetryOfAFailedPaymentClaimsFromFailed() {
+        InvoiceEntity invoice = approvedInvoice();
+        invoice.setInvoiceStatus(InvoiceStatus.FAILED.getValue());
+        when(invoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
+        when(paymentAttemptRepository.findFirstByInvoice_InvoiceIdOrderByCreatedAtDesc(invoiceId))
+                .thenReturn(Optional.of(PaymentAttemptEntity.builder().status("FAILED").build()));
+        StripePaymentRequest request = new StripePaymentRequest("pm_card_visa", "usd", new BigDecimal("125.00"), true);
+
+        // claim returns 0 (mock default), so it stops before Stripe; we only check it claimed from FAILED
+        assertThrows(InvoiceConflictException.class,
+                () -> service.createPayment(invoiceId, request, PaymentSource.MANUAL));
+        verify(invoiceRepository).claimForPayment(eq(invoiceId), eq("FAILED"), any());
     }
 
     private InvoiceEntity approvedInvoice() {

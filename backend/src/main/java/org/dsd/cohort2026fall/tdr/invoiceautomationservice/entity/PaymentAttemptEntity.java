@@ -45,6 +45,10 @@ public class PaymentAttemptEntity {
     @Column(name = "human_approved", nullable = false)
     private boolean humanApproved;
 
+    // MANUAL (Pay now / stripe-payment endpoint) or AUTO_PAY (scheduler); null for attempts before V10
+    @Column(name = "payment_source", length = 20)
+    private String paymentSource;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 

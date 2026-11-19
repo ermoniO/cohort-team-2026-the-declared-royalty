@@ -1,0 +1,9 @@
+type: object
+required:
+  - approvedAmount
+properties:
+  approvedAmount:
+    type: number
+    minimum: 0.01
+    multipleOf: 0.01
+    description: The amount the person confirmed. Must exactly match the persisted invoice amount.

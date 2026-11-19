@@ -1,0 +1,47 @@
+post:
+  tags:
+    - Payments
+  summary: Pay a bill now
+  description: >
+    Charges the configured payment method right away, whether auto-pay is on or off.
+    Available for an approved bill due today or earlier, or a bill whose last payment attempt failed.
+    The invoice is claimed before Stripe is called, so auto-pay can't pay it a second time.
+  operationId: payNow
+  parameters:
+    - name: paymentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../components/schemas/PayNowRequest.yaml'
+  responses:
+    '200':
+      description: Payment requested; returns the updated payment
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/PaymentResponse.yaml'
+    '400':
+      description: Not eligible for Pay now, amount mismatch, or Stripe disabled/rejected the payment
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'
+    '404':
+      description: Payment not found
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'
+    '409':
+      description: Another payment for this invoice already started
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ErrorResponse.yaml'

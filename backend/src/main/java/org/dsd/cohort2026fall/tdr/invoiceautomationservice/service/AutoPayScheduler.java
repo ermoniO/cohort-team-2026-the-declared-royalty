@@ -5,6 +5,7 @@ import org.dsd.cohort2026fall.tdr.invoiceautomationservice.config.StripeProperti
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.AutoPaySettingEntity;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.entity.InvoiceEntity;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.StripePaymentRequest;
+import org.dsd.cohort2026fall.tdr.invoiceautomationservice.model.PaymentSource;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository.AutoPaySettingRepository;
 import org.dsd.cohort2026fall.tdr.invoiceautomationservice.repository.InvoiceRepository;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -53,7 +54,7 @@ public class AutoPayScheduler {
                         stripeProperties.autoPayPaymentMethodId(),
                         stripeProperties.currency(),
                         invoice.getAmount(),
-                        true));
+                        true), PaymentSource.AUTO_PAY);
             } catch (RuntimeException ex) {
                 // Continue processing other due invoices; the payment service records failures.
                 log.error("Auto-pay failed for invoice {}", invoice.getInvoiceId(), ex);
