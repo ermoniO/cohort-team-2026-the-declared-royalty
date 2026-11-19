@@ -1,5 +1,4 @@
 import Drawer from "@/components/ui/Drawer";
-import type { CurrentUserState } from "@/features/users/useCurrentUser";
 import type { AppRoute } from "@/types/route";
 import SidebarActions from "./SidebarActions";
 import SidebarBrand from "./SidebarBrand";
@@ -8,7 +7,6 @@ import SidebarProfile from "./SidebarProfile";
 
 type SidebarProps = {
   currentRoute: AppRoute;
-  currentUser: CurrentUserState;
   onClose: () => void;
   onNavigate: (path: string) => void;
   open: boolean;
@@ -19,7 +17,6 @@ export const SIDEBAR_ID = "sidebar-drawer";
 
 export default function Sidebar({
   currentRoute,
-  currentUser,
   onClose,
   onNavigate,
   open,
@@ -46,7 +43,7 @@ export default function Sidebar({
         />
       </div>
       <SidebarActions />
-      <SidebarProfile currentUser={currentUser} />
+      <SidebarProfile />
     </Drawer>
   );
 }

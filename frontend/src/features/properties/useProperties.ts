@@ -1,13 +1,35 @@
-import { type ResourceListState, useResourceList } from "@/app/hooks/useResourceList";
+import { useEffect, useMemo } from "react";
+import type { ResourceListState } from "@/app/hooks/useResourceList";
+import { usePropertyStore } from "@/stores";
 import type { PropertyResponse } from "@/types/property";
-import { getProperties } from "./propertyService.ts";
 
 export type PropertiesState = ResourceListState<PropertyResponse>;
 
-// Module-level so it's stable: useResourceList reloads when its loader changes
-const getId = (property: PropertyResponse) => property.propertyId;
-
+// Same shape as before, so PropertiesPage and DashboardPage don't change
 export function useProperties() {
-  const { state, add, replace, remove } = useResourceList(getProperties, getId);
-  return { state, addProperty: add, replaceProperty: replace, removeProperty: remove };
+  const properties = usePropertyStore((s) => s.properties);
+  const hasLoaded = usePropertyStore((s) => s.hasLoaded);
+  const error = usePropertyStore((s) => s.error);
+  const fetchProperties = usePropertyStore((s) => s.fetchProperties);
+  const addProperty = usePropertyStore((s) => s.addProperty);
+  const replaceProperty = usePropertyStore((s) => s.replaceProperty);
+  const removeProperty = usePropertyStore((s) => s.removeProperty);
+
+  useEffect(() => {
+    void fetchProperties();
+  }, [fetchProperties]);
+
+  // Based on hasLoaded, not isLoading, so a save doesn't flip the list back to "loading".
+  // Memoized so components can use it as a dependency.
+  const state = useMemo<PropertiesState>(
+    () =>
+      hasLoaded
+        ? { status: "loaded", items: properties }
+        : error
+          ? { status: "error", message: error }
+          : { status: "loading" },
+    [hasLoaded, error, properties],
+  );
+
+  return { state, addProperty, replaceProperty, removeProperty };
 }

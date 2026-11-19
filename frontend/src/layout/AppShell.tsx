@@ -1,6 +1,5 @@
-import { type ReactNode, useState } from "react";
-import { CurrentUserContext } from "@/features/users/currentUserContext";
-import { useCurrentUser } from "@/features/users/useCurrentUser";
+import { type ReactNode, useEffect, useState } from "react";
+import { useUserStore } from "@/stores";
 import type { AppRoute } from "@/types/route";
 import ActivityDrawer from "./activity/ActivityDrawer";
 import PageHeader from "./header/PageHeader";
@@ -25,14 +24,17 @@ export default function AppShell({
   const [navOpen, setNavOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
   // Fetched once here and shared by the sidebar profile, the top bar avatar and the pages
-  const currentUser = useCurrentUser();
+  // Loaded once here; the sidebar profile, the top bar avatar and the pages read it from the user store
+  const loadCurrentUser = useUserStore((s) => s.loadCurrentUser);
+  useEffect(() => {
+    void loadCurrentUser();
+  }, [loadCurrentUser]);
 
   return (
     <div className="flex h-dvh min-h-[600px] w-full overflow-hidden bg-[#f8faf9] text-[#25362f]">
       <SidebarToggle open={navOpen} onOpen={() => setNavOpen(true)} />
       <Sidebar
         currentRoute={currentRoute}
-        currentUser={currentUser}
         onClose={() => setNavOpen(false)}
         onNavigate={onNavigate}
         open={navOpen}
@@ -43,7 +45,6 @@ export default function AppShell({
         <header className="shrink-0">
           <TopBar
             activityOpen={activityOpen}
-            currentUser={currentUser}
             onOpenActivity={() => setActivityOpen(true)}
           />
           <PageHeader title={currentRoute.label} />
@@ -53,7 +54,7 @@ export default function AppShell({
           aria-label={`${currentRoute.label} page content`}
           className="min-h-0 flex-1 overflow-y-auto px-5 pb-8 sm:px-8"
         >
-          <CurrentUserContext value={currentUser}>{children}</CurrentUserContext>
+          {children}
         </section>
       </main>
 

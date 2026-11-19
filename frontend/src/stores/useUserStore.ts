@@ -1,164 +1,192 @@
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
-import type {
-    UserResponse,
-    UserCreateRequest,
-    UserUpdateRequest
-} from "@/types/user";
+import type { UserCreateRequest, UserResponse, UserUpdateRequest } from "@/types/user";
+import { loadCurrentUser as resolveCurrentUser, storeUserId } from "@/features/users/useCurrentUser";
 import {
-    getUsers,
-    getUserByUserId,
-    createUser,
-    updateUserByUserId,
-    deactivateUserByUserId
+  createUser,
+  deactivateUserByUserId,
+  getUserByUserId,
+  getUsers,
+  updateUserByUserId,
 } from "@/features/users/userService";
 
 export interface UserState {
-    users: UserResponse[];
-    selectedUser: UserResponse | null;
-    isLoading: boolean;
-    error: string | null;
+  users: UserResponse[];
+  selectedUser: UserResponse | null;
+  // True after the first successful load of the user list
+  hasLoaded: boolean;
+  isLoading: boolean;
+  error: string | null;
 
-    //Actions
-    fetchUsers: () => Promise<void>;
-    fetchUserByUserId: (userId: string) => Promise<void>;
-    createUser: (data: UserCreateRequest) => Promise<UserResponse>;
-    updateUser: (userId: string, updates: UserUpdateRequest) => Promise<UserResponse>;
-    deleteUser: (userId: string) => Promise<void>;
-    selectUser: (user: UserResponse | null) => void;
-    clearError: () => void;
-    reset: () => void;
+  // Who "you" are. TODO(auth): comes from the session once login exists
+  currentUser: UserResponse | null;
+  currentUserLoading: boolean;
+  currentUserError: string | null;
+
+  // Actions
+  fetchUsers: (options?: { force?: boolean }) => Promise<void>;
+  fetchUserByUserId: (userId: string) => Promise<void>;
+  createUser: (data: UserCreateRequest) => Promise<UserResponse>;
+  updateUser: (userId: string, updates: UserUpdateRequest) => Promise<UserResponse>;
+  deleteUser: (userId: string) => Promise<void>;
+  selectUser: (user: UserResponse | null) => void;
+  loadCurrentUser: () => Promise<void>;
+  // Dev-only "Switch user"; remembered across reloads
+  switchUser: (user: UserResponse) => void;
+  clearError: () => void;
+  reset: () => void;
 }
+
+const listInitialState = {
+  users: [],
+  selectedUser: null,
+  hasLoaded: false,
+  isLoading: false,
+  error: null,
+};
 
 const initialState = {
-    users: [],
-    selectedUser: null,
-    isLoading: false,
-    error: null,
-}
+  ...listInitialState,
+  currentUser: null,
+  currentUserLoading: true,
+  currentUserError: null,
+};
+
+// Shared so StrictMode's second effect (or any other caller) waits on the same request
+let currentUserRequest: Promise<void> | null = null;
 
 export const useUserStore = create<UserState>()(
-    devtools(
-        (set) => ({
-            ...initialState,
+  devtools(
+    (set, get) => ({
+      ...initialState,
 
-            fetchUsers: async () => {
-                set({ isLoading: true, error: null }, false, "user/fetchUsers/pending");
-                try {
-                    const users = await getUsers();
-                    set(
-                        { users, isLoading: false },
-                        false,
-                        "user/fetchUsers/fulfilled"
-                    );
-                } catch (err: unknown) {
-                    const message =
-                        err instanceof Error ? err.message : "Failed to load users";
-                    set({ error: message, isLoading: false }, false, "user/fetchUsers/rejected");
-                }
-            },
+      fetchUsers: async (options) => {
+        if (get().isLoading || (get().hasLoaded && !options?.force)) return;
+        set({ isLoading: true, error: null }, false, "user/fetchUsers/pending");
+        try {
+          const users = await getUsers();
+          set({ users, hasLoaded: true, isLoading: false }, false, "user/fetchUsers/fulfilled");
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : "Failed to load users";
+          set({ error: message, isLoading: false }, false, "user/fetchUsers/rejected");
+        }
+      },
 
-            fetchUserByUserId: async (userId: string) => {
-                set({ isLoading: true, error: null }, false, "user/fetchUserByUserId/pending");
-                try {
-                    const user = await getUserByUserId(userId);
-                    set(
-                        { selectedUser: user, isLoading: false },
-                        false,
-                        "user/fetchUserByUserId/fulfilled"
-                    );
-                } catch (err: unknown) {
-                    const message =
-                        err instanceof Error ? err.message : `Failed to load user ${userId}`;
-                    set({ error: message, isLoading: false }, false, "user/fetchUserByUserId/rejected");
-                }
-            },
+      fetchUserByUserId: async (userId: string) => {
+        set({ isLoading: true, error: null }, false, "user/fetchUserByUserId/pending");
+        try {
+          const user = await getUserByUserId(userId);
+          set({ selectedUser: user, isLoading: false }, false, "user/fetchUserByUserId/fulfilled");
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : `Failed to load user ${userId}`;
+          set({ error: message, isLoading: false }, false, "user/fetchUserByUserId/rejected");
+        }
+      },
 
-            createUser: async (data: UserCreateRequest) => {
-                set({ isLoading: true, error: null }, false, "user/createUser/pending");
-                try {
-                    const created = await createUser(data);
-                    set(
-                        (state) => ({
-                            users: [created, ...state.users],
-                            isLoading: false,
-                        }),
-                        false,
-                        "user/createUser/fulfilled"
-                    );
-                    return created;
-                } catch (err: unknown) {
-                    const message =
-                        err instanceof Error ? err.message : "Failed to create user";
-                    set({ error: message, isLoading: false }, false, "user/createUser/rejected");
-                    throw err;
-                }
-            },
+      createUser: async (data: UserCreateRequest) => {
+        set({ isLoading: true, error: null }, false, "user/createUser/pending");
+        try {
+          const created = await createUser(data);
+          set((state) => ({ users: [...state.users, created], isLoading: false }), false, "user/createUser/fulfilled");
+          return created;
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : "Failed to create user";
+          set({ error: message, isLoading: false }, false, "user/createUser/rejected");
+          throw err;
+        }
+      },
 
-            updateUser: async (userId: string, updates: UserUpdateRequest) => {
-                set({ isLoading: true, error: null }, false, "user/updateUser/pending");
-                try {
-                    const updated = await updateUserByUserId(userId, updates);
-                    set(
-                        (state) => ({
-                            users: state.users.map((u) =>
-                                u.userId === userId ? updated : u
-                            ),
-                            selectedUser:
-                                state.selectedUser?.userId === userId
-                                    ? updated
-                                    : state.selectedUser,
-                            isLoading: false,
-                        }),
-                        false,
-                        "user/updateUser/fulfilled"
-                    );
-                    return updated;
-                } catch (err: unknown) {
-                    const message =
-                        err instanceof Error ? err.message : `Failed to update user ${userId}`;
-                    set({ error: message, isLoading: false }, false, "user/updateUser/rejected");
-                    throw err;
-                }
-            },
+      updateUser: async (userId: string, updates: UserUpdateRequest) => {
+        set({ isLoading: true, error: null }, false, "user/updateUser/pending");
+        try {
+          const updated = await updateUserByUserId(userId, updates);
+          set(
+            (state) => ({
+              users: state.users.map((u) => (u.userId === userId ? updated : u)),
+              selectedUser: state.selectedUser?.userId === userId ? updated : state.selectedUser,
+              // Editing yourself updates the sidebar and avatar too
+              currentUser: state.currentUser?.userId === userId ? updated : state.currentUser,
+              isLoading: false,
+            }),
+            false,
+            "user/updateUser/fulfilled",
+          );
+          return updated;
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : `Failed to update user ${userId}`;
+          set({ error: message, isLoading: false }, false, "user/updateUser/rejected");
+          throw err;
+        }
+      },
 
-            deleteUser: async (userId: string) => {
-                set({ isLoading: true, error: null }, false, "user/deleteUser/pending");
-                try {
-                    await deactivateUserByUserId(userId);
-                    set(
-                        (state) => ({
-                            users: state.users.map((u) =>
-                                u.userId === userId ? { ...u, status: "INACTIVE" } : u
-                            ),
-                            selectedUser: state.selectedUser?.userId === userId
-                                ? { ...state.selectedUser, status: "INACTIVE" }
-                                : state.selectedUser,
-                            isLoading: false,
-                        }),
-                        false,
-                        "user/deleteUser/fulfilled"
-                    );
-                } catch (err: unknown) {
-                    const message =
-                        err instanceof Error ? err.message : `Failed to deactivate user ${userId}`;
-                    set({ error: message, isLoading: false }, false, "user/deleteUser/rejected");
-                    throw err;
-                }
-            },
+      deleteUser: async (userId: string) => {
+        set({ isLoading: true, error: null }, false, "user/deleteUser/pending");
+        try {
+          await deactivateUserByUserId(userId);
+          set(
+            (state) => ({
+              users: state.users.map((u) => (u.userId === userId ? { ...u, status: "INACTIVE" } : u)),
+              selectedUser:
+                state.selectedUser?.userId === userId
+                  ? { ...state.selectedUser, status: "INACTIVE" }
+                  : state.selectedUser,
+              isLoading: false,
+            }),
+            false,
+            "user/deleteUser/fulfilled",
+          );
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : `Failed to deactivate user ${userId}`;
+          set({ error: message, isLoading: false }, false, "user/deleteUser/rejected");
+          throw err;
+        }
+      },
 
-            selectUser: (user) => {
-                set({ selectedUser: user }, false, "user/selectUser");
-            },
+      selectUser: (user) => {
+        set({ selectedUser: user }, false, "user/selectUser");
+      },
 
-            clearError: () => {
-                set({ error: null }, false, "user/clearError");
-            },
+      loadCurrentUser: () => {
+        if (get().currentUser) return Promise.resolve();
+        currentUserRequest ??= resolveCurrentUser()
+          .then((user) => {
+            set(
+              { currentUser: user, currentUserLoading: false, currentUserError: null },
+              false,
+              "user/loadCurrentUser/fulfilled",
+            );
+          })
+          .catch((err: unknown) => {
+            set(
+              {
+                currentUser: null,
+                currentUserLoading: false,
+                currentUserError: err instanceof Error ? err.message : "Unable to load user.",
+              },
+              false,
+              "user/loadCurrentUser/rejected",
+            );
+          })
+          .finally(() => {
+            currentUserRequest = null;
+          });
+        return currentUserRequest;
+      },
 
-            reset: () => {
-                set(initialState, false, "user/reset");
-            },
-        }),
-        { name: "UserStore"}
-    )
-)
+      switchUser: (user) => {
+        storeUserId(user.userId);
+        set({ currentUser: user, currentUserLoading: false, currentUserError: null }, false, "user/switchUser");
+      },
+
+      clearError: () => {
+        set({ error: null }, false, "user/clearError");
+      },
+
+      // Clears the user list only; the current user stays signed in
+      reset: () => {
+        set(listInitialState, false, "user/reset");
+      },
+    }),
+    { name: "UserStore" },
+  ),
+);

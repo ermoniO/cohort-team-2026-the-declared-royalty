@@ -15,9 +15,15 @@ export interface VendorState {
   selectedVendor: Vendor | null;
   isLoading: boolean;
   error: string | null;
+  hasLoaded: boolean;
+  
 
   // Actions
-  fetchVendors: () => Promise<void>;
+  fetchVendors: (options?: { force?: boolean }) => Promise<void>;
+  // Local-only: the form modals already call the API, so these just sync the list
+  addVendor: (vendor: Vendor) => void;
+  replaceVendor: (vendor: Vendor) => void;
+  removeVendor: (vendor: Vendor) => void;
   fetchVendorByUuid: (uuid: string) => Promise<void>;
   createVendor: (data: VendorCreateRequest) => Promise<Vendor>;
   updateVendor: (uuid: string, updates: VendorUpdateRequest) => Promise<Vendor>;
@@ -31,25 +37,23 @@ const initialState = {
   selectedVendor: null,
   isLoading: false,
   error: null,
+  hasLoaded: false,
 };
 
 export const useVendorStore = create<VendorState>()(
   devtools(
-    (set) => ({
+    (set, get) => ({
       ...initialState,
 
-      fetchVendors: async () => {
+      fetchVendors: async (options) => {
+        // Shared across pages: skip if already loaded or a load is in flight (also covers StrictMode)
+        if (get().isLoading || (get().hasLoaded && !options?.force)) return;
         set({ isLoading: true, error: null }, false, "vendor/fetchVendors/pending");
         try {
           const vendors = await vendorService.getAll();
-          set(
-            { vendors, isLoading: false },
-            false,
-            "vendor/fetchVendors/fulfilled"
-          );
+          set({ vendors, hasLoaded: true, isLoading: false }, false, "vendor/fetchVendors/fulfilled");
         } catch (err: unknown) {
-          const message =
-            err instanceof Error ? err.message : "Failed to load vendors";
+          const message = err instanceof Error ? err.message : "Failed to load vendors";
           set({ error: message, isLoading: false }, false, "vendor/fetchVendors/rejected");
         }
       },
@@ -122,6 +126,28 @@ export const useVendorStore = create<VendorState>()(
         set({ selectedVendor: vendor }, false, "vendor/selectVendor");
       },
 
+            addVendor: (vendor) => {
+        set((state) => ({ vendors: [...state.vendors, vendor] }), false, "vendor/addVendor");
+      },
+
+      replaceVendor: (vendor) => {
+        set(
+          (state) => ({
+            vendors: state.vendors.map((v) => (v.vendorUuid === vendor.vendorUuid ? vendor : v)),
+          }),
+          false,
+          "vendor/replaceVendor",
+        );
+      },
+
+      removeVendor: (vendor) => {
+        set(
+          (state) => ({ vendors: state.vendors.filter((v) => v.vendorUuid !== vendor.vendorUuid) }),
+          false,
+          "vendor/removeVendor",
+        );
+      },
+      
       clearError: () => {
         set({ error: null }, false, "vendor/clearError");
       },

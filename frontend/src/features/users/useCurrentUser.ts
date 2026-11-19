@@ -1,4 +1,3 @@
-import { useCallback, useEffect, useState } from "react";
 import type { UserResponse } from "@/types/user";
 import { getUserByUserId } from "./userService";
 
@@ -80,44 +79,4 @@ export async function loadCurrentUser(): Promise<UserResponse> {
   }
 
   return getUserByUserId(SYSTEM_USER_ID);
-}
-
-export function useCurrentUser(): CurrentUser {
-  const [state, setState] = useState<CurrentUserState>({
-    user: null,
-    loading: true,
-    error: null,
-  });
-
-  useEffect(() => {
-    let active = true;
-
-    loadCurrentUser()
-      .then((user) => {
-        if (active) setState({ user, loading: false, error: null });
-      })
-      .catch((requestError: unknown) => {
-        if (active) {
-          setState({
-            user: null,
-            loading: false,
-            error:
-              requestError instanceof Error
-                ? requestError.message
-                : "Unable to load user.",
-          });
-        }
-      });
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const switchUser = useCallback((user: UserResponse) => {
-    storeUserId(user.userId);
-    setState({ user, loading: false, error: null });
-  }, []);
-
-  return { ...state, switchUser };
 }
